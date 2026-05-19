@@ -202,6 +202,16 @@ class CalendarRepository(private val context: Context) {
             }
         }
 
+        if (config.alwaysShowToday) {
+            val today = LocalDate.now()
+            val windowBase = if (config.monthOffset == 0) today
+                else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
+            val windowEnd = windowBase.plusDays(config.daysAheadToLoad.toLong())
+            if (!today.isBefore(windowBase) && today.isBefore(windowEnd)) {
+                grouped.putIfAbsent(today, mutableListOf())
+            }
+        }
+
         return grouped.mapValues { (_, list) ->
             list.sortedWith(compareBy({ !it.allDay }, { it.dtStart }, { it.title }))
         }.entries.sortedBy { it.key }.associate { it.key to it.value }

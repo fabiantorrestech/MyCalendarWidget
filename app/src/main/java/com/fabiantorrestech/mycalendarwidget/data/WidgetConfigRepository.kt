@@ -54,6 +54,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
         val SHOW_DESCRIPTION = booleanPreferencesKey("show_description")
         val DAYS_AHEAD = intPreferencesKey("days_ahead")
         val SHOW_EMPTY_DAYS = booleanPreferencesKey("show_empty_days")
+        val ALWAYS_SHOW_TODAY = booleanPreferencesKey("always_show_today")
         val WIDGET_STYLE = stringPreferencesKey("widget_style")
         val ACTIVE_PROFILE = stringPreferencesKey("active_profile")
         val HEADER_NAV_ENABLED = booleanPreferencesKey("header_nav_enabled")
@@ -92,6 +93,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             showDescription = prefs[Keys.SHOW_DESCRIPTION] ?: false,
             daysAheadToLoad = prefs[Keys.DAYS_AHEAD] ?: 30,
             showEmptyDays = prefs[Keys.SHOW_EMPTY_DAYS] ?: false,
+            alwaysShowToday = prefs[Keys.ALWAYS_SHOW_TODAY] ?: false,
             widgetStyle = prefs[Keys.WIDGET_STYLE]
                 ?.let { runCatching { WidgetStyle.valueOf(it) }.getOrNull() }
                 ?: WidgetStyle.AGENDA,
@@ -129,6 +131,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             prefs[Keys.SHOW_DESCRIPTION] = config.showDescription
             prefs[Keys.DAYS_AHEAD] = config.daysAheadToLoad
             prefs[Keys.SHOW_EMPTY_DAYS] = config.showEmptyDays
+            prefs[Keys.ALWAYS_SHOW_TODAY] = config.alwaysShowToday
             prefs[Keys.WIDGET_STYLE] = config.widgetStyle.name
             prefs[Keys.ACTIVE_PROFILE] = config.activeProfile.name
             prefs[Keys.HEADER_NAV_ENABLED] = config.headerNavEnabled

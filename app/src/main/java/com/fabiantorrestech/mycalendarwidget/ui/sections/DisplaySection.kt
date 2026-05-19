@@ -97,6 +97,12 @@ fun DisplaySection(
         checked = config.showEmptyDays,
         onCheckedChange = { onConfigChange(config.copy(showEmptyDays = it)) }
     )
+    ToggleRow(
+        label = "Always show today",
+        description = "Pin today in the list even when you have no events",
+        checked = config.alwaysShowToday,
+        onCheckedChange = { onConfigChange(config.copy(alwaysShowToday = it)) }
+    )
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 

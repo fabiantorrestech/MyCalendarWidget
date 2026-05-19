@@ -39,6 +39,7 @@ data class WidgetConfig(
     val showDescription: Boolean = false,
     val daysAheadToLoad: Int = 30,
     val showEmptyDays: Boolean = false,
+    val alwaysShowToday: Boolean = false,
     val widgetStyle: WidgetStyle = WidgetStyle.AGENDA,
     val activeProfile: AutomationProfile = AutomationProfile.STANDARD,
     val headerNavEnabled: Boolean = false,
