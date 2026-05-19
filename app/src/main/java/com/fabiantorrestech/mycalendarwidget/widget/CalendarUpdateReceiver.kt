@@ -14,7 +14,7 @@ class CalendarUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_PROVIDER_CHANGED) return
         val uri = intent.data ?: return
-        if (uri.authority != "com.android.calendar") return
+        if (uri.authority != "com.android.calendar" && uri.authority != "com.google.android.calendar") return
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {

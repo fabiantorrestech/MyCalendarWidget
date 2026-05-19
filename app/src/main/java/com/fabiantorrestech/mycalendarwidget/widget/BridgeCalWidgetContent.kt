@@ -258,6 +258,27 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
             }
         }
 
+        if (config.showRefreshButton) {
+            Spacer(modifier = GlanceModifier.width(4.dp))
+            Box(
+                modifier = GlanceModifier
+                    .size(28.dp)
+                    .background(GlanceTheme.colors.surfaceVariant)
+                    .cornerRadius(14.dp)
+                    .clickable(actionRunCallback<RefreshWidgetAction>()),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↺",
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = (14 * config.typographyScale.headerScale).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+
         if (config.showQuickAddFab) {
             Spacer(modifier = GlanceModifier.width(4.dp))
             Box(

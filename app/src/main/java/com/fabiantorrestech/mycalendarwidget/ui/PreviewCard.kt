@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
+import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import java.time.LocalDate
@@ -52,23 +53,28 @@ fun PreviewCard(
             PreviewHeader(config)
             Spacer(modifier = Modifier.height(6.dp))
 
+            val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
+            val visibleDays = eventsByDay.entries
+                .filter { it.key >= LocalDate.now() }
+                .take(3)
+
             if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
-                eventsByDay.entries
-                    .filter { it.key >= LocalDate.now() }
-                    .take(3)
-                    .forEach { (date, events) ->
-                        PreviewDayGroupGcalLeft(date, events, config)
+                visibleDays.forEachIndexed { index, (date, events) ->
+                    if (index == 0 && !suppressFirstMonth) {
+                        PreviewMonthSectionHeader(date, config)
                     }
+                    PreviewDayGroupGcalLeft(date, events, config)
+                }
             } else {
-                eventsByDay.entries
-                    .filter { it.key >= LocalDate.now() }
-                    .take(3)
-                    .forEach { (date, events) ->
-                        PreviewDayHeader(date, config)
-                        events.take(2).forEach { event ->
-                            PreviewEventChip(event, config)
-                        }
+                visibleDays.forEachIndexed { index, (date, events) ->
+                    if (index == 0 && !suppressFirstMonth) {
+                        PreviewMonthSectionHeader(date, config)
                     }
+                    PreviewDayHeader(date, config)
+                    events.take(2).forEach { event ->
+                        PreviewEventChip(event, config)
+                    }
+                }
             }
         }
     }
@@ -215,27 +221,123 @@ private fun previewSampleEvents(): Map<LocalDate, List<CalendarEvent>> {
 
 @Composable
 private fun PreviewHeader(config: WidgetConfig) {
-    val monthYear = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+    val today = LocalDate.now()
+    val monthYear = today.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+    val headerFontSize = (18 * config.typographyScale.headerScale).sp
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = monthYear,
-            fontSize = (18 * config.typographyScale.headerScale).sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
-        )
+        when {
+            config.headerNavEnabled && config.headerNavStyle == HeaderNavStyle.ARROWS -> {
+                // Left arrow placeholder (preview always at offset 0, so left is disabled)
+                Spacer(modifier = Modifier.width(32.dp))
+
+                Text(
+                    text = monthYear,
+                    fontSize = headerFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = ">",
+                        fontSize = (14 * config.typographyScale.headerScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            config.headerNavEnabled && config.headerNavStyle == HeaderNavStyle.CHIPS -> {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (offset in 0..3) {
+                        val chipDate = today.plusMonths(offset.toLong())
+                        val shortName = chipDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                        val isSelected = offset == 0
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .padding(horizontal = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = shortName,
+                                fontSize = (11 * config.typographyScale.headerScale).sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (offset < 3) Spacer(modifier = Modifier.width(4.dp))
+                    }
+                }
+            }
+
+            config.showMonthInHeader -> {
+                Text(
+                    text = monthYear,
+                    fontSize = headerFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            else -> {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+
         if (config.showQuickAddFab) {
-            Text(
-                text = "+",
-                fontSize = (18 * config.typographyScale.headerScale).sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .width(56.dp)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+",
+                    fontSize = (18 * config.typographyScale.headerScale).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun PreviewMonthSectionHeader(date: LocalDate, config: WidgetConfig) {
+    Text(
+        text = date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())).uppercase(),
+        fontSize = (13 * config.typographyScale.subheaderScale).sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 4.dp)
+    )
 }
 
 @Composable

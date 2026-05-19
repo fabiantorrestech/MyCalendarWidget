@@ -31,6 +31,7 @@ data class WidgetConfig(
     val filterIsRegex: Boolean = false,
     val defaultClickTarget: DefaultClickTarget = DefaultClickTarget.SYSTEM_DEFAULT,
     val showQuickAddFab: Boolean = true,
+    val showRefreshButton: Boolean = true,
     val strictGridMode: Boolean = false,
     val maxTitleLines: Int = 2,
     val maxDetailLines: Int = 1,
@@ -45,6 +46,7 @@ data class WidgetConfig(
     val monthOffset: Int = 0,
     val showMonthInHeader: Boolean = true,
     val syncIntervalMinutes: Int = 0,
+    val refreshNonce: Int = 0,
     val configVersion: Int = 1
 )
 

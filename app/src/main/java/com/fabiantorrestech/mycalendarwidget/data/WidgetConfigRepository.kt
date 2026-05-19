@@ -46,6 +46,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
         val FILTER_IS_REGEX = booleanPreferencesKey("filter_is_regex")
         val DEFAULT_CLICK = stringPreferencesKey("default_click")
         val SHOW_QUICK_ADD = booleanPreferencesKey("show_quick_add")
+        val SHOW_REFRESH_BUTTON = booleanPreferencesKey("show_refresh_button")
         val STRICT_GRID = booleanPreferencesKey("strict_grid")
         val MAX_TITLE_LINES = intPreferencesKey("max_title_lines")
         val MAX_DETAIL_LINES = intPreferencesKey("max_detail_lines")
@@ -60,6 +61,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
         val MONTH_OFFSET = intPreferencesKey("month_offset")
         val SHOW_MONTH_IN_HEADER = booleanPreferencesKey("show_month_in_header")
         val SYNC_INTERVAL = intPreferencesKey("sync_interval")
+        val REFRESH_NONCE = intPreferencesKey("refresh_nonce")
     }
 
     val configFlow: Flow<WidgetConfig> = dataStore.data.map { prefs ->
@@ -82,6 +84,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
                 ?.let { runCatching { DefaultClickTarget.valueOf(it) }.getOrNull() }
                 ?: DefaultClickTarget.SYSTEM_DEFAULT,
             showQuickAddFab = prefs[Keys.SHOW_QUICK_ADD] ?: true,
+            showRefreshButton = prefs[Keys.SHOW_REFRESH_BUTTON] ?: true,
             strictGridMode = prefs[Keys.STRICT_GRID] ?: false,
             maxTitleLines = prefs[Keys.MAX_TITLE_LINES] ?: 2,
             maxDetailLines = prefs[Keys.MAX_DETAIL_LINES] ?: 1,
@@ -101,7 +104,8 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
                 ?: HeaderNavStyle.ARROWS,
             monthOffset = prefs[Keys.MONTH_OFFSET] ?: 0,
             showMonthInHeader = prefs[Keys.SHOW_MONTH_IN_HEADER] ?: true,
-            syncIntervalMinutes = prefs[Keys.SYNC_INTERVAL] ?: 0
+            syncIntervalMinutes = prefs[Keys.SYNC_INTERVAL] ?: 0,
+            refreshNonce = prefs[Keys.REFRESH_NONCE] ?: 0
         )
     }
 
@@ -117,6 +121,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             prefs[Keys.FILTER_IS_REGEX] = config.filterIsRegex
             prefs[Keys.DEFAULT_CLICK] = config.defaultClickTarget.name
             prefs[Keys.SHOW_QUICK_ADD] = config.showQuickAddFab
+            prefs[Keys.SHOW_REFRESH_BUTTON] = config.showRefreshButton
             prefs[Keys.STRICT_GRID] = config.strictGridMode
             prefs[Keys.MAX_TITLE_LINES] = config.maxTitleLines
             prefs[Keys.MAX_DETAIL_LINES] = config.maxDetailLines
@@ -131,6 +136,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             prefs[Keys.MONTH_OFFSET] = config.monthOffset
             prefs[Keys.SHOW_MONTH_IN_HEADER] = config.showMonthInHeader
             prefs[Keys.SYNC_INTERVAL] = config.syncIntervalMinutes
+            prefs[Keys.REFRESH_NONCE] = config.refreshNonce
         }
     }
 

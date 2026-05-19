@@ -20,3 +20,13 @@ class UpdateMonthOffsetAction : ActionCallback {
         BridgeCalWidget().update(context, glanceId)
     }
 }
+
+class RefreshWidgetAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
+        val repo = WidgetConfigRepository(context, appWidgetId)
+        val current = repo.configFlow.first()
+        repo.updateConfig(current.copy(refreshNonce = current.refreshNonce + 1))
+        BridgeCalWidget().update(context, glanceId)
+    }
+}
