@@ -21,7 +21,9 @@ object ConfigExporter {
         put("typography", JSONObject().apply {
             put("header", config.typographyScale.headerScale)
             put("subheader", config.typographyScale.subheaderScale)
-            put("date", config.typographyScale.dateScale)
+            put("dateHeader", config.typographyScale.dateHeaderScale)
+            put("eventTime", config.typographyScale.eventTimeScale)
+            put("eventName", config.typographyScale.eventNameScale)
             put("detail", config.typographyScale.detailScale)
         })
         put("enabledCalendarIds", JSONArray().apply {
@@ -53,7 +55,9 @@ object ConfigExporter {
             typographyScale = TypographyScale(
                 headerScale = typo?.optDouble("header", 1.0)?.toFloat() ?: 1.0f,
                 subheaderScale = typo?.optDouble("subheader", 1.0)?.toFloat() ?: 1.0f,
-                dateScale = typo?.optDouble("date", 1.0)?.toFloat() ?: 1.0f,
+                dateHeaderScale = typo?.optDouble("dateHeader", 1.0)?.toFloat() ?: 1.0f,
+                eventTimeScale = typo?.optDouble("eventTime", 1.0)?.toFloat() ?: 1.0f,
+                eventNameScale = typo?.optDouble("eventName", 1.0)?.toFloat() ?: 1.0f,
                 detailScale = typo?.optDouble("detail", 1.0)?.toFloat() ?: 1.0f
             ),
             enabledCalendarIds = ids,

@@ -14,6 +14,8 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
+import com.fabiantorrestech.mycalendarwidget.data.FontCategory
+import com.fabiantorrestech.mycalendarwidget.data.FontMode
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import androidx.glance.appwidget.lazy.LazyColumn
@@ -38,11 +40,15 @@ import androidx.glance.unit.ColorProvider
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
+
+private fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
+    fontConfig.resolve(category).glanceFamilyName?.let { androidx.glance.text.FontFamily(it) }
 
 @Composable
 fun BridgeCalWidgetContent(
@@ -69,7 +75,8 @@ fun BridgeCalWidgetContent(
                     text = "No upcoming events",
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurface,
-                        fontSize = (14 * config.typographyScale.detailScale).sp
+                        fontSize = (14 * config.typographyScale.detailScale).sp,
+                        fontFamily = config.glanceFont(FontCategory.DETAIL)
                     )
                 )
             }
@@ -155,7 +162,8 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                             style = TextStyle(
                                 color = GlanceTheme.colors.primary,
                                 fontSize = (14 * config.typographyScale.headerScale).sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
                             )
                         )
                     }
@@ -169,7 +177,8 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                     style = TextStyle(
                         color = GlanceTheme.colors.primary,
                         fontSize = (18 * config.typographyScale.headerScale).sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
                     ),
                     modifier = GlanceModifier
                         .defaultWeight()
@@ -193,7 +202,8 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                         style = TextStyle(
                             color = GlanceTheme.colors.primary,
                             fontSize = (14 * config.typographyScale.headerScale).sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
                         )
                     )
                 }
@@ -230,7 +240,8 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                                     color = if (isSelected) GlanceTheme.colors.onPrimaryContainer
                                             else GlanceTheme.colors.onSurfaceVariant,
                                     fontSize = (11 * config.typographyScale.headerScale).sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
                                 )
                             )
                         }
@@ -245,7 +256,8 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                     style = TextStyle(
                         color = GlanceTheme.colors.primary,
                         fontSize = (18 * config.typographyScale.headerScale).sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
                     ),
                     modifier = GlanceModifier
                         .defaultWeight()
@@ -273,7 +285,8 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
                         fontSize = (14 * config.typographyScale.headerScale).sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
                     )
                 )
             }
@@ -307,7 +320,8 @@ private fun MonthSectionHeader(date: LocalDate, config: WidgetConfig) {
         style = TextStyle(
             color = GlanceTheme.colors.primary,
             fontSize = (13 * config.typographyScale.subheaderScale).sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            fontFamily = config.glanceFont(FontCategory.WEEKDAY_HEADER)
         ),
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -329,7 +343,8 @@ private fun DayHeader(date: LocalDate, config: WidgetConfig) {
         style = TextStyle(
             color = GlanceTheme.colors.secondary,
             fontSize = (11 * config.typographyScale.subheaderScale).sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            fontFamily = config.glanceFont(FontCategory.WEEKDAY_HEADER)
         ),
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -376,7 +391,8 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
                     text = timeLabel,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (11 * config.typographyScale.dateScale).sp
+                        fontSize = (11 * config.typographyScale.eventTimeScale).sp,
+                        fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
                     )
                 )
                 if (event.meetingUrl != null) {
@@ -385,8 +401,9 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
                         text = "• VIDEO",
                         style = TextStyle(
                             color = GlanceTheme.colors.primary,
-                            fontSize = (10 * config.typographyScale.dateScale).sp,
-                            fontWeight = FontWeight.Bold
+                            fontSize = (10 * config.typographyScale.eventTimeScale).sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
                         )
                     )
                 }
@@ -395,8 +412,9 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
                 text = event.title,
                 style = TextStyle(
                     color = GlanceTheme.colors.onSurface,
-                    fontSize = (14 * config.typographyScale.detailScale).sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (14 * config.typographyScale.eventNameScale).sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
                 ),
                 maxLines = config.maxTitleLines
             )
@@ -405,7 +423,8 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
                     text = event.location,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (11 * config.typographyScale.detailScale).sp
+                        fontSize = (11 * config.typographyScale.detailScale).sp,
+                        fontFamily = config.glanceFont(FontCategory.DETAIL)
                     ),
                     maxLines = config.maxDetailLines.coerceAtLeast(1)
                 )
@@ -415,7 +434,8 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
                     text = event.description,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (11 * config.typographyScale.detailScale).sp
+                        fontSize = (11 * config.typographyScale.detailScale).sp,
+                        fontFamily = config.glanceFont(FontCategory.DETAIL)
                     ),
                     maxLines = config.maxDetailLines
                 )
@@ -424,10 +444,14 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
 
         if (event.location != null) {
             Spacer(modifier = GlanceModifier.width(4.dp))
+            val pinModifier = if (event.mapsQuery != null)
+                GlanceModifier.size(32.dp).clickable(actionStartActivity(WidgetClickActions.mapsIntent(event.mapsQuery)))
+            else
+                GlanceModifier.size(32.dp)
             Image(
                 provider = ImageProvider(R.drawable.ic_map_pin),
                 contentDescription = null,
-                modifier = GlanceModifier.size(32.dp),
+                modifier = pinModifier,
                 colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant)
             )
         }
@@ -466,13 +490,13 @@ private fun EventChipGcal(event: CalendarEvent, config: WidgetConfig, context: C
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = timeLabel,
-                    style = TextStyle(color = textSecondary, fontSize = (10 * config.typographyScale.dateScale).sp)
+                    style = TextStyle(color = textSecondary, fontSize = (10 * config.typographyScale.eventTimeScale).sp, fontFamily = config.glanceFont(FontCategory.EVENT_TIME))
                 )
                 if (event.meetingUrl != null) {
                     Spacer(modifier = GlanceModifier.width(4.dp))
                     Text(
                         text = "• VIDEO",
-                        style = TextStyle(color = textPrimary, fontSize = (10 * config.typographyScale.dateScale).sp, fontWeight = FontWeight.Bold)
+                        style = TextStyle(color = textPrimary, fontSize = (10 * config.typographyScale.eventTimeScale).sp, fontWeight = FontWeight.Bold, fontFamily = config.glanceFont(FontCategory.EVENT_TIME))
                     )
                 }
             }
@@ -480,22 +504,23 @@ private fun EventChipGcal(event: CalendarEvent, config: WidgetConfig, context: C
                 text = event.title,
                 style = TextStyle(
                     color = textPrimary,
-                    fontSize = (14 * config.typographyScale.detailScale).sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = (14 * config.typographyScale.eventNameScale).sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
                 ),
                 maxLines = config.maxTitleLines
             )
             if (config.showLocation && event.location != null && event.mapsQuery != null) {
                 Text(
                     text = event.location,
-                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp),
+                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp, fontFamily = config.glanceFont(FontCategory.DETAIL)),
                     maxLines = config.maxDetailLines.coerceAtLeast(1)
                 )
             }
             if (config.showDescription && event.description != null && config.maxDetailLines > 0) {
                 Text(
                     text = event.description,
-                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp),
+                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp, fontFamily = config.glanceFont(FontCategory.DETAIL)),
                     maxLines = config.maxDetailLines
                 )
             }
@@ -503,10 +528,14 @@ private fun EventChipGcal(event: CalendarEvent, config: WidgetConfig, context: C
 
         if (event.location != null) {
             Spacer(modifier = GlanceModifier.width(4.dp))
+            val pinModifier = if (event.mapsQuery != null)
+                GlanceModifier.size(32.dp).clickable(actionStartActivity(WidgetClickActions.mapsIntent(event.mapsQuery)))
+            else
+                GlanceModifier.size(32.dp)
             Image(
                 provider = ImageProvider(R.drawable.ic_map_pin),
                 contentDescription = null,
-                modifier = GlanceModifier.size(32.dp),
+                modifier = pinModifier,
                 colorFilter = ColorFilter.tint(textSecondary)
             )
         }
@@ -525,8 +554,9 @@ private fun DayGroupGcalLeft(
     val dayAbbr = date.dayOfWeek.getDisplayName(JvmTextStyle.SHORT, Locale.getDefault()).take(3)
     val dateNum = date.dayOfMonth.toString()
 
+    val verticalPad = if (events.isEmpty()) 3.dp else 8.dp
     Row(
-        modifier = GlanceModifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp),
+        modifier = GlanceModifier.fillMaxWidth().padding(vertical = verticalPad, horizontal = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
         Column(
@@ -537,7 +567,8 @@ private fun DayGroupGcalLeft(
                 text = dayAbbr,
                 style = TextStyle(
                     color = GlanceTheme.colors.secondary,
-                    fontSize = (11 * config.typographyScale.subheaderScale).sp
+                    fontSize = (11 * config.typographyScale.subheaderScale).sp,
+                    fontFamily = config.glanceFont(FontCategory.WEEKDAY_HEADER)
                 )
             )
             if (isToday) {
@@ -552,8 +583,9 @@ private fun DayGroupGcalLeft(
                         text = dateNum,
                         style = TextStyle(
                             color = GlanceTheme.colors.onPrimary,
-                            fontSize = (14 * config.typographyScale.dateScale).sp,
-                            fontWeight = FontWeight.Bold
+                            fontSize = (14 * config.typographyScale.dateHeaderScale).sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = config.glanceFont(FontCategory.DATE_HEADER)
                         )
                     )
                 }
@@ -562,8 +594,9 @@ private fun DayGroupGcalLeft(
                     text = dateNum,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurface,
-                        fontSize = (18 * config.typographyScale.dateScale).sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = (18 * config.typographyScale.dateHeaderScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = config.glanceFont(FontCategory.DATE_HEADER)
                     )
                 )
             }
@@ -609,8 +642,9 @@ private fun EventChipGcalLeftItem(event: CalendarEvent, config: WidgetConfig, co
                 text = event.title,
                 style = TextStyle(
                     color = textPrimary,
-                    fontSize = (14 * config.typographyScale.detailScale).sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = (14 * config.typographyScale.eventNameScale).sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
                 ),
                 maxLines = config.maxTitleLines
             )
@@ -619,21 +653,22 @@ private fun EventChipGcalLeftItem(event: CalendarEvent, config: WidgetConfig, co
                     text = timeLabel,
                     style = TextStyle(
                         color = textSecondary,
-                        fontSize = (11 * config.typographyScale.dateScale).sp
+                        fontSize = (11 * config.typographyScale.eventTimeScale).sp,
+                        fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
                     )
                 )
             }
             if (config.showLocation && event.location != null && event.mapsQuery != null) {
                 Text(
                     text = event.location,
-                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp),
+                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp, fontFamily = config.glanceFont(FontCategory.DETAIL)),
                     maxLines = config.maxDetailLines.coerceAtLeast(1)
                 )
             }
             if (config.showDescription && event.description != null && config.maxDetailLines > 0) {
                 Text(
                     text = event.description,
-                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp),
+                    style = TextStyle(color = textSecondary, fontSize = (11 * config.typographyScale.detailScale).sp, fontFamily = config.glanceFont(FontCategory.DETAIL)),
                     maxLines = config.maxDetailLines
                 )
             }
@@ -641,10 +676,14 @@ private fun EventChipGcalLeftItem(event: CalendarEvent, config: WidgetConfig, co
 
         if (event.location != null) {
             Spacer(modifier = GlanceModifier.width(4.dp))
+            val pinModifier = if (event.mapsQuery != null)
+                GlanceModifier.size(32.dp).clickable(actionStartActivity(WidgetClickActions.mapsIntent(event.mapsQuery)))
+            else
+                GlanceModifier.size(32.dp)
             Image(
                 provider = ImageProvider(R.drawable.ic_map_pin),
                 contentDescription = null,
-                modifier = GlanceModifier.size(32.dp),
+                modifier = pinModifier,
                 colorFilter = ColorFilter.tint(textSecondary)
             )
         }

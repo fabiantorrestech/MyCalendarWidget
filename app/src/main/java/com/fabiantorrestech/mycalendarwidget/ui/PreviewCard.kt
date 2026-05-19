@@ -26,9 +26,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fabiantorrestech.mycalendarwidget.R
+import androidx.compose.ui.text.font.FontFamily
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
+import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import java.time.LocalDate
 import java.time.ZoneId
@@ -239,6 +242,7 @@ private fun PreviewHeader(config: WidgetConfig) {
                     fontSize = headerFontSize,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
+                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER),
                     modifier = Modifier.weight(1f)
                 )
 
@@ -254,7 +258,8 @@ private fun PreviewHeader(config: WidgetConfig) {
                         text = ">",
                         fontSize = (14 * config.typographyScale.headerScale).sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
                     )
                 }
             }
@@ -285,7 +290,8 @@ private fun PreviewHeader(config: WidgetConfig) {
                                 fontSize = (11 * config.typographyScale.headerScale).sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
                             )
                         }
                         if (offset < 3) Spacer(modifier = Modifier.width(4.dp))
@@ -299,6 +305,7 @@ private fun PreviewHeader(config: WidgetConfig) {
                     fontSize = headerFontSize,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
+                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -322,7 +329,8 @@ private fun PreviewHeader(config: WidgetConfig) {
                     text = "+",
                     fontSize = (18 * config.typographyScale.headerScale).sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
                 )
             }
         }
@@ -336,6 +344,7 @@ private fun PreviewMonthSectionHeader(date: LocalDate, config: WidgetConfig) {
         fontSize = (13 * config.typographyScale.subheaderScale).sp,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
+        fontFamily = config.previewFont(FontCategory.WEEKDAY_HEADER),
         modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 4.dp)
     )
 }
@@ -354,6 +363,7 @@ private fun PreviewDayHeader(date: LocalDate, config: WidgetConfig) {
         fontSize = (11 * config.typographyScale.subheaderScale).sp,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.secondary,
+        fontFamily = config.previewFont(FontCategory.WEEKDAY_HEADER),
         modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
     )
 }
@@ -380,7 +390,8 @@ private fun PreviewDayGroupGcalLeft(date: LocalDate, events: List<CalendarEvent>
             Text(
                 text = dayAbbr,
                 fontSize = (11 * config.typographyScale.subheaderScale).sp,
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.secondary,
+                fontFamily = config.previewFont(FontCategory.WEEKDAY_HEADER)
             )
             if (isToday) {
                 Box(
@@ -392,17 +403,19 @@ private fun PreviewDayGroupGcalLeft(date: LocalDate, events: List<CalendarEvent>
                 ) {
                     Text(
                         text = dateNum,
-                        fontSize = (14 * config.typographyScale.dateScale).sp,
+                        fontSize = (14 * config.typographyScale.dateHeaderScale).sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontFamily = config.previewFont(FontCategory.DATE_HEADER)
                     )
                 }
             } else {
                 Text(
                     text = dateNum,
-                    fontSize = (18 * config.typographyScale.dateScale).sp,
+                    fontSize = (18 * config.typographyScale.dateHeaderScale).sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = config.previewFont(FontCategory.DATE_HEADER)
                 )
             }
         }
@@ -432,12 +445,12 @@ private fun PreviewEventChipGcalLeftItem(event: CalendarEvent, config: WidgetCon
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = event.title, fontSize = (14 * config.typographyScale.detailScale).sp, fontWeight = FontWeight.Bold, color = textPrimary, maxLines = config.maxTitleLines)
+            Text(text = event.title, fontSize = (14 * config.typographyScale.eventNameScale).sp, fontWeight = FontWeight.Bold, color = textPrimary, fontFamily = config.previewFont(FontCategory.EVENT_NAME), maxLines = config.maxTitleLines)
             if (!event.allDay) {
-                Text(text = timeLabel, fontSize = (11 * config.typographyScale.dateScale).sp, color = textSecondary)
+                Text(text = timeLabel, fontSize = (11 * config.typographyScale.eventTimeScale).sp, color = textSecondary, fontFamily = config.previewFont(FontCategory.EVENT_TIME))
             }
             if (config.showLocation && event.location != null && event.mapsQuery != null) {
-                Text(text = event.location, fontSize = (11 * config.typographyScale.detailScale).sp, color = textSecondary, maxLines = config.maxDetailLines.coerceAtLeast(1))
+                Text(text = event.location, fontSize = (11 * config.typographyScale.detailScale).sp, color = textSecondary, fontFamily = config.previewFont(FontCategory.DETAIL), maxLines = config.maxDetailLines.coerceAtLeast(1))
             }
         }
         if (event.location != null) {
@@ -476,10 +489,10 @@ private fun PreviewEventChipAgenda(event: CalendarEvent, config: WidgetConfig) {
         )
         Spacer(modifier = Modifier.width(6.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = timeLabel, fontSize = (11 * config.typographyScale.dateScale).sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = event.title, fontSize = (14 * config.typographyScale.detailScale).sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = config.maxTitleLines)
+            Text(text = timeLabel, fontSize = (11 * config.typographyScale.eventTimeScale).sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = config.previewFont(FontCategory.EVENT_TIME))
+            Text(text = event.title, fontSize = (14 * config.typographyScale.eventNameScale).sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, fontFamily = config.previewFont(FontCategory.EVENT_NAME), maxLines = config.maxTitleLines)
             if (config.showLocation && event.location != null && event.mapsQuery != null) {
-                Text(text = event.location, fontSize = (11 * config.typographyScale.detailScale).sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = config.maxDetailLines.coerceAtLeast(1))
+                Text(text = event.location, fontSize = (11 * config.typographyScale.detailScale).sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = config.previewFont(FontCategory.DETAIL), maxLines = config.maxDetailLines.coerceAtLeast(1))
             }
         }
         if (event.location != null) {
@@ -511,10 +524,10 @@ private fun PreviewEventChipGcal(event: CalendarEvent, config: WidgetConfig) {
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = timeLabel, fontSize = (10 * config.typographyScale.dateScale).sp, color = textSecondary)
-            Text(text = event.title, fontSize = (14 * config.typographyScale.detailScale).sp, fontWeight = FontWeight.Bold, color = textPrimary, maxLines = config.maxTitleLines)
+            Text(text = timeLabel, fontSize = (10 * config.typographyScale.eventTimeScale).sp, color = textSecondary, fontFamily = config.previewFont(FontCategory.EVENT_TIME))
+            Text(text = event.title, fontSize = (14 * config.typographyScale.eventNameScale).sp, fontWeight = FontWeight.Bold, color = textPrimary, fontFamily = config.previewFont(FontCategory.EVENT_NAME), maxLines = config.maxTitleLines)
             if (config.showLocation && event.location != null && event.mapsQuery != null) {
-                Text(text = event.location, fontSize = (11 * config.typographyScale.detailScale).sp, color = textSecondary, maxLines = config.maxDetailLines.coerceAtLeast(1))
+                Text(text = event.location, fontSize = (11 * config.typographyScale.detailScale).sp, color = textSecondary, fontFamily = config.previewFont(FontCategory.DETAIL), maxLines = config.maxDetailLines.coerceAtLeast(1))
             }
         }
         if (event.location != null) {
@@ -543,6 +556,15 @@ private fun previewTimeRangeLabel(event: CalendarEvent): String {
     val end = java.time.Instant.ofEpochMilli(event.dtEnd).atZone(zone).format(fmt)
     return "$start–$end"
 }
+
+private fun WidgetFont.toComposeFontFamily(): FontFamily = when (this) {
+    WidgetFont.SERIF -> FontFamily.Serif
+    WidgetFont.MONOSPACE -> FontFamily.Monospace
+    else -> FontFamily.Default
+}
+
+private fun WidgetConfig.previewFont(category: FontCategory): FontFamily =
+    fontConfig.resolve(category).toComposeFontFamily()
 
 private fun isDarkColor(colorInt: Int): Boolean {
     val r = (colorInt shr 16 and 0xFF) / 255.0

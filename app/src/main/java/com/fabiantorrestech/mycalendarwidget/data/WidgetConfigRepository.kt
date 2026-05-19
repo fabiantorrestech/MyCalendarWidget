@@ -39,8 +39,18 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val HEADER_SCALE = floatPreferencesKey("header_scale")
         val SUBHEADER_SCALE = floatPreferencesKey("subheader_scale")
-        val DATE_SCALE = floatPreferencesKey("date_scale")
+        val DATE_HEADER_SCALE = floatPreferencesKey("date_header_scale")
+        val EVENT_TIME_SCALE = floatPreferencesKey("event_time_scale")
+        val EVENT_NAME_SCALE = floatPreferencesKey("event_name_scale")
         val DETAIL_SCALE = floatPreferencesKey("detail_scale")
+        val FONT_MODE = stringPreferencesKey("font_mode")
+        val FONT_UNIVERSAL = stringPreferencesKey("font_universal")
+        val FONT_MONTH_HEADER = stringPreferencesKey("font_month_header")
+        val FONT_WEEKDAY_HEADER = stringPreferencesKey("font_weekday_header")
+        val FONT_DATE_HEADER = stringPreferencesKey("font_date_header")
+        val FONT_EVENT_TIME = stringPreferencesKey("font_event_time")
+        val FONT_EVENT_NAME = stringPreferencesKey("font_event_name")
+        val FONT_DETAIL = stringPreferencesKey("font_detail")
         val ENABLED_CAL_IDS = stringPreferencesKey("enabled_cal_ids")
         val KEYWORD_FILTER = stringPreferencesKey("keyword_filter")
         val FILTER_IS_REGEX = booleanPreferencesKey("filter_is_regex")
@@ -71,8 +81,20 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             typographyScale = TypographyScale(
                 headerScale = prefs[Keys.HEADER_SCALE] ?: 1.0f,
                 subheaderScale = prefs[Keys.SUBHEADER_SCALE] ?: 1.0f,
-                dateScale = prefs[Keys.DATE_SCALE] ?: 1.0f,
+                dateHeaderScale = prefs[Keys.DATE_HEADER_SCALE] ?: 1.0f,
+                eventTimeScale = prefs[Keys.EVENT_TIME_SCALE] ?: 1.0f,
+                eventNameScale = prefs[Keys.EVENT_NAME_SCALE] ?: 1.0f,
                 detailScale = prefs[Keys.DETAIL_SCALE] ?: 1.0f
+            ),
+            fontConfig = FontConfig(
+                mode = prefs[Keys.FONT_MODE]?.let { runCatching { FontMode.valueOf(it) }.getOrNull() } ?: FontMode.DEFAULT,
+                universalFont = prefs[Keys.FONT_UNIVERSAL]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT,
+                monthHeaderFont = prefs[Keys.FONT_MONTH_HEADER]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT,
+                weekdayHeaderFont = prefs[Keys.FONT_WEEKDAY_HEADER]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT,
+                dateHeaderFont = prefs[Keys.FONT_DATE_HEADER]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT,
+                eventTimeFont = prefs[Keys.FONT_EVENT_TIME]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT,
+                eventNameFont = prefs[Keys.FONT_EVENT_NAME]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT,
+                detailFont = prefs[Keys.FONT_DETAIL]?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() } ?: WidgetFont.DEFAULT
             ),
             enabledCalendarIds = prefs[Keys.ENABLED_CAL_IDS]
                 ?.split(",")
@@ -116,8 +138,18 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             prefs[Keys.DYNAMIC_COLOR] = config.dynamicColor
             prefs[Keys.HEADER_SCALE] = config.typographyScale.headerScale
             prefs[Keys.SUBHEADER_SCALE] = config.typographyScale.subheaderScale
-            prefs[Keys.DATE_SCALE] = config.typographyScale.dateScale
+            prefs[Keys.DATE_HEADER_SCALE] = config.typographyScale.dateHeaderScale
+            prefs[Keys.EVENT_TIME_SCALE] = config.typographyScale.eventTimeScale
+            prefs[Keys.EVENT_NAME_SCALE] = config.typographyScale.eventNameScale
             prefs[Keys.DETAIL_SCALE] = config.typographyScale.detailScale
+            prefs[Keys.FONT_MODE] = config.fontConfig.mode.name
+            prefs[Keys.FONT_UNIVERSAL] = config.fontConfig.universalFont.name
+            prefs[Keys.FONT_MONTH_HEADER] = config.fontConfig.monthHeaderFont.name
+            prefs[Keys.FONT_WEEKDAY_HEADER] = config.fontConfig.weekdayHeaderFont.name
+            prefs[Keys.FONT_DATE_HEADER] = config.fontConfig.dateHeaderFont.name
+            prefs[Keys.FONT_EVENT_TIME] = config.fontConfig.eventTimeFont.name
+            prefs[Keys.FONT_EVENT_NAME] = config.fontConfig.eventNameFont.name
+            prefs[Keys.FONT_DETAIL] = config.fontConfig.detailFont.name
             prefs[Keys.ENABLED_CAL_IDS] = config.enabledCalendarIds.joinToString(",")
             prefs[Keys.KEYWORD_FILTER] = config.keywordFilter
             prefs[Keys.FILTER_IS_REGEX] = config.filterIsRegex
