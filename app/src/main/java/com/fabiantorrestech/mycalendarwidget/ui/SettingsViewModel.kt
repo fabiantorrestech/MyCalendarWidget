@@ -102,10 +102,10 @@ class SettingsViewModel(
         }
     }
 
-    fun exportConfig(context: Context) {
+    fun exportConfig(context: Context, uri: Uri) {
         _exportState.value = ExportState.InProgress
         viewModelScope.launch {
-            val result = ConfigExporter.exportToDownloads(context, config.value)
+            val result = withContext(Dispatchers.IO) { ConfigExporter.exportToUri(context, uri, config.value) }
             _exportState.value = result.fold(
                 onSuccess = { ExportState.Success(it) },
                 onFailure = { ExportState.Error(it.message ?: "Export failed") }

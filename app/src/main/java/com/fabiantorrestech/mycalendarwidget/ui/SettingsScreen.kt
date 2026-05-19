@@ -46,6 +46,12 @@ fun SettingsScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let { viewModel.exportConfig(context, it) }
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -55,7 +61,7 @@ fun SettingsScreen(
     LaunchedEffect(exportState) {
         when (val state = exportState) {
             is ExportState.Success -> {
-                snackbarHostState.showSnackbar("Config exported to Downloads")
+                snackbarHostState.showSnackbar("Backup saved successfully")
                 viewModel.clearExportState()
             }
             is ExportState.Error -> {
@@ -148,7 +154,7 @@ fun SettingsScreen(
                     config = config,
                     onConfigChange = viewModel::updateConfig,
                     onApplyProfile = { viewModel.applyProfile(it) },
-                    onExport = { viewModel.exportConfig(context) },
+                    onExport = { exportLauncher.launch("bridgecal_widget_backup_$appWidgetId.json") },
                     onImport = { importLauncher.launch(arrayOf("application/json")) }
                 )
             }

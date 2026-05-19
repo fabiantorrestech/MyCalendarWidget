@@ -104,7 +104,7 @@ fun AdvancedSection(
             onClick = onExport,
             modifier = Modifier.weight(1f)
         ) {
-            Text("Export to Downloads")
+            Text("Export Backup")
         }
         OutlinedButton(
             onClick = onImport,

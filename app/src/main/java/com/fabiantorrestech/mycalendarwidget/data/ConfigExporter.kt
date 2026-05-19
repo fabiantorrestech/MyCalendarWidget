@@ -1,19 +1,11 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
-import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
 
 object ConfigExporter {
-
-    private const val FILE_NAME = "BridgeCal_config.json"
 
     fun toJson(config: WidgetConfig): JSONObject = JSONObject().apply {
         put("configVersion", config.configVersion)
@@ -78,29 +70,12 @@ object ConfigExporter {
         )
     }
 
-    suspend fun exportToDownloads(context: Context, config: WidgetConfig): Result<Uri> {
+    suspend fun exportToUri(context: Context, uri: Uri, config: WidgetConfig): Result<Uri> {
         return runCatching {
             val jsonString = toJson(config).toString(2)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, FILE_NAME)
-                    put(MediaStore.Downloads.MIME_TYPE, "application/json")
-                    put(MediaStore.Downloads.IS_PENDING, 1)
-                }
-                val resolver = context.contentResolver
-                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: error("Failed to create MediaStore entry")
-                resolver.openOutputStream(uri)?.use { it.write(jsonString.toByteArray()) }
-                values.clear()
-                values.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-                uri
-            } else {
-                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(dir, FILE_NAME)
-                FileOutputStream(file).use { it.write(jsonString.toByteArray()) }
-                Uri.fromFile(file)
-            }
+            context.contentResolver.openOutputStream(uri)?.use { it.write(jsonString.toByteArray()) }
+                ?: error("Could not open output stream")
+            uri
         }
     }
 
