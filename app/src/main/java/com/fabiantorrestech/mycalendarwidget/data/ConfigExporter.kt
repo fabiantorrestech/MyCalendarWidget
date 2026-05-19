@@ -1,0 +1,110 @@
+package com.fabiantorrestech.mycalendarwidget.data
+
+import android.content.ContentValues
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+
+object ConfigExporter {
+
+    private const val FILE_NAME = "BridgeCal_config.json"
+
+    fun toJson(config: WidgetConfig): JSONObject = JSONObject().apply {
+        put("configVersion", config.configVersion)
+        put("dynamicColor", config.dynamicColor)
+        put("typography", JSONObject().apply {
+            put("header", config.typographyScale.headerScale)
+            put("subheader", config.typographyScale.subheaderScale)
+            put("date", config.typographyScale.dateScale)
+            put("detail", config.typographyScale.detailScale)
+        })
+        put("enabledCalendarIds", JSONArray().apply {
+            config.enabledCalendarIds.forEach { put(it) }
+        })
+        put("keywordFilter", config.keywordFilter)
+        put("filterIsRegex", config.filterIsRegex)
+        put("defaultClickTarget", config.defaultClickTarget.name)
+        put("showQuickAddFab", config.showQuickAddFab)
+        put("strictGridMode", config.strictGridMode)
+        put("maxTitleLines", config.maxTitleLines)
+        put("maxDetailLines", config.maxDetailLines)
+        put("showLocation", config.showLocation)
+        put("showDescription", config.showDescription)
+        put("widgetStyle", config.widgetStyle.name)
+        put("activeProfile", config.activeProfile.name)
+    }
+
+    fun fromJson(json: JSONObject): WidgetConfig {
+        val typo = json.optJSONObject("typography")
+        val idsArray = json.optJSONArray("enabledCalendarIds")
+        val ids = mutableSetOf<Long>()
+        if (idsArray != null) {
+            for (i in 0 until idsArray.length()) ids.add(idsArray.getLong(i))
+        }
+        return WidgetConfig(
+            configVersion = json.optInt("configVersion", 1),
+            dynamicColor = json.optBoolean("dynamicColor", true),
+            typographyScale = TypographyScale(
+                headerScale = typo?.optDouble("header", 1.0)?.toFloat() ?: 1.0f,
+                subheaderScale = typo?.optDouble("subheader", 1.0)?.toFloat() ?: 1.0f,
+                dateScale = typo?.optDouble("date", 1.0)?.toFloat() ?: 1.0f,
+                detailScale = typo?.optDouble("detail", 1.0)?.toFloat() ?: 1.0f
+            ),
+            enabledCalendarIds = ids,
+            keywordFilter = json.optString("keywordFilter", ""),
+            filterIsRegex = json.optBoolean("filterIsRegex", false),
+            defaultClickTarget = json.optString("defaultClickTarget")
+                .let { runCatching { DefaultClickTarget.valueOf(it) }.getOrDefault(DefaultClickTarget.SYSTEM_DEFAULT) },
+            showQuickAddFab = json.optBoolean("showQuickAddFab", true),
+            strictGridMode = json.optBoolean("strictGridMode", false),
+            maxTitleLines = json.optInt("maxTitleLines", 2),
+            maxDetailLines = json.optInt("maxDetailLines", 1),
+            showLocation = json.optBoolean("showLocation", true),
+            showDescription = json.optBoolean("showDescription", false),
+            widgetStyle = json.optString("widgetStyle")
+                .let { runCatching { WidgetStyle.valueOf(it) }.getOrDefault(WidgetStyle.AGENDA) },
+            activeProfile = json.optString("activeProfile")
+                .let { runCatching { AutomationProfile.valueOf(it) }.getOrDefault(AutomationProfile.STANDARD) }
+        )
+    }
+
+    suspend fun exportToDownloads(context: Context, config: WidgetConfig): Result<Uri> {
+        return runCatching {
+            val jsonString = toJson(config).toString(2)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, FILE_NAME)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: error("Failed to create MediaStore entry")
+                resolver.openOutputStream(uri)?.use { it.write(jsonString.toByteArray()) }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                uri
+            } else {
+                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(dir, FILE_NAME)
+                FileOutputStream(file).use { it.write(jsonString.toByteArray()) }
+                Uri.fromFile(file)
+            }
+        }
+    }
+
+    fun importFromUri(context: Context, uri: Uri): Result<WidgetConfig> {
+        return runCatching {
+            val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                ?: error("Could not read file")
+            fromJson(JSONObject(text))
+        }
+    }
+}

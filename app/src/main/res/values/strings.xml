@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">BridgeCal</string>
+    <string name="settings_title">BridgeCal Settings</string>
+    <string name="widget_label">BridgeCal</string>
+    <string name="widget_description">Agenda calendar widget with Material You theming and smart click routing</string>
+    <string name="no_events">No upcoming events</string>
+    <string name="permission_required">Calendar permission required to display events</string>
+</resources>

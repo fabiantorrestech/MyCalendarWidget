@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <!-- Required on API 30+ for package visibility when sending explicit-package intents -->
+    <queries>
+        <package android:name="me.everything.android.ui.calendar" />
+        <package android:name="com.google.android.calendar" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/event" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyCalendarWidget">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.MyCalendarWidget">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Settings screen — also the widget configuration target -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="true"
+            android:label="@string/settings_title"
+            android:theme="@style/Theme.MyCalendarWidget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Glance widget receiver — must point to GlanceAppWidgetReceiver subclass -->
+        <receiver
+            android:name=".widget.BridgeCalWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/bridgecal_widget_info" />
+        </receiver>
+
+        <!-- Calendar change listener — triggers widget refresh on data changes -->
+        <receiver
+            android:name=".widget.CalendarUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PROVIDER_CHANGED" />
+                <data
+                    android:scheme="content"
+                    android:host="com.android.calendar" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Automation receiver for Tasker/MacroDroid layout profile switching -->
+        <receiver
+            android:name=".automation.ProfileReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.fabiantorrestech.mycalendarwidget.SET_PROFILE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Periodic sync alarm receiver -->
+        <receiver
+            android:name=".widget.WidgetSyncReceiver"
+            android:exported="false" />
+
+    </application>
+
+</manifest>
