@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.CalendarContract
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
+import com.fabiantorrestech.mycalendarwidget.data.CalendarLaunchView
 import com.fabiantorrestech.mycalendarwidget.data.DefaultClickTarget
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.ui.SettingsActivity
@@ -30,12 +31,39 @@ object WidgetClickActions {
 
     fun headerIntent(config: WidgetConfig): Intent {
         val timeUri = Uri.parse("content://com.android.calendar/time/${System.currentTimeMillis()}")
-        val intent = Intent(Intent.ACTION_VIEW).setData(timeUri)
         return when (config.defaultClickTarget) {
-            DefaultClickTarget.DIGICAL -> intent            // same reasoning as eventIntent
-            DefaultClickTarget.GCAL -> intent.setPackage(PKG_GCAL)
-            DefaultClickTarget.SYSTEM_DEFAULT -> intent
+            DefaultClickTarget.GCAL -> gcalViewIntent(timeUri, config.calendarLaunchView)
+            DefaultClickTarget.DIGICAL -> digicalViewIntent(timeUri, config.calendarLaunchView)
+            DefaultClickTarget.SYSTEM_DEFAULT -> Intent(Intent.ACTION_VIEW).setData(timeUri)
         }
+    }
+
+    // GCal AllInOneActivity viewType: 2=day, 3=week, 5=month, 4=agenda/schedule
+    private fun gcalViewIntent(timeUri: Uri, view: CalendarLaunchView): Intent {
+        val base = Intent(Intent.ACTION_VIEW).setData(timeUri).setPackage(PKG_GCAL)
+        val viewType = when (view) {
+            CalendarLaunchView.DAY -> 2
+            CalendarLaunchView.WEEK -> 3
+            CalendarLaunchView.MONTH -> 5
+            CalendarLaunchView.AGENDA -> 4
+            CalendarLaunchView.DEFAULT -> null
+        }
+        return if (viewType != null) base.putExtra("viewType", viewType) else base
+    }
+
+    // DigiCal uses the standard time URI and respects its last-viewed state for DEFAULT.
+    // For specific views, DigiCal may accept the `me.everything.digical.extra.VIEW` extra
+    // with values: "day", "week", "month", "list". Silently ignored if not supported.
+    private fun digicalViewIntent(timeUri: Uri, view: CalendarLaunchView): Intent {
+        val base = Intent(Intent.ACTION_VIEW).setData(timeUri)
+        val viewExtra = when (view) {
+            CalendarLaunchView.DAY -> "day"
+            CalendarLaunchView.WEEK -> "week"
+            CalendarLaunchView.MONTH -> "month"
+            CalendarLaunchView.AGENDA -> "list"
+            CalendarLaunchView.DEFAULT -> null
+        }
+        return if (viewExtra != null) base.putExtra("me.everything.digical.extra.VIEW", viewExtra) else base
     }
 
     fun mapsIntent(mapsQuery: String): Intent =

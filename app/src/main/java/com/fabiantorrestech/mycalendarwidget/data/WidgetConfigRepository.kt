@@ -71,6 +71,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
         val HEADER_NAV_STYLE = stringPreferencesKey("header_nav_style")
         val MONTH_OFFSET = intPreferencesKey("month_offset")
         val SHOW_MONTH_IN_HEADER = booleanPreferencesKey("show_month_in_header")
+        val CALENDAR_LAUNCH_VIEW = stringPreferencesKey("calendar_launch_view")
         val SYNC_INTERVAL = intPreferencesKey("sync_interval")
         val REFRESH_NONCE = intPreferencesKey("refresh_nonce")
     }
@@ -118,7 +119,10 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             alwaysShowToday = prefs[Keys.ALWAYS_SHOW_TODAY] ?: false,
             widgetStyle = prefs[Keys.WIDGET_STYLE]
                 ?.let { runCatching { WidgetStyle.valueOf(it) }.getOrNull() }
-                ?: WidgetStyle.AGENDA,
+                ?: WidgetStyle.GCAL_LEFT,
+            calendarLaunchView = prefs[Keys.CALENDAR_LAUNCH_VIEW]
+                ?.let { runCatching { CalendarLaunchView.valueOf(it) }.getOrNull() }
+                ?: CalendarLaunchView.DEFAULT,
             activeProfile = prefs[Keys.ACTIVE_PROFILE]
                 ?.let { runCatching { AutomationProfile.valueOf(it) }.getOrNull() }
                 ?: AutomationProfile.STANDARD,
@@ -170,6 +174,7 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
             prefs[Keys.HEADER_NAV_STYLE] = config.headerNavStyle.name
             prefs[Keys.MONTH_OFFSET] = config.monthOffset
             prefs[Keys.SHOW_MONTH_IN_HEADER] = config.showMonthInHeader
+            prefs[Keys.CALENDAR_LAUNCH_VIEW] = config.calendarLaunchView.name
             prefs[Keys.SYNC_INTERVAL] = config.syncIntervalMinutes
             prefs[Keys.REFRESH_NONCE] = config.refreshNonce
         }

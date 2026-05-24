@@ -8,6 +8,8 @@ enum class WidgetStyle { AGENDA, GCAL, GCAL_LEFT }
 
 enum class HeaderNavStyle { ARROWS, CHIPS }
 
+enum class CalendarLaunchView { DEFAULT, DAY, WEEK, MONTH, AGENDA }
+
 enum class WidgetFont(val displayName: String, val glanceFamilyName: String?) {
     DEFAULT("Default", null),
     SERIF("Serif", "serif"),
@@ -79,7 +81,8 @@ data class WidgetConfig(
     val daysAheadToLoad: Int = 30,
     val showEmptyDays: Boolean = false,
     val alwaysShowToday: Boolean = false,
-    val widgetStyle: WidgetStyle = WidgetStyle.AGENDA,
+    val widgetStyle: WidgetStyle = WidgetStyle.GCAL_LEFT,
+    val calendarLaunchView: CalendarLaunchView = CalendarLaunchView.DEFAULT,
     val activeProfile: AutomationProfile = AutomationProfile.STANDARD,
     val headerNavEnabled: Boolean = false,
     val headerNavStyle: HeaderNavStyle = HeaderNavStyle.ARROWS,

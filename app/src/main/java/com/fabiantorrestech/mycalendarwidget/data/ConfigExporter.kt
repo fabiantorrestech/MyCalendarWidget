@@ -31,6 +31,7 @@ object ConfigExporter {
         put("showLocation", config.showLocation)
         put("showDescription", config.showDescription)
         put("widgetStyle", config.widgetStyle.name)
+        put("calendarLaunchView", config.calendarLaunchView.name)
         put("activeProfile", config.activeProfile.name)
     }
 
@@ -64,7 +65,9 @@ object ConfigExporter {
             showLocation = json.optBoolean("showLocation", true),
             showDescription = json.optBoolean("showDescription", false),
             widgetStyle = json.optString("widgetStyle")
-                .let { runCatching { WidgetStyle.valueOf(it) }.getOrDefault(WidgetStyle.AGENDA) },
+                .let { runCatching { WidgetStyle.valueOf(it) }.getOrDefault(WidgetStyle.GCAL_LEFT) },
+            calendarLaunchView = json.optString("calendarLaunchView")
+                .let { runCatching { CalendarLaunchView.valueOf(it) }.getOrDefault(CalendarLaunchView.DEFAULT) },
             activeProfile = json.optString("activeProfile")
                 .let { runCatching { AutomationProfile.valueOf(it) }.getOrDefault(AutomationProfile.STANDARD) }
         )

@@ -58,73 +58,105 @@ fun BridgeCalWidgetContent(
     glanceId: GlanceId
 ) {
     val rootPadding = if (config.strictGridMode) 0.dp else 8.dp
+    val rootModifier = GlanceModifier
+        .fillMaxSize()
+        .background(GlanceTheme.colors.widgetBackground)
+        .cornerRadius(16.dp)
+        .padding(rootPadding)
 
-    Column(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(16.dp)
-            .padding(rootPadding)
-    ) {
-        WidgetHeader(config, context)
-        Spacer(modifier = GlanceModifier.height(4.dp))
+    // Suppress the first month's inline header only when the month is already
+    // visible in the widget header (via static title or nav). When both are off,
+    // the list shows all month headers — matching Google Calendar's style.
+    val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
+    val firstDisplayedMonth = if (suppressFirstMonth) {
+        eventsByDay.keys.firstOrNull()?.let { YearMonth.of(it.year, it.month) }
+    } else null
 
-        if (eventsByDay.isEmpty()) {
-            Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "No upcoming events",
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurface,
-                        fontSize = (14 * config.typographyScale.detailScale).sp,
-                        fontFamily = config.glanceFont(FontCategory.DETAIL)
+    // When neither month text nor nav controls occupy the header, the buttons float
+    // as an overlay so the list can use the full widget height.
+    val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
+
+    if (floatingMode) {
+        Box(modifier = rootModifier) {
+            if (eventsByDay.isEmpty()) {
+                Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No upcoming events",
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = (14 * config.typographyScale.detailScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.DETAIL)
+                        )
                     )
-                )
+                }
+            } else {
+                EventList(eventsByDay, firstDisplayedMonth, config, context)
+            }
+            FloatingButtonsRow(config)
+        }
+    } else {
+        Column(modifier = rootModifier) {
+            WidgetHeader(config, context)
+            Spacer(modifier = GlanceModifier.height(4.dp))
+            if (eventsByDay.isEmpty()) {
+                Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No upcoming events",
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = (14 * config.typographyScale.detailScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.DETAIL)
+                        )
+                    )
+                }
+            } else {
+                EventList(eventsByDay, firstDisplayedMonth, config, context)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventList(
+    eventsByDay: Map<LocalDate, List<CalendarEvent>>,
+    firstDisplayedMonth: YearMonth?,
+    config: WidgetConfig,
+    context: Context
+) {
+    LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+        if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
+            var lastMonth: java.time.Month? = null
+            eventsByDay.forEach { (date, events) ->
+                if (date.month != lastMonth) {
+                    val ym = YearMonth.of(date.year, date.month)
+                    if (ym != firstDisplayedMonth) {
+                        item(itemId = date.toEpochDay() * 1000 + 999) {
+                            MonthSectionHeader(date, config)
+                        }
+                    }
+                    lastMonth = date.month
+                }
+                item(itemId = date.toEpochDay()) {
+                    DayGroupGcalLeft(date, events, config, context)
+                }
             }
         } else {
-            // Suppress the first month's inline header only when the month is already
-            // visible in the widget header (via static title or nav). When both are off,
-            // the list shows all month headers — matching Google Calendar's style.
-            val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
-            val firstDisplayedMonth = if (suppressFirstMonth) {
-                eventsByDay.keys.firstOrNull()?.let { YearMonth.of(it.year, it.month) }
-            } else null
-
-            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
-                    var lastMonth: java.time.Month? = null
-                    eventsByDay.forEach { (date, events) ->
-                        if (date.month != lastMonth) {
-                            val ym = YearMonth.of(date.year, date.month)
-                            if (ym != firstDisplayedMonth) {
-                                item(itemId = date.toEpochDay() * 1000 + 999) {
-                                    MonthSectionHeader(date, config)
-                                }
-                            }
-                            lastMonth = date.month
-                        }
-                        item(itemId = date.toEpochDay()) {
-                            DayGroupGcalLeft(date, events, config, context)
+            var lastMonth: java.time.Month? = null
+            eventsByDay.forEach { (date, events) ->
+                if (date.month != lastMonth) {
+                    val ym = YearMonth.of(date.year, date.month)
+                    if (ym != firstDisplayedMonth) {
+                        item(itemId = date.toEpochDay() * 1000 + 999) {
+                            MonthSectionHeader(date, config)
                         }
                     }
-                } else {
-                    var lastMonth: java.time.Month? = null
-                    eventsByDay.forEach { (date, events) ->
-                        if (date.month != lastMonth) {
-                            val ym = YearMonth.of(date.year, date.month)
-                            if (ym != firstDisplayedMonth) {
-                                item(itemId = date.toEpochDay() * 1000 + 999) {
-                                    MonthSectionHeader(date, config)
-                                }
-                            }
-                            lastMonth = date.month
-                        }
-                        item(itemId = date.toEpochDay()) {
-                            DayHeader(date, config)
-                        }
-                        items(events, itemId = { it.id }) { event ->
-                            EventChip(event, config, context)
-                        }
-                    }
+                    lastMonth = date.month
+                }
+                item(itemId = date.toEpochDay()) {
+                    DayHeader(date, config)
+                }
+                items(events, itemId = { it.id }) { event ->
+                    EventChip(event, config, context)
                 }
             }
         }
@@ -292,6 +324,12 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
             }
         }
 
+        // Show open-calendar button when the month label is hidden (no tappable month text)
+        if (!config.showMonthInHeader) {
+            Spacer(modifier = GlanceModifier.width(4.dp))
+            OpenCalendarButton(config)
+        }
+
         if (config.showQuickAddFab) {
             Spacer(modifier = GlanceModifier.width(4.dp))
             Box(
@@ -310,6 +348,81 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FloatingButtonsRow(config: WidgetConfig) {
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(modifier = GlanceModifier.defaultWeight())
+
+        if (config.showRefreshButton) {
+            Box(
+                modifier = GlanceModifier
+                    .size(28.dp)
+                    .background(GlanceTheme.colors.surfaceVariant)
+                    .cornerRadius(14.dp)
+                    .clickable(actionRunCallback<RefreshWidgetAction>()),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↺",
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = (14 * config.typographyScale.headerScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
+                    )
+                )
+            }
+            Spacer(modifier = GlanceModifier.width(4.dp))
+        }
+
+        OpenCalendarButton(config)
+
+        if (config.showQuickAddFab) {
+            Spacer(modifier = GlanceModifier.width(4.dp))
+            Box(
+                modifier = GlanceModifier
+                    .width(56.dp)
+                    .height(36.dp)
+                    .background(GlanceTheme.colors.primaryContainer)
+                    .cornerRadius(18.dp)
+                    .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    provider = ImageProvider(R.drawable.ic_widget_add),
+                    contentDescription = "Add event",
+                    modifier = GlanceModifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenCalendarButton(config: WidgetConfig) {
+    Box(
+        modifier = GlanceModifier
+            .width(56.dp)
+            .height(36.dp)
+            .background(GlanceTheme.colors.surfaceVariant)
+            .cornerRadius(18.dp)
+            .clickable(actionStartActivity(WidgetClickActions.headerIntent(config))),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_calendar_open),
+            contentDescription = "Open calendar",
+            modifier = GlanceModifier.size(20.dp),
+            colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant)
+        )
     }
 }
 
