@@ -79,18 +79,19 @@ fun ClickRoutingSection(
 private data class LaunchViewOption(
     val view: CalendarLaunchView,
     val label: String,
-    val description: String
+    val description: String,
+    val enabled: Boolean = true
 )
 
 private val launchViewOptions = listOf(
     LaunchViewOption(CalendarLaunchView.DEFAULT,    "App default",  "Opens in the last-used view"),
-    LaunchViewOption(CalendarLaunchView.DAY,        "Day",          "Day view"),
-    LaunchViewOption(CalendarLaunchView.WEEK,       "Week",         "Week view"),
-    LaunchViewOption(CalendarLaunchView.WEEK_AGENDA,"Week agenda",  "DigiCal only — GCal falls back to week view"),
-    LaunchViewOption(CalendarLaunchView.MONTH,      "Month",        "Month view"),
-    LaunchViewOption(CalendarLaunchView.TEXT_MONTH, "Text month",   "DigiCal only — GCal falls back to month view"),
-    LaunchViewOption(CalendarLaunchView.YEAR,       "Year",         "DigiCal only — GCal falls back to app default"),
-    LaunchViewOption(CalendarLaunchView.AGENDA,     "Agenda",       "Agenda / schedule list view")
+    LaunchViewOption(CalendarLaunchView.DAY,        "Day",          "Coming later...", enabled = false),
+    LaunchViewOption(CalendarLaunchView.WEEK,       "Week",         "Coming later...", enabled = false),
+    LaunchViewOption(CalendarLaunchView.WEEK_AGENDA,"Week agenda",  "Coming later...", enabled = false),
+    LaunchViewOption(CalendarLaunchView.MONTH,      "Month",        "Coming later...", enabled = false),
+    LaunchViewOption(CalendarLaunchView.TEXT_MONTH, "Text month",   "Coming later...", enabled = false),
+    LaunchViewOption(CalendarLaunchView.YEAR,       "Year",         "Coming later...", enabled = false),
+    LaunchViewOption(CalendarLaunchView.AGENDA,     "Agenda",       "Coming later...", enabled = false)
 )
 
 @Composable
@@ -113,14 +114,22 @@ private fun CalendarLaunchViewSection(
         ) {
             RadioButton(
                 selected = config.calendarLaunchView == option.view,
-                onClick = { onConfigChange(config.copy(calendarLaunchView = option.view)) }
+                onClick = { if (option.enabled) onConfigChange(config.copy(calendarLaunchView = option.view)) },
+                enabled = option.enabled
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = option.label, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = option.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (option.enabled) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
                 Text(
                     text = option.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = if (option.enabled) 1f else 0.38f
+                    )
                 )
             }
         }
