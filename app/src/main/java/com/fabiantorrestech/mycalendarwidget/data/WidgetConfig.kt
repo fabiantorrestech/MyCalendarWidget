@@ -8,7 +8,7 @@ enum class WidgetStyle { AGENDA, GCAL, GCAL_LEFT }
 
 enum class HeaderNavStyle { ARROWS, CHIPS }
 
-enum class CalendarLaunchView { DEFAULT, DAY, WEEK, MONTH, AGENDA }
+enum class CalendarLaunchView { DEFAULT, DAY, WEEK, WEEK_AGENDA, MONTH, TEXT_MONTH, YEAR, AGENDA }
 
 enum class WidgetFont(val displayName: String, val glanceFamilyName: String?) {
     DEFAULT("Default", null),

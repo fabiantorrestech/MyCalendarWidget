@@ -42,184 +42,131 @@ import java.util.Locale
 @Composable
 fun PreviewCard(
     config: WidgetConfig,
+    eventsByDay: Map<LocalDate, List<CalendarEvent>>,
     modifier: Modifier = Modifier
 ) {
-    val eventsByDay = previewSampleEvents()
+    val rootPadding = if (config.strictGridMode) 0.dp else 12.dp
+    val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
+    val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
+    val visibleDays = eventsByDay.entries
+        .filter { it.key >= LocalDate.now() }
+        .take(3)
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            PreviewHeader(config)
-            Spacer(modifier = Modifier.height(6.dp))
-
-            val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
-            val visibleDays = eventsByDay.entries
-                .filter { it.key >= LocalDate.now() }
-                .take(3)
-
-            if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
-                visibleDays.forEachIndexed { index, (date, events) ->
-                    if (index == 0 && !suppressFirstMonth) {
-                        PreviewMonthSectionHeader(date, config)
-                    }
-                    PreviewDayGroupGcalLeft(date, events, config)
-                }
-            } else {
-                visibleDays.forEachIndexed { index, (date, events) ->
-                    if (index == 0 && !suppressFirstMonth) {
-                        PreviewMonthSectionHeader(date, config)
-                    }
-                    PreviewDayHeader(date, config)
-                    events.take(2).forEach { event ->
-                        PreviewEventChip(event, config)
-                    }
-                }
+        if (floatingMode) {
+            Box(modifier = Modifier.padding(rootPadding)) {
+                Column { PreviewEventList(config, visibleDays, suppressFirstMonth) }
+                PreviewFloatingButtonsRow(config, modifier = Modifier.align(Alignment.TopStart))
+            }
+        } else {
+            Column(modifier = Modifier.padding(rootPadding)) {
+                PreviewHeader(config)
+                Spacer(modifier = Modifier.height(6.dp))
+                PreviewEventList(config, visibleDays, suppressFirstMonth)
             }
         }
     }
 }
 
-private fun previewSampleEvents(): Map<LocalDate, List<CalendarEvent>> {
-    val today = LocalDate.now()
-    val zone = ZoneId.systemDefault()
+@Composable
+private fun PreviewEventList(
+    config: WidgetConfig,
+    visibleDays: List<Map.Entry<LocalDate, List<CalendarEvent>>>,
+    suppressFirstMonth: Boolean
+) {
+    if (visibleDays.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(80.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No upcoming events",
+                fontSize = (14 * config.typographyScale.detailScale).sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = config.previewFont(FontCategory.DETAIL)
+            )
+        }
+    } else if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
+        visibleDays.forEachIndexed { index, (date, events) ->
+            if (index == 0 && !suppressFirstMonth) PreviewMonthSectionHeader(date, config)
+            PreviewDayGroupGcalLeft(date, events, config)
+        }
+    } else {
+        visibleDays.forEachIndexed { index, (date, events) ->
+            if (index == 0 && !suppressFirstMonth) PreviewMonthSectionHeader(date, config)
+            PreviewDayHeader(date, config)
+            events.take(2).forEach { event -> PreviewEventChip(event, config) }
+        }
+    }
+}
 
-    fun epochMillis(date: LocalDate, hour: Int, minute: Int = 0): Long =
-        date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
-
-    val todayEvents = listOf(
-        CalendarEvent(
-            id = 1L, eventId = 1L,
-            title = "Team Standup",
-            dtStart = epochMillis(today, 9, 30),
-            dtEnd = epochMillis(today, 9, 45),
-            allDay = false,
-            location = null,
-            description = null,
-            calendarId = 1L,
-            calendarColor = 0xFF1A73E8.toInt(),
-            eventColor = null,
-            selfAttendeeStatus = 1,
-            organizer = null,
-            eventTimezone = zone.id,
-            hasAlarm = false,
-            rrule = null,
-            meetingUrl = "https://meet.example.com/standup",
-            mapsQuery = null
-        ),
-        CalendarEvent(
-            id = 2L, eventId = 2L,
-            title = "Design Review",
-            dtStart = epochMillis(today, 11, 0),
-            dtEnd = epochMillis(today, 12, 0),
-            allDay = false,
-            location = "Conference Room A",
-            description = null,
-            calendarId = 1L,
-            calendarColor = 0xFF1A73E8.toInt(),
-            eventColor = null,
-            selfAttendeeStatus = 1,
-            organizer = null,
-            eventTimezone = zone.id,
-            hasAlarm = true,
-            rrule = null,
-            meetingUrl = null,
-            mapsQuery = "Conference Room A"
-        ),
-        CalendarEvent(
-            id = 3L, eventId = 3L,
-            title = "Lunch with Alex",
-            dtStart = epochMillis(today, 12, 30),
-            dtEnd = epochMillis(today, 13, 30),
-            allDay = false,
-            location = "The Rooftop Café",
-            description = null,
-            calendarId = 2L,
-            calendarColor = 0xFF0F9D58.toInt(),
-            eventColor = null,
-            selfAttendeeStatus = 1,
-            organizer = null,
-            eventTimezone = zone.id,
-            hasAlarm = false,
-            rrule = null,
-            meetingUrl = null,
-            mapsQuery = "The Rooftop Café"
-        )
-    )
-
-    val tomorrow = today.plusDays(1)
-    val tomorrowEvents = listOf(
-        CalendarEvent(
-            id = 4L, eventId = 4L,
-            title = "Product Planning",
-            dtStart = epochMillis(tomorrow, 10, 0),
-            dtEnd = epochMillis(tomorrow, 11, 0),
-            allDay = false,
-            location = "HQ Board Room",
-            description = null,
-            calendarId = 1L,
-            calendarColor = 0xFF1A73E8.toInt(),
-            eventColor = null,
-            selfAttendeeStatus = 1,
-            organizer = null,
-            eventTimezone = zone.id,
-            hasAlarm = true,
-            rrule = null,
-            meetingUrl = null,
-            mapsQuery = "HQ Board Room"
-        ),
-        CalendarEvent(
-            id = 5L, eventId = 5L,
-            title = "Dentist Appointment",
-            dtStart = epochMillis(tomorrow, 15, 0),
-            dtEnd = epochMillis(tomorrow, 16, 0),
-            allDay = false,
-            location = null,
-            description = null,
-            calendarId = 3L,
-            calendarColor = 0xFF9C27B0.toInt(),
-            eventColor = null,
-            selfAttendeeStatus = 1,
-            organizer = null,
-            eventTimezone = zone.id,
-            hasAlarm = true,
-            rrule = null,
-            meetingUrl = null,
-            mapsQuery = null
-        )
-    )
-
-    val dayAfter = today.plusDays(2)
-    val dayAfterEvents = listOf(
-        CalendarEvent(
-            id = 6L, eventId = 6L,
-            title = "Weekly Retrospective",
-            dtStart = epochMillis(dayAfter, 14, 0),
-            dtEnd = epochMillis(dayAfter, 15, 0),
-            allDay = false,
-            location = null,
-            description = null,
-            calendarId = 1L,
-            calendarColor = 0xFF1A73E8.toInt(),
-            eventColor = null,
-            selfAttendeeStatus = 1,
-            organizer = null,
-            eventTimezone = zone.id,
-            hasAlarm = false,
-            rrule = null,
-            meetingUrl = "https://meet.example.com/retro",
-            mapsQuery = null
-        )
-    )
-
-    return sortedMapOf(
-        today to todayEvents,
-        tomorrow to tomorrowEvents,
-        dayAfter to dayAfterEvents
-    )
+@Composable
+private fun PreviewFloatingButtonsRow(config: WidgetConfig, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+        if (config.showRefreshButton) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↺",
+                    fontSize = (14 * config.typographyScale.headerScale).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+        Box(
+            modifier = Modifier
+                .width(56.dp)
+                .height(36.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_calendar_open),
+                contentDescription = "Open calendar",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        if (config.showQuickAddFab) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .width(56.dp)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+",
+                    fontSize = (18 * config.typographyScale.headerScale).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -312,6 +259,44 @@ private fun PreviewHeader(config: WidgetConfig) {
 
             else -> {
                 Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+
+        if (config.showRefreshButton) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "↺",
+                    fontSize = (14 * config.typographyScale.headerScale).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                )
+            }
+        }
+
+        if (!config.showMonthInHeader) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .width(56.dp)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_calendar_open),
+                    contentDescription = "Open calendar",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
 

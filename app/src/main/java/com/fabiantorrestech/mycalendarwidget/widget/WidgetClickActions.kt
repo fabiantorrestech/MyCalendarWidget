@@ -13,7 +13,7 @@ import com.fabiantorrestech.mycalendarwidget.ui.SettingsActivity
 
 object WidgetClickActions {
 
-    private const val PKG_DIGICAL = "me.everything.android.ui.calendar"
+    private const val PKG_DIGICAL = "com.digibites.calendar"
     private const val PKG_GCAL = "com.google.android.calendar"
 
     fun eventIntent(event: CalendarEvent, config: WidgetConfig): Intent {
@@ -38,29 +38,38 @@ object WidgetClickActions {
         }
     }
 
-    // GCal AllInOneActivity viewType: 2=day, 3=week, 5=month, 4=agenda/schedule
+    // GCal AllInOneActivity viewType: 2=day, 3=week, 5=month, 4=agenda/schedule.
+    // WEEK_AGENDA and TEXT_MONTH fall back to their nearest GCal equivalents.
+    // YEAR is not supported by GCal; falls back to DEFAULT (last-used view).
     private fun gcalViewIntent(timeUri: Uri, view: CalendarLaunchView): Intent {
         val base = Intent(Intent.ACTION_VIEW).setData(timeUri).setPackage(PKG_GCAL)
         val viewType = when (view) {
             CalendarLaunchView.DAY -> 2
             CalendarLaunchView.WEEK -> 3
+            CalendarLaunchView.WEEK_AGENDA -> 3
             CalendarLaunchView.MONTH -> 5
+            CalendarLaunchView.TEXT_MONTH -> 5
+            CalendarLaunchView.YEAR -> null
             CalendarLaunchView.AGENDA -> 4
             CalendarLaunchView.DEFAULT -> null
         }
         return if (viewType != null) base.putExtra("viewType", viewType) else base
     }
 
-    // DigiCal uses the standard time URI and respects its last-viewed state for DEFAULT.
-    // For specific views, DigiCal may accept the `me.everything.digical.extra.VIEW` extra
-    // with values: "day", "week", "month", "list". Silently ignored if not supported.
+    // DigiCal is targeted explicitly by package. For specific views, DigiCal may accept
+    // the `me.everything.digical.extra.VIEW` extra. Values are best-effort (derived from
+    // DigiCal's UI names, not a published API) and should be verified on-device.
+    // If DigiCal ignores the extra, it opens to its last-used view (acceptable fallback).
     private fun digicalViewIntent(timeUri: Uri, view: CalendarLaunchView): Intent {
-        val base = Intent(Intent.ACTION_VIEW).setData(timeUri)
+        val base = Intent(Intent.ACTION_VIEW).setData(timeUri).setPackage(PKG_DIGICAL)
         val viewExtra = when (view) {
             CalendarLaunchView.DAY -> "day"
             CalendarLaunchView.WEEK -> "week"
+            CalendarLaunchView.WEEK_AGENDA -> "week_agenda"
             CalendarLaunchView.MONTH -> "month"
-            CalendarLaunchView.AGENDA -> "list"
+            CalendarLaunchView.TEXT_MONTH -> "text_month"
+            CalendarLaunchView.YEAR -> "year"
+            CalendarLaunchView.AGENDA -> "agenda"
             CalendarLaunchView.DEFAULT -> null
         }
         return if (viewExtra != null) base.putExtra("me.everything.digical.extra.VIEW", viewExtra) else base

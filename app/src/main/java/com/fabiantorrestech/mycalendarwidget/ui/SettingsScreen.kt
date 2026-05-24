@@ -43,6 +43,7 @@ fun SettingsScreen(
     val config by viewModel.config.collectAsState()
     val calendars by viewModel.calendars.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
+    val previewEvents by viewModel.previewEvents.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -95,7 +96,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
-                PreviewCard(config = config)
+                PreviewCard(config = config, eventsByDay = previewEvents)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 

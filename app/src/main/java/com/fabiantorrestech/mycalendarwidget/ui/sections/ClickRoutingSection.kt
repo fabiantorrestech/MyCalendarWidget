@@ -83,11 +83,14 @@ private data class LaunchViewOption(
 )
 
 private val launchViewOptions = listOf(
-    LaunchViewOption(CalendarLaunchView.DEFAULT, "App default", "Opens in the last-used view"),
-    LaunchViewOption(CalendarLaunchView.DAY,     "Day view",    "Opens directly to the day view"),
-    LaunchViewOption(CalendarLaunchView.WEEK,    "Week view",   "Opens directly to the week view"),
-    LaunchViewOption(CalendarLaunchView.MONTH,   "Month view",  "Opens directly to the month view"),
-    LaunchViewOption(CalendarLaunchView.AGENDA,  "Agenda / list view", "Opens directly to the agenda list")
+    LaunchViewOption(CalendarLaunchView.DEFAULT,    "App default",  "Opens in the last-used view"),
+    LaunchViewOption(CalendarLaunchView.DAY,        "Day",          "Day view"),
+    LaunchViewOption(CalendarLaunchView.WEEK,       "Week",         "Week view"),
+    LaunchViewOption(CalendarLaunchView.WEEK_AGENDA,"Week agenda",  "DigiCal only — GCal falls back to week view"),
+    LaunchViewOption(CalendarLaunchView.MONTH,      "Month",        "Month view"),
+    LaunchViewOption(CalendarLaunchView.TEXT_MONTH, "Text month",   "DigiCal only — GCal falls back to month view"),
+    LaunchViewOption(CalendarLaunchView.YEAR,       "Year",         "DigiCal only — GCal falls back to app default"),
+    LaunchViewOption(CalendarLaunchView.AGENDA,     "Agenda",       "Agenda / schedule list view")
 )
 
 @Composable
@@ -124,7 +127,7 @@ private fun CalendarLaunchViewSection(
     }
 
     Text(
-        text = "Note: specific view routing is best-effort and depends on the target app. DigiCal view selection requires app version testing.",
+        text = "Note: view routing is best-effort. Week agenda, Text month, and Year are DigiCal-only — Google Calendar will use the nearest available view.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp)
