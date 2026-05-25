@@ -13,6 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+/app/release/
+
 /.claude
 /.codex
 /.gemini
