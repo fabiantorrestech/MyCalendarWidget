@@ -1,17 +1,36 @@
 package com.fabiantorrestech.mycalendarwidget.ui
 
+import android.appwidget.AppWidgetManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -22,10 +41,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 import com.fabiantorrestech.mycalendarwidget.ui.sections.AdvancedSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.AppearanceSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.CalendarFilterSection
@@ -44,8 +69,19 @@ fun SettingsScreen(
     val calendars by viewModel.calendars.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
     val previewEvents by viewModel.previewEvents.collectAsState()
+    val syncSource by viewModel.syncSource.collectAsState()
+    val availableWidgets by viewModel.availableWidgetsToSync.collectAsState()
+    val allOtherWidgets by viewModel.allOtherWidgets.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var showSyncDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedSyncId by rememberSaveable { mutableIntStateOf(-1) }
+
+    // Local state for the name field — avoids a DataStore write on every keystroke
+    var localWidgetName by rememberSaveable { mutableStateOf(config.widgetName) }
+    LaunchedEffect(config.widgetName) {
+        if (localWidgetName != config.widgetName) localWidgetName = config.widgetName
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -78,18 +114,80 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text("BridgeCal Settings") },
                 actions = {
+                    if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                        IconButton(onClick = { showSyncDialog = true }) {
+                            Icon(
+                                imageVector = if (syncSource != null) Icons.Default.LinkOff else Icons.Default.Link,
+                                contentDescription = if (syncSource != null) "Unlink sync" else "Sync with widget"
+                            )
+                        }
+                    }
                     TextButton(onClick = onSaveComplete) { Text("Done") }
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
+        if (showSyncDialog) {
+            SyncDialog(
+                syncSource = syncSource,
+                availableWidgets = availableWidgets,
+                selectedId = selectedSyncId,
+                onSelectId = { selectedSyncId = it },
+                onConfirm = {
+                    viewModel.setSyncSource(if (selectedSyncId == -1) null else selectedSyncId)
+                    showSyncDialog = false
+                    selectedSyncId = -1
+                },
+                onUnlink = {
+                    viewModel.setSyncSource(null)
+                    showSyncDialog = false
+                },
+                onDismiss = {
+                    showSyncDialog = false
+                    selectedSyncId = -1
+                }
+            )
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            val currentSyncSource = syncSource
+            if (currentSyncSource != null) {
+                val sourceSummary = allOtherWidgets.firstOrNull { it.appWidgetId == currentSyncSource }
+                val sourceLabel = sourceSummary?.let { s -> s.name.ifBlank { "Widget ${s.displayIndex}" } }
+                    ?: "Widget $currentSyncSource"
+                item {
+                    SyncBanner(sourceLabel = sourceLabel)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            item {
+                OutlinedTextField(
+                    value = localWidgetName,
+                    onValueChange = { localWidgetName = it },
+                    label = { Text("Widget name (optional)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        viewModel.updateConfig(config.copy(widgetName = localWidgetName))
+                    }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { focusState ->
+                            if (!focusState.isFocused && localWidgetName != config.widgetName) {
+                                viewModel.updateConfig(config.copy(widgetName = localWidgetName))
+                            }
+                        }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             item {
                 Text(
                     text = "Widget Preview",
@@ -160,5 +258,97 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SyncBanner(sourceLabel: String) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Link,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Config shared with $sourceLabel — changes here affect both widgets.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun SyncDialog(
+    syncSource: Int?,
+    availableWidgets: List<WidgetSummary>,
+    selectedId: Int,
+    onSelectId: (Int) -> Unit,
+    onConfirm: () -> Unit,
+    onUnlink: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (syncSource != null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Synced config") },
+            text = {
+                Text("This widget shares its config with another widget. Changes made here apply to both. Tap Unlink to make this widget independent.")
+            },
+            confirmButton = {
+                TextButton(onClick = onUnlink) { Text("Unlink") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        )
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Sync config with…") },
+            text = {
+                if (availableWidgets.isEmpty()) {
+                    Text("No other widgets are available to sync with.")
+                } else {
+                    LazyColumn {
+                        items(availableWidgets) { widget ->
+                            val label = widget.name.ifBlank { "Widget ${widget.displayIndex}" }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelectId(widget.appWidgetId) }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedId == widget.appWidgetId,
+                                    onClick = { onSelectId(widget.appWidgetId) }
+                                )
+                                Text(
+                                    text = "$label — ${widget.style.name}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(start = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = onConfirm,
+                    enabled = selectedId != -1 && availableWidgets.isNotEmpty()
+                ) { Text("Sync") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        )
     }
 }

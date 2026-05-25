@@ -64,6 +64,7 @@ data class TypographyScale(
 )
 
 data class WidgetConfig(
+    val widgetName: String = "",
     val dynamicColor: Boolean = true,
     val typographyScale: TypographyScale = TypographyScale(),
     val fontConfig: FontConfig = FontConfig(),
@@ -91,6 +92,14 @@ data class WidgetConfig(
     val syncIntervalMinutes: Int = 0,
     val refreshNonce: Int = 0,
     val configVersion: Int = 1
+)
+
+data class WidgetSummary(
+    val appWidgetId: Int,
+    val name: String,
+    val style: WidgetStyle,
+    val displayIndex: Int,
+    val syncSourceId: Int?
 )
 
 fun AutomationProfile.toWidgetConfig(base: WidgetConfig): WidgetConfig = when (this) {

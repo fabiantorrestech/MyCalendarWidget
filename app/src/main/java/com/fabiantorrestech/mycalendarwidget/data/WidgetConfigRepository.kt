@@ -10,32 +10,39 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import java.io.File
 
-class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
+class WidgetConfigRepository(private val context: Context, private val appWidgetId: Int) {
 
-    private val dataStore: DataStore<Preferences> = getOrCreate(context, appWidgetId)
+    private val _dataStore = MutableStateFlow(
+        getOrCreate(context, WidgetSyncLinkRepository.resolveSource(context, appWidgetId))
+    )
 
     companion object {
         private val lock = Any()
         private val stores = mutableMapOf<Int, DataStore<Preferences>>()
 
-        private fun getOrCreate(context: Context, appWidgetId: Int): DataStore<Preferences> =
+        fun getOrCreate(context: Context, resolvedId: Int): DataStore<Preferences> =
             synchronized(lock) {
-                stores.getOrPut(appWidgetId) {
+                stores.getOrPut(resolvedId) {
                     PreferenceDataStoreFactory.create {
                         File(
                             context.applicationContext.filesDir,
-                            "datastore/widget_config_${appWidgetId}.preferences_pb"
+                            "datastore/widget_config_${resolvedId}.preferences_pb"
                         )
                     }
                 }
             }
+
+        fun clearCache(widgetId: Int) = synchronized(lock) { stores.remove(widgetId) }
     }
 
     private object Keys {
+        val WIDGET_NAME = stringPreferencesKey("widget_name")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val HEADER_SCALE = floatPreferencesKey("header_scale")
         val SUBHEADER_SCALE = floatPreferencesKey("subheader_scale")
@@ -76,8 +83,9 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
         val REFRESH_NONCE = intPreferencesKey("refresh_nonce")
     }
 
-    val configFlow: Flow<WidgetConfig> = dataStore.data.map { prefs ->
+    val configFlow: Flow<WidgetConfig> = _dataStore.flatMapLatest { store -> store.data }.map { prefs ->
         WidgetConfig(
+            widgetName = prefs[Keys.WIDGET_NAME] ?: "",
             dynamicColor = prefs[Keys.DYNAMIC_COLOR] ?: true,
             typographyScale = TypographyScale(
                 headerScale = prefs[Keys.HEADER_SCALE] ?: 1.0f,
@@ -138,7 +146,8 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
     }
 
     suspend fun updateConfig(config: WidgetConfig) {
-        dataStore.edit { prefs ->
+        _dataStore.value.edit { prefs ->
+            prefs[Keys.WIDGET_NAME] = config.widgetName
             prefs[Keys.DYNAMIC_COLOR] = config.dynamicColor
             prefs[Keys.HEADER_SCALE] = config.typographyScale.headerScale
             prefs[Keys.SUBHEADER_SCALE] = config.typographyScale.subheaderScale
@@ -183,5 +192,24 @@ class WidgetConfigRepository(private val context: Context, appWidgetId: Int) {
     suspend fun applyProfile(profile: AutomationProfile) {
         val current = configFlow.first()
         updateConfig(profile.toWidgetConfig(current))
+    }
+
+    /**
+     * Links this widget's config to [sourceId], or unlinks if null.
+     * On unlink, the current shared config is copied into this widget's own DataStore first.
+     */
+    suspend fun setSyncSource(sourceId: Int?) {
+        if (sourceId == null) {
+            // Capture current config before clearing link so the widget retains it independently
+            val snapshot = configFlow.first()
+            WidgetSyncLinkRepository.setSyncSource(context, appWidgetId, null)
+            clearCache(appWidgetId)
+            _dataStore.value = getOrCreate(context, appWidgetId)
+            updateConfig(snapshot)
+        } else {
+            WidgetSyncLinkRepository.setSyncSource(context, appWidgetId, sourceId)
+            clearCache(appWidgetId)
+            _dataStore.value = getOrCreate(context, WidgetSyncLinkRepository.resolveSource(context, appWidgetId))
+        }
     }
 }

@@ -9,6 +9,7 @@ object ConfigExporter {
 
     fun toJson(config: WidgetConfig): JSONObject = JSONObject().apply {
         put("configVersion", config.configVersion)
+        put("widgetName", config.widgetName)
         put("dynamicColor", config.dynamicColor)
         put("typography", JSONObject().apply {
             put("header", config.typographyScale.headerScale)
@@ -44,6 +45,7 @@ object ConfigExporter {
         }
         return WidgetConfig(
             configVersion = json.optInt("configVersion", 1),
+            widgetName = json.optString("widgetName", ""),
             dynamicColor = json.optBoolean("dynamicColor", true),
             typographyScale = TypographyScale(
                 headerScale = typo?.optDouble("header", 1.0)?.toFloat() ?: 1.0f,

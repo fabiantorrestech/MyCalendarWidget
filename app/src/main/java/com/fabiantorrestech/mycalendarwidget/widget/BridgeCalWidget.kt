@@ -12,6 +12,7 @@ import androidx.glance.material3.ColorProviders
 import com.fabiantorrestech.mycalendarwidget.data.CalendarRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
 import com.fabiantorrestech.mycalendarwidget.ui.theme.DarkColors
 import com.fabiantorrestech.mycalendarwidget.ui.theme.LightColors
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +75,10 @@ class BridgeCalWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
-        appWidgetIds.forEach { WidgetSyncScheduler.cancel(context, it) }
+        appWidgetIds.forEach {
+            WidgetSyncScheduler.cancel(context, it)
+            WidgetSyncLinkRepository.clearAllLinksFor(context, it)
+            WidgetConfigRepository.clearCache(it)
+        }
     }
 }

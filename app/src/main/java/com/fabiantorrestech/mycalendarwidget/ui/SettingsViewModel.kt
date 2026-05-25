@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.fabiantorrestech.mycalendarwidget.data.AutomationProfile
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.CalendarInfo
@@ -14,13 +15,17 @@ import com.fabiantorrestech.mycalendarwidget.data.CalendarRepository
 import com.fabiantorrestech.mycalendarwidget.data.ConfigExporter
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
+import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
 import com.fabiantorrestech.mycalendarwidget.data.toWidgetConfig
+import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetSyncScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
@@ -62,8 +67,19 @@ class SettingsViewModel(
     private val _hasCalendarPermission = MutableStateFlow(false)
     val hasCalendarPermission: StateFlow<Boolean> = _hasCalendarPermission.asStateFlow()
 
+    private val _syncSource = MutableStateFlow<Int?>(
+        WidgetSyncLinkRepository.getSyncSource(appContext, appWidgetId)
+    )
+    val syncSource: StateFlow<Int?> = _syncSource.asStateFlow()
+
+    private val _allOtherWidgets = MutableStateFlow<List<WidgetSummary>>(emptyList())
+    private val _availableWidgetsToSync = MutableStateFlow<List<WidgetSummary>>(emptyList())
+    val availableWidgetsToSync: StateFlow<List<WidgetSummary>> = _availableWidgetsToSync.asStateFlow()
+    val allOtherWidgets: StateFlow<List<WidgetSummary>> = _allOtherWidgets.asStateFlow()
+
     init {
         loadCalendars()
+        loadAvailableWidgets()
     }
 
     fun refreshPermissionState(context: Context) {
@@ -77,6 +93,37 @@ class SettingsViewModel(
     private fun loadCalendars() {
         viewModelScope.launch(Dispatchers.IO) {
             _calendars.value = calendarRepo.getCalendars()
+        }
+    }
+
+    private fun loadAvailableWidgets() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val manager = GlanceAppWidgetManager(appContext)
+            val glanceIds = manager.getGlanceIds(BridgeCalWidget::class.java)
+            val summaries = glanceIds.mapIndexed { index, glanceId ->
+                val id = manager.getAppWidgetId(glanceId)
+                val config = WidgetConfigRepository(appContext, id).configFlow.first()
+                val syncSource = WidgetSyncLinkRepository.getSyncSource(appContext, id)
+                WidgetSummary(
+                    appWidgetId = id,
+                    name = config.widgetName,
+                    style = config.widgetStyle,
+                    displayIndex = index + 1,
+                    syncSourceId = syncSource
+                )
+            }
+            val others = summaries.filter { it.appWidgetId != appWidgetId }
+            _allOtherWidgets.value = others
+            // Only show widgets that are not themselves synced as potential sync targets (prevents chaining)
+            _availableWidgetsToSync.value = others.filter { it.syncSourceId == null }
+        }
+    }
+
+    fun setSyncSource(sourceId: Int?) {
+        viewModelScope.launch {
+            configRepo.setSyncSource(sourceId)
+            _syncSource.value = WidgetSyncLinkRepository.getSyncSource(appContext, appWidgetId)
+            loadAvailableWidgets()
         }
     }
 
