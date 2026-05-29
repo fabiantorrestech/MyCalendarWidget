@@ -10,6 +10,8 @@ enum class HeaderNavStyle { ARROWS, CHIPS }
 
 enum class CalendarLaunchView { DEFAULT, DAY, WEEK, WEEK_AGENDA, MONTH, TEXT_MONTH, YEAR, AGENDA }
 
+enum class CycleUiStyle { DOTS, PILL, TABS }
+
 enum class WidgetFont(val displayName: String, val glanceFamilyName: String?) {
     DEFAULT("Default", null),
     SERIF("Serif", "serif"),
@@ -100,6 +102,12 @@ data class WidgetSummary(
     val style: WidgetStyle,
     val displayIndex: Int,
     val syncSourceId: Int?
+)
+
+data class WidgetProfileEntry(
+    val id: String,
+    val name: String,
+    val config: WidgetConfig
 )
 
 fun AutomationProfile.toWidgetConfig(base: WidgetConfig): WidgetConfig = when (this) {
