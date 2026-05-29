@@ -14,7 +14,10 @@ import com.fabiantorrestech.mycalendarwidget.data.CalendarInfo
 import com.fabiantorrestech.mycalendarwidget.data.CalendarRepository
 import com.fabiantorrestech.mycalendarwidget.data.ConfigExporter
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
+import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
 import com.fabiantorrestech.mycalendarwidget.data.toWidgetConfig
@@ -42,13 +45,23 @@ sealed class ExportState {
 
 class SettingsViewModel(
     private val configRepo: WidgetConfigRepository,
+    private val profileRepo: WidgetProfileRepository,
     private val calendarRepo: CalendarRepository,
     private val appContext: Context,
     val appWidgetId: Int
 ) : ViewModel() {
 
-    val config: StateFlow<WidgetConfig> = configRepo.configFlow
+    val config: StateFlow<WidgetConfig> = profileRepo.activeConfigFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, WidgetConfig())
+
+    val profiles: StateFlow<List<WidgetProfileEntry>> = profileRepo.profilesFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val activeProfileId: StateFlow<String> = profileRepo.activeProfileIdFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val cycleUiStyle: StateFlow<CycleUiStyle> = profileRepo.cycleUiStyleFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CycleUiStyle.PILL)
 
     private val _calendars = MutableStateFlow<List<CalendarInfo>>(emptyList())
     val calendars: StateFlow<List<CalendarInfo>> = _calendars.asStateFlow()
@@ -80,6 +93,10 @@ class SettingsViewModel(
     init {
         loadCalendars()
         loadAvailableWidgets()
+        viewModelScope.launch {
+            val legacyConfig = configRepo.configFlow.first()
+            profileRepo.migrateIfNeeded(legacyConfig)
+        }
     }
 
     fun refreshPermissionState(context: Context) {
@@ -132,7 +149,7 @@ class SettingsViewModel(
             if (newConfig.syncIntervalMinutes != config.value.syncIntervalMinutes) {
                 WidgetSyncScheduler.schedule(appContext, appWidgetId, newConfig.syncIntervalMinutes)
             }
-            configRepo.updateConfig(newConfig)
+            profileRepo.updateProfileConfig(activeProfileId.value, newConfig)
         }
     }
 
@@ -145,8 +162,51 @@ class SettingsViewModel(
 
     fun applyProfile(profile: AutomationProfile) {
         viewModelScope.launch {
-            configRepo.applyProfile(profile)
+            val updated = profile.toWidgetConfig(config.value)
+            profileRepo.updateProfileConfig(activeProfileId.value, updated)
         }
+    }
+
+    fun addProfile(name: String) {
+        viewModelScope.launch {
+            profileRepo.addProfile(name, config.value)
+        }
+    }
+
+    fun renameProfile(id: String, name: String) {
+        viewModelScope.launch { profileRepo.renameProfile(id, name) }
+    }
+
+    fun deleteProfile(id: String) {
+        viewModelScope.launch { profileRepo.deleteProfile(id) }
+    }
+
+    fun setActiveProfile(id: String) {
+        viewModelScope.launch { profileRepo.setActiveProfile(id) }
+    }
+
+    fun moveProfileUp(id: String) {
+        val current = profiles.value
+        val index = current.indexOfFirst { it.id == id }
+        if (index <= 0) return
+        val reordered = current.toMutableList().also {
+            val tmp = it[index - 1]; it[index - 1] = it[index]; it[index] = tmp
+        }
+        viewModelScope.launch { profileRepo.reorderProfiles(reordered.map { it.id }) }
+    }
+
+    fun moveProfileDown(id: String) {
+        val current = profiles.value
+        val index = current.indexOfFirst { it.id == id }
+        if (index < 0 || index >= current.lastIndex) return
+        val reordered = current.toMutableList().also {
+            val tmp = it[index + 1]; it[index + 1] = it[index]; it[index] = tmp
+        }
+        viewModelScope.launch { profileRepo.reorderProfiles(reordered.map { it.id }) }
+    }
+
+    fun setCycleUiStyle(style: CycleUiStyle) {
+        viewModelScope.launch { profileRepo.setCycleUiStyle(style) }
     }
 
     fun exportConfig(context: Context, uri: Uri) {
@@ -176,6 +236,7 @@ class SettingsViewModel(
             initializer {
                 SettingsViewModel(
                     configRepo = WidgetConfigRepository(context, appWidgetId),
+                    profileRepo = WidgetProfileRepository(context, appWidgetId),
                     calendarRepo = CalendarRepository(context),
                     appContext = context,
                     appWidgetId = appWidgetId
