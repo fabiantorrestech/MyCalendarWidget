@@ -10,12 +10,16 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import androidx.glance.material3.ColorProviders
 import com.fabiantorrestech.mycalendarwidget.data.CalendarRepository
+import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
+import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
 import com.fabiantorrestech.mycalendarwidget.ui.theme.DarkColors
 import com.fabiantorrestech.mycalendarwidget.ui.theme.LightColors
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -32,15 +36,27 @@ class BridgeCalWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
         val configRepo = WidgetConfigRepository(context, appWidgetId)
+        val profileRepo = WidgetProfileRepository(context, appWidgetId)
         val calRepo = CalendarRepository(context)
 
+        profileRepo.migrateIfNeeded(configRepo.configFlow.first())
+
         provideContent {
-            val config = androidx.compose.runtime.produceState(
-                initialValue = WidgetConfig(),
-                producer = {
-                    configRepo.configFlow.collect { value = it }
-                }
-            ).value
+            val config = produceState(initialValue = WidgetConfig()) {
+                profileRepo.activeConfigFlow.collect { value = it }
+            }.value
+
+            val profiles = produceState(initialValue = emptyList<WidgetProfileEntry>()) {
+                profileRepo.profilesFlow.collect { value = it }
+            }.value
+
+            val activeProfileId = produceState(initialValue = "") {
+                profileRepo.activeProfileIdFlow.collect { value = it }
+            }.value
+
+            val cycleUiStyle = produceState(initialValue = CycleUiStyle.PILL) {
+                profileRepo.cycleUiStyleFlow.collect { value = it }
+            }.value
 
             val eventsByDay by produceState<Map<LocalDate, List<CalendarEvent>>>(
                 initialValue = emptyMap(),
@@ -63,7 +79,10 @@ class BridgeCalWidget : GlanceAppWidget() {
                     eventsByDay = eventsByDay,
                     config = config,
                     context = context,
-                    glanceId = id
+                    glanceId = id,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle
                 )
             }
         }
@@ -79,6 +98,7 @@ class BridgeCalWidgetReceiver : GlanceAppWidgetReceiver() {
             WidgetSyncScheduler.cancel(context, it)
             WidgetSyncLinkRepository.clearAllLinksFor(context, it)
             WidgetConfigRepository.clearCache(it)
+            WidgetProfileRepository.clearCache(it)
         }
     }
 }
