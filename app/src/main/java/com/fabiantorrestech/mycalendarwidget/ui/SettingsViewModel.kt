@@ -149,7 +149,9 @@ class SettingsViewModel(
             if (newConfig.syncIntervalMinutes != config.value.syncIntervalMinutes) {
                 WidgetSyncScheduler.schedule(appContext, appWidgetId, newConfig.syncIntervalMinutes)
             }
-            profileRepo.updateProfileConfig(activeProfileId.value, newConfig)
+            val profileId = activeProfileId.value
+            if (profileId.isBlank()) return@launch
+            profileRepo.updateProfileConfig(profileId, newConfig)
         }
     }
 
@@ -162,8 +164,10 @@ class SettingsViewModel(
 
     fun applyProfile(profile: AutomationProfile) {
         viewModelScope.launch {
+            val profileId = activeProfileId.value
+            if (profileId.isBlank()) return@launch
             val updated = profile.toWidgetConfig(config.value)
-            profileRepo.updateProfileConfig(activeProfileId.value, updated)
+            profileRepo.updateProfileConfig(profileId, updated)
         }
     }
 
