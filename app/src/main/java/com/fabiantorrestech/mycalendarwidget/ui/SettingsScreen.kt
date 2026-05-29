@@ -15,18 +15,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,12 +55,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 import com.fabiantorrestech.mycalendarwidget.ui.sections.AdvancedSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.AppearanceSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.CalendarFilterSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ClickRoutingSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.DisplaySection
+import com.fabiantorrestech.mycalendarwidget.ui.sections.ProfilesSection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,10 +79,15 @@ fun SettingsScreen(
     val syncSource by viewModel.syncSource.collectAsState()
     val availableWidgets by viewModel.availableWidgetsToSync.collectAsState()
     val allOtherWidgets by viewModel.allOtherWidgets.collectAsState()
+    val profiles by viewModel.profiles.collectAsState()
+    val activeProfileId by viewModel.activeProfileId.collectAsState()
+    val cycleUiStyle by viewModel.cycleUiStyle.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showSyncDialog by rememberSaveable { mutableStateOf(false) }
     var selectedSyncId by rememberSaveable { mutableIntStateOf(-1) }
+    var showAddProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var newProfileName by rememberSaveable { mutableStateOf("") }
 
     // Local state for the name field — avoids a DataStore write on every keystroke
     var localWidgetName by rememberSaveable { mutableStateOf(config.widgetName) }
@@ -128,6 +140,35 @@ fun SettingsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
+        if (showAddProfileDialog) {
+            AlertDialog(
+                onDismissRequest = { showAddProfileDialog = false; newProfileName = "" },
+                title = { Text("New profile") },
+                text = {
+                    OutlinedTextField(
+                        value = newProfileName,
+                        onValueChange = { newProfileName = it },
+                        label = { Text("Profile name") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (newProfileName.isNotBlank()) {
+                                viewModel.addProfile(newProfileName.trim())
+                                showAddProfileDialog = false
+                                newProfileName = ""
+                            }
+                        }
+                    ) { Text("Create") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAddProfileDialog = false; newProfileName = "" }) { Text("Cancel") }
+                }
+            )
+        }
+
         if (showSyncDialog) {
             SyncDialog(
                 syncSource = syncSource,
@@ -156,6 +197,47 @@ fun SettingsScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 4.dp)
+                ) {
+                    items(profiles, key = { it.id }) { profile ->
+                        FilterChip(
+                            selected = profile.id == activeProfileId,
+                            onClick = { viewModel.setActiveProfile(profile.id) },
+                            label = { Text(profile.name) }
+                        )
+                    }
+                    item {
+                        SuggestionChip(
+                            onClick = { showAddProfileDialog = true },
+                            label = { Text("+ Add") }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (profiles.size >= 2) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Text(
+                            text = "⚡ More profiles = more memory and battery. Keep the count low for best performance.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
             val currentSyncSource = syncSource
             if (currentSyncSource != null) {
                 val sourceSummary = allOtherWidgets.firstOrNull { it.appWidgetId == currentSyncSource }
@@ -186,6 +268,20 @@ fun SettingsScreen(
                         }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            item {
+                ProfilesSection(
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    onRename = { id, name -> viewModel.renameProfile(id, name) },
+                    onDelete = { viewModel.deleteProfile(it) },
+                    onMoveUp = { viewModel.moveProfileUp(it) },
+                    onMoveDown = { viewModel.moveProfileDown(it) },
+                    onCycleStyleChange = { viewModel.setCycleUiStyle(it) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             item {
