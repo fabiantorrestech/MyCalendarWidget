@@ -14,9 +14,11 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
+import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.FontMode
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
+import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
@@ -55,7 +57,10 @@ fun BridgeCalWidgetContent(
     eventsByDay: Map<LocalDate, List<CalendarEvent>>,
     config: WidgetConfig,
     context: Context,
-    glanceId: GlanceId
+    glanceId: GlanceId,
+    profiles: List<WidgetProfileEntry> = emptyList(),
+    activeProfileId: String = "",
+    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL
 ) {
     val rootPadding = if (config.strictGridMode) 0.dp else 8.dp
     val rootModifier = GlanceModifier
@@ -96,7 +101,7 @@ fun BridgeCalWidgetContent(
         }
     } else {
         Column(modifier = rootModifier) {
-            WidgetHeader(config, context)
+            WidgetHeader(config, context, profiles, activeProfileId, cycleUiStyle)
             Spacer(modifier = GlanceModifier.height(4.dp))
             if (eventsByDay.isEmpty()) {
                 Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -164,12 +169,20 @@ private fun EventList(
 }
 
 @Composable
-private fun WidgetHeader(config: WidgetConfig, context: Context) {
+private fun WidgetHeader(
+    config: WidgetConfig,
+    context: Context,
+    profiles: List<WidgetProfileEntry> = emptyList(),
+    activeProfileId: String = "",
+    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL
+) {
     val today = LocalDate.now()
     val displayDate = if (config.monthOffset == 0) today
         else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
     val monthYear = displayDate.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+    val showCycler = profiles.size >= 2
 
+    Column(modifier = GlanceModifier.fillMaxWidth()) {
     Row(
         modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -302,6 +315,15 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
             }
         }
 
+        if (showCycler && cycleUiStyle != CycleUiStyle.TABS) {
+            Spacer(modifier = GlanceModifier.width(4.dp))
+            when (cycleUiStyle) {
+                CycleUiStyle.PILL -> ProfilePill(profiles, activeProfileId)
+                CycleUiStyle.DOTS -> ProfileDots(profiles, activeProfileId)
+                else -> {}
+            }
+        }
+
         if (config.showRefreshButton) {
             Spacer(modifier = GlanceModifier.width(4.dp))
             Box(
@@ -349,7 +371,14 @@ private fun WidgetHeader(config: WidgetConfig, context: Context) {
             }
         }
     }
+
+    if (showCycler && cycleUiStyle == CycleUiStyle.TABS) {
+        Spacer(modifier = GlanceModifier.height(2.dp))
+        ProfileTabs(profiles, activeProfileId)
+    }
+    } // end Column
 }
+
 
 @Composable
 private fun FloatingButtonsRow(config: WidgetConfig) {
@@ -823,4 +852,127 @@ private fun isDarkColor(colorInt: Int): Boolean {
     val g = (colorInt shr 8 and 0xFF) / 255.0
     val b = (colorInt and 0xFF) / 255.0
     return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
+}
+
+@Composable
+private fun ProfilePill(profiles: List<WidgetProfileEntry>, activeProfileId: String) {
+    val active = profiles.firstOrNull { it.id == activeProfileId } ?: profiles.firstOrNull() ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = GlanceModifier
+                .width(24.dp).height(24.dp)
+                .background(GlanceTheme.colors.surfaceVariant)
+                .cornerRadius(8.dp)
+                .clickable(actionRunCallback<CycleProfileAction>(
+                    actionParametersOf(cycleDirectionKey to -1)
+                )),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "<",
+                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            )
+        }
+        Spacer(modifier = GlanceModifier.width(4.dp))
+        Box(
+            modifier = GlanceModifier
+                .background(GlanceTheme.colors.surfaceVariant)
+                .cornerRadius(20.dp)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = active.name.take(10),
+                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp),
+                maxLines = 1
+            )
+        }
+        Spacer(modifier = GlanceModifier.width(4.dp))
+        Box(
+            modifier = GlanceModifier
+                .width(24.dp).height(24.dp)
+                .background(GlanceTheme.colors.surfaceVariant)
+                .cornerRadius(8.dp)
+                .clickable(actionRunCallback<CycleProfileAction>(
+                    actionParametersOf(cycleDirectionKey to 1)
+                )),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = ">",
+                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileDots(profiles: List<WidgetProfileEntry>, activeProfileId: String) {
+    val activeIndex = profiles.indexOfFirst { it.id == activeProfileId }.takeIf { it >= 0 } ?: 0
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        profiles.forEachIndexed { index, profile ->
+            val isActive = profile.id == activeProfileId
+            val targetId = if (isActive) profiles[(activeIndex + 1) % profiles.size].id else profile.id
+            val dotModifier = if (isActive) {
+                GlanceModifier
+                    .width(18.dp).height(7.dp)
+                    .background(GlanceTheme.colors.primary)
+                    .cornerRadius(4.dp)
+            } else {
+                GlanceModifier
+                    .width(7.dp).height(7.dp)
+                    .background(GlanceTheme.colors.surfaceVariant)
+                    .cornerRadius(4.dp)
+            }
+            Box(
+                modifier = dotModifier.clickable(
+                    actionRunCallback<JumpToProfileAction>(
+                        actionParametersOf(targetProfileIdKey to targetId)
+                    )
+                )
+            ) {}
+            if (index < profiles.lastIndex) Spacer(modifier = GlanceModifier.width(5.dp))
+        }
+    }
+}
+
+@Composable
+private fun ProfileTabs(profiles: List<WidgetProfileEntry>, activeProfileId: String) {
+    Row(
+        modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        profiles.forEachIndexed { index, profile ->
+            val isActive = profile.id == activeProfileId
+            Box(
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .height(24.dp)
+                    .background(
+                        if (isActive) GlanceTheme.colors.primaryContainer
+                        else GlanceTheme.colors.surfaceVariant
+                    )
+                    .cornerRadius(6.dp)
+                    .padding(horizontal = 2.dp)
+                    .clickable(
+                        actionRunCallback<JumpToProfileAction>(
+                            actionParametersOf(targetProfileIdKey to profile.id)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = profile.name,
+                    style = TextStyle(
+                        color = if (isActive) GlanceTheme.colors.onPrimaryContainer
+                                else GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = 10.sp,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                    ),
+                    maxLines = 1
+                )
+            }
+            if (index < profiles.lastIndex) Spacer(modifier = GlanceModifier.width(2.dp))
+        }
+    }
 }
