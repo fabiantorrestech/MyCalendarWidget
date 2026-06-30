@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +64,7 @@ import com.fabiantorrestech.mycalendarwidget.ui.sections.CalendarFilterSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ClickRoutingSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.DisplaySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ProfilesSection
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,17 +84,28 @@ fun SettingsScreen(
     val profiles by viewModel.profiles.collectAsState()
     val activeProfileId by viewModel.activeProfileId.collectAsState()
     val cycleUiStyle by viewModel.cycleUiStyle.collectAsState()
+    val widgetName by viewModel.widgetName.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
-    var showSyncDialog by rememberSaveable { mutableStateOf(false) }
-    var selectedSyncId by rememberSaveable { mutableIntStateOf(-1) }
+    val scope = rememberCoroutineScope()
     var showAddProfileDialog by rememberSaveable { mutableStateOf(false) }
     var newProfileName by rememberSaveable { mutableStateOf("") }
+    var showSyncDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedSyncId by rememberSaveable { mutableIntStateOf(-1) }
 
     // Local state for the name field — avoids a DataStore write on every keystroke
-    var localWidgetName by rememberSaveable { mutableStateOf(config.widgetName) }
-    LaunchedEffect(config.widgetName) {
-        if (localWidgetName != config.widgetName) localWidgetName = config.widgetName
+    var localWidgetName by rememberSaveable { mutableStateOf(widgetName) }
+    LaunchedEffect(widgetName) {
+        if (localWidgetName != widgetName) localWidgetName = widgetName
+    }
+    // Commits the name; on a duplicate, reverts the field and warns the user.
+    val commitWidgetName: () -> Unit = {
+        if (localWidgetName.trim() != widgetName) {
+            if (!viewModel.setWidgetName(localWidgetName)) {
+                localWidgetName = widgetName
+                scope.launch { snackbarHostState.showSnackbar("A widget with that name already exists") }
+            }
+        }
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -191,6 +204,47 @@ fun SettingsScreen(
             )
         }
 
+        if (showAddProfileDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showAddProfileDialog = false
+                    newProfileName = ""
+                },
+                title = { Text("Add profile") },
+                text = {
+                    OutlinedTextField(
+                        value = newProfileName,
+                        onValueChange = { newProfileName = it },
+                        label = { Text("Profile name") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    val trimmedName = newProfileName.trim()
+                    TextButton(
+                        onClick = {
+                            viewModel.addProfile(trimmedName)
+                            showAddProfileDialog = false
+                            newProfileName = ""
+                        },
+                        enabled = trimmedName.isNotEmpty()
+                    ) {
+                        Text("Add")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showAddProfileDialog = false
+                            newProfileName = ""
+                        }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -256,15 +310,11 @@ fun SettingsScreen(
                     label = { Text("Widget name (optional)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        viewModel.updateConfig(config.copy(widgetName = localWidgetName))
-                    }),
+                    keyboardActions = KeyboardActions(onDone = { commitWidgetName() }),
                     modifier = Modifier
                         .fillMaxWidth()
                         .onFocusChanged { focusState ->
-                            if (!focusState.isFocused && localWidgetName != config.widgetName) {
-                                viewModel.updateConfig(config.copy(widgetName = localWidgetName))
-                            }
+                            if (!focusState.isFocused) commitWidgetName()
                         }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -286,11 +336,61 @@ fun SettingsScreen(
 
             item {
                 Text(
+                    text = "Active profile",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(end = 4.dp)
+                ) {
+                    items(
+                        items = profiles,
+                        key = { it.id }
+                    ) { profile ->
+                        FilterChip(
+                            selected = profile.id == activeProfileId,
+                            onClick = { viewModel.setActiveProfile(profile.id) },
+                            label = { Text(profile.name) }
+                        )
+                    }
+                    item {
+                        SuggestionChip(
+                            onClick = { showAddProfileDialog = true },
+                            label = { Text("+ Add") }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
+                ProfilesSection(
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    onRename = viewModel::renameProfile,
+                    onDelete = viewModel::deleteProfile,
+                    onMoveUp = viewModel::moveProfileUp,
+                    onMoveDown = viewModel::moveProfileDown,
+                    onCycleStyleChange = viewModel::setCycleUiStyle
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
+                Text(
                     text = "Widget Preview",
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
-                PreviewCard(config = config, eventsByDay = previewEvents)
+                PreviewCard(
+                    config = config,
+                    eventsByDay = previewEvents,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 

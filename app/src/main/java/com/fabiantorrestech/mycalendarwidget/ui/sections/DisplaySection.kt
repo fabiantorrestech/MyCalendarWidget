@@ -103,6 +103,12 @@ fun DisplaySection(
         checked = config.alwaysShowToday,
         onCheckedChange = { onConfigChange(config.copy(alwaysShowToday = it)) }
     )
+    ToggleRow(
+        label = "Show multi-day events on every day they span",
+        description = "Duplicate spanning events onto each covered day in the visible window",
+        checked = config.showSpanningEventsEachDay,
+        onCheckedChange = { onConfigChange(config.copy(showSpanningEventsEachDay = it)) }
+    )
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 

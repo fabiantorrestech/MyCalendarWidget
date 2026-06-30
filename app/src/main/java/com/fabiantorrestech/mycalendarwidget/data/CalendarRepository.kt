@@ -6,10 +6,16 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 
 class CalendarRepository(private val context: Context) {
+
+    companion object {
+        private const val MILLIS_PER_DAY = 86_400_000L
+    }
 
     private val meetingUrlPatterns = listOf(
         "zoom.us/j/",
@@ -26,10 +32,13 @@ class CalendarRepository(private val context: Context) {
 
         val zoneId = ZoneId.systemDefault()
         val today = LocalDate.now()
-        val windowBase = if (config.monthOffset == 0) today
-            else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
+        val windowBase = windowBaseDate(today, config)
         val windowStart = windowBase.atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val windowEnd = windowStart + config.daysAheadToLoad.toLong() * 24 * 60 * 60 * 1000
+        val windowEnd = windowBase
+            .plusDays(config.daysAheadToLoad.toLong())
+            .atStartOfDay(zoneId)
+            .toInstant()
+            .toEpochMilli()
 
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().let {
             ContentUris.appendId(it, windowStart)
@@ -183,31 +192,29 @@ class CalendarRepository(private val context: Context) {
             }
         }
 
+        val today = LocalDate.now()
+        val windowBase = windowBaseDate(today, config)
+        val windowEndExclusive = windowBase.plusDays(config.daysAheadToLoad.toLong())
         val grouped = LinkedHashMap<LocalDate, MutableList<CalendarEvent>>()
         for (event in filtered) {
-            val date = if (event.allDay) {
-                LocalDate.ofEpochDay(event.dtStart / 86_400_000L)
+            val dates = if (config.showSpanningEventsEachDay) {
+                eventCoveredDates(event, windowBase, windowEndExclusive, zoneId)
             } else {
-                java.time.Instant.ofEpochMilli(event.dtStart).atZone(zoneId).toLocalDate()
+                listOf(eventStartDate(event, zoneId))
             }
-            grouped.getOrPut(date) { mutableListOf() }.add(event)
+            dates.forEach { date ->
+                grouped.getOrPut(date) { mutableListOf() }.add(event)
+            }
         }
 
         if (config.showEmptyDays) {
-            val today = LocalDate.now()
-            val windowBase = if (config.monthOffset == 0) today
-                else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
             repeat(config.daysAheadToLoad) { i ->
                 grouped.putIfAbsent(windowBase.plusDays(i.toLong()), mutableListOf())
             }
         }
 
         if (config.alwaysShowToday) {
-            val today = LocalDate.now()
-            val windowBase = if (config.monthOffset == 0) today
-                else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
-            val windowEnd = windowBase.plusDays(config.daysAheadToLoad.toLong())
-            if (!today.isBefore(windowBase) && today.isBefore(windowEnd)) {
+            if (!today.isBefore(windowBase) && today.isBefore(windowEndExclusive)) {
                 grouped.putIfAbsent(today, mutableListOf())
             }
         }
@@ -216,6 +223,65 @@ class CalendarRepository(private val context: Context) {
             list.sortedWith(compareBy({ !it.allDay }, { it.dtStart }, { it.title }))
         }.entries.sortedBy { it.key }.associate { it.key to it.value }
     }
+
+    private fun windowBaseDate(today: LocalDate, config: WidgetConfig): LocalDate =
+        if (config.monthOffset == 0) today
+        else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
+
+    private fun eventCoveredDates(
+        event: CalendarEvent,
+        windowStart: LocalDate,
+        windowEndExclusive: LocalDate,
+        zoneId: ZoneId
+    ): List<LocalDate> {
+        val startDate = eventStartDate(event, zoneId)
+        val endExclusive = eventEndExclusiveDate(event, startDate, zoneId)
+        val clippedStart = maxOf(startDate, windowStart)
+        val clippedEnd = minOf(endExclusive, windowEndExclusive)
+
+        if (!clippedStart.isBefore(clippedEnd)) return emptyList()
+
+        return buildList {
+            var current = clippedStart
+            while (current.isBefore(clippedEnd)) {
+                add(current)
+                current = current.plusDays(1)
+            }
+        }
+    }
+
+    private fun eventStartDate(event: CalendarEvent, zoneId: ZoneId): LocalDate =
+        if (event.allDay) {
+            epochMillisToUtcDate(event.dtStart)
+        } else {
+            Instant.ofEpochMilli(event.dtStart).atZone(zoneId).toLocalDate()
+        }
+
+    private fun eventEndExclusiveDate(
+        event: CalendarEvent,
+        startDate: LocalDate,
+        zoneId: ZoneId
+    ): LocalDate {
+        val rawEndExclusive = if (event.allDay) {
+            epochMillisToUtcDate(event.dtEnd)
+        } else {
+            val localEnd = Instant.ofEpochMilli(event.dtEnd).atZone(zoneId)
+            if (localEnd.toLocalTime() == LocalTime.MIDNIGHT && event.dtEnd > event.dtStart) {
+                localEnd.toLocalDate()
+            } else {
+                localEnd.toLocalDate().plusDays(1)
+            }
+        }
+
+        return if (rawEndExclusive.isAfter(startDate)) {
+            rawEndExclusive
+        } else {
+            startDate.plusDays(1)
+        }
+    }
+
+    private fun epochMillisToUtcDate(epochMillis: Long): LocalDate =
+        LocalDate.ofEpochDay(Math.floorDiv(epochMillis, MILLIS_PER_DAY))
 
     private fun extractMeetingUrl(description: String?, location: String?): String? {
         val text = "${description.orEmpty()} ${location.orEmpty()}"

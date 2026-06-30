@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetNameRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
@@ -35,7 +36,7 @@ class WidgetListViewModel(app: Application) : AndroidViewModel(app) {
                 val syncSource = WidgetSyncLinkRepository.getSyncSource(context, appWidgetId)
                 WidgetSummary(
                     appWidgetId = appWidgetId,
-                    name = config.widgetName,
+                    name = WidgetNameRepository.getName(context, appWidgetId),
                     style = config.widgetStyle,
                     displayIndex = index + 1,
                     syncSourceId = syncSource

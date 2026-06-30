@@ -86,6 +86,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Day/time/timezone change listener — rolls "today" over promptly (e.g. at midnight) -->
+        <receiver
+            android:name=".widget.DateChangeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Periodic sync alarm receiver -->
         <receiver
             android:name=".widget.WidgetSyncReceiver"

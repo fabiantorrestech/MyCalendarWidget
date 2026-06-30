@@ -72,6 +72,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
         val DAYS_AHEAD = intPreferencesKey("days_ahead")
         val SHOW_EMPTY_DAYS = booleanPreferencesKey("show_empty_days")
         val ALWAYS_SHOW_TODAY = booleanPreferencesKey("always_show_today")
+        val SHOW_SPANNING_EVENTS_EACH_DAY = booleanPreferencesKey("show_spanning_events_each_day")
         val WIDGET_STYLE = stringPreferencesKey("widget_style")
         val ACTIVE_PROFILE = stringPreferencesKey("active_profile")
         val HEADER_NAV_ENABLED = booleanPreferencesKey("header_nav_enabled")
@@ -125,6 +126,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             daysAheadToLoad = prefs[Keys.DAYS_AHEAD] ?: 30,
             showEmptyDays = prefs[Keys.SHOW_EMPTY_DAYS] ?: false,
             alwaysShowToday = prefs[Keys.ALWAYS_SHOW_TODAY] ?: false,
+            showSpanningEventsEachDay = prefs[Keys.SHOW_SPANNING_EVENTS_EACH_DAY] ?: false,
             widgetStyle = prefs[Keys.WIDGET_STYLE]
                 ?.let { runCatching { WidgetStyle.valueOf(it) }.getOrNull() }
                 ?: WidgetStyle.GCAL_LEFT,
@@ -177,6 +179,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             prefs[Keys.DAYS_AHEAD] = config.daysAheadToLoad
             prefs[Keys.SHOW_EMPTY_DAYS] = config.showEmptyDays
             prefs[Keys.ALWAYS_SHOW_TODAY] = config.alwaysShowToday
+            prefs[Keys.SHOW_SPANNING_EVENTS_EACH_DAY] = config.showSpanningEventsEachDay
             prefs[Keys.WIDGET_STYLE] = config.widgetStyle.name
             prefs[Keys.ACTIVE_PROFILE] = config.activeProfile.name
             prefs[Keys.HEADER_NAV_ENABLED] = config.headerNavEnabled

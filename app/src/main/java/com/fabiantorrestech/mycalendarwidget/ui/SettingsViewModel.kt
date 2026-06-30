@@ -16,6 +16,7 @@ import com.fabiantorrestech.mycalendarwidget.data.ConfigExporter
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetNameRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
@@ -62,6 +63,11 @@ class SettingsViewModel(
 
     val cycleUiStyle: StateFlow<CycleUiStyle> = profileRepo.cycleUiStyleFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, CycleUiStyle.PILL)
+
+    // Widget name is a per-widget identity (keyed by the real appWidgetId), kept separate from
+    // the shared/profile config so synced widgets cannot collide on a name.
+    private val _widgetName = MutableStateFlow(WidgetNameRepository.getName(appContext, appWidgetId))
+    val widgetName: StateFlow<String> = _widgetName.asStateFlow()
 
     private val _calendars = MutableStateFlow<List<CalendarInfo>>(emptyList())
     val calendars: StateFlow<List<CalendarInfo>> = _calendars.asStateFlow()
@@ -123,7 +129,7 @@ class SettingsViewModel(
                 val syncSource = WidgetSyncLinkRepository.getSyncSource(appContext, id)
                 WidgetSummary(
                     appWidgetId = id,
-                    name = config.widgetName,
+                    name = WidgetNameRepository.getName(appContext, id),
                     style = config.widgetStyle,
                     displayIndex = index + 1,
                     syncSourceId = syncSource
@@ -149,9 +155,30 @@ class SettingsViewModel(
             if (newConfig.syncIntervalMinutes != config.value.syncIntervalMinutes) {
                 WidgetSyncScheduler.schedule(appContext, appWidgetId, newConfig.syncIntervalMinutes)
             }
-            val profileId = activeProfileId.value
-            if (profileId.isBlank()) return@launch
+            val profileId = profileRepo.ensureActiveProfileId(config.value)
             profileRepo.updateProfileConfig(profileId, newConfig)
+        }
+    }
+
+    /**
+     * Persists the per-widget name. Returns false (and saves nothing) if [name] would duplicate
+     * another widget's name. Refreshes this widget so the new name renders immediately.
+     */
+    fun setWidgetName(name: String): Boolean {
+        val trimmed = name.trim()
+        if (WidgetNameRepository.isNameTaken(appContext, trimmed, appWidgetId)) return false
+        WidgetNameRepository.setName(appContext, appWidgetId, trimmed)
+        _widgetName.value = trimmed
+        refreshThisWidget()
+        return true
+    }
+
+    private fun refreshThisWidget() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val manager = GlanceAppWidgetManager(appContext)
+            val glanceId = manager.getGlanceIds(BridgeCalWidget::class.java)
+                .firstOrNull { manager.getAppWidgetId(it) == appWidgetId } ?: return@launch
+            BridgeCalWidget().update(appContext, glanceId)
         }
     }
 
@@ -164,8 +191,7 @@ class SettingsViewModel(
 
     fun applyProfile(profile: AutomationProfile) {
         viewModelScope.launch {
-            val profileId = activeProfileId.value
-            if (profileId.isBlank()) return@launch
+            val profileId = profileRepo.ensureActiveProfileId(config.value)
             val updated = profile.toWidgetConfig(config.value)
             profileRepo.updateProfileConfig(profileId, updated)
         }

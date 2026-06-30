@@ -149,6 +149,35 @@ class WidgetProfileRepository(private val context: Context, private val widgetId
         }
     }
 
+    /**
+     * Returns a valid active profile id, creating a "Default" profile (seeded from [fallback])
+     * and/or repairing a missing/blank active id in a single atomic edit. Use this before writing
+     * config so edits are never silently dropped when no profile has been created yet (e.g. the
+     * widget config screen opens before the widget's first render runs [migrateIfNeeded]).
+     */
+    suspend fun ensureActiveProfileId(fallback: WidgetConfig): String {
+        var resolvedId = ""
+        dataStore.edit { prefs ->
+            val profiles = parseProfiles(prefs[Keys.PROFILES_JSON] ?: "")
+            if (profiles.isEmpty()) {
+                val defaultId = UUID.randomUUID().toString()
+                prefs[Keys.PROFILES_JSON] = serializeProfiles(
+                    listOf(WidgetProfileEntry(defaultId, "Default", fallback))
+                )
+                prefs[Keys.ACTIVE_PROFILE_ID] = defaultId
+                resolvedId = defaultId
+            } else {
+                val activeId = prefs[Keys.ACTIVE_PROFILE_ID] ?: ""
+                resolvedId = if (profiles.any { it.id == activeId }) {
+                    activeId
+                } else {
+                    profiles.first().id.also { prefs[Keys.ACTIVE_PROFILE_ID] = it }
+                }
+            }
+        }
+        return resolvedId
+    }
+
     private fun parseProfiles(json: String): List<WidgetProfileEntry> {
         if (json.isBlank()) return emptyList()
         return runCatching {

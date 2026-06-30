@@ -28,10 +28,12 @@ import androidx.compose.ui.unit.sp
 import com.fabiantorrestech.mycalendarwidget.R
 import androidx.compose.ui.text.font.FontFamily
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
+import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
+import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import java.time.LocalDate
 import java.time.ZoneId
@@ -43,11 +45,15 @@ import java.util.Locale
 fun PreviewCard(
     config: WidgetConfig,
     eventsByDay: Map<LocalDate, List<CalendarEvent>>,
+    profiles: List<WidgetProfileEntry> = emptyList(),
+    activeProfileId: String = "",
+    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
     modifier: Modifier = Modifier
 ) {
     val rootPadding = if (config.strictGridMode) 0.dp else 12.dp
     val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
     val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
+    val floatingContentTopInset = previewFloatingContentTopInset(config, profiles, cycleUiStyle)
     val visibleDays = eventsByDay.entries
         .filter { it.key >= LocalDate.now() }
         .take(3)
@@ -60,12 +66,20 @@ fun PreviewCard(
     ) {
         if (floatingMode) {
             Box(modifier = Modifier.padding(rootPadding)) {
-                Column { PreviewEventList(config, visibleDays, suppressFirstMonth) }
-                PreviewFloatingButtonsRow(config, modifier = Modifier.align(Alignment.TopStart))
+                Column(modifier = Modifier.padding(top = floatingContentTopInset)) {
+                    PreviewEventList(config, visibleDays, suppressFirstMonth)
+                }
+                PreviewFloatingControlsOverlay(
+                    config = config,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    modifier = Modifier.align(Alignment.TopStart)
+                )
             }
         } else {
             Column(modifier = Modifier.padding(rootPadding)) {
-                PreviewHeader(config)
+                PreviewHeader(config, profiles, activeProfileId, cycleUiStyle)
                 Spacer(modifier = Modifier.height(6.dp))
                 PreviewEventList(config, visibleDays, suppressFirstMonth)
             }
@@ -106,94 +120,43 @@ private fun PreviewEventList(
 }
 
 @Composable
-private fun PreviewFloatingButtonsRow(config: WidgetConfig, modifier: Modifier = Modifier) {
-    Row(
+private fun PreviewFloatingControlsOverlay(
+    config: WidgetConfig,
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    cycleUiStyle: CycleUiStyle,
+    modifier: Modifier = Modifier
+) {
+    val showCycler = profiles.size >= 2
+    val floatingCycleUiStyle = previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+    val showTabs = showCycler && floatingCycleUiStyle == CycleUiStyle.TABS
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
-        Spacer(modifier = Modifier.weight(1f))
-        if (config.showRefreshButton) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "↺",
-                    fontSize = (14 * config.typographyScale.headerScale).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
+        if (showTabs) {
+            PreviewProfileTabs(profiles, activeProfileId, transparentBackground = true)
+            Spacer(modifier = Modifier.height(2.dp))
         }
-        Box(
-            modifier = Modifier
-                .width(56.dp)
-                .height(36.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_calendar_open),
-                contentDescription = "Open calendar",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        if (config.showQuickAddFab) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .width(56.dp)
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+",
-                    fontSize = (18 * config.typographyScale.headerScale).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+            if (showCycler && !showTabs) {
+                PreviewInlineProfileSwitcher(
+                    profiles,
+                    activeProfileId,
+                    floatingCycleUiStyle,
+                    transparentBackground = true
                 )
+                Spacer(modifier = Modifier.width(6.dp))
             }
-        }
-    }
-}
 
-@Composable
-private fun PreviewHeader(config: WidgetConfig) {
-    val today = LocalDate.now()
-    val monthYear = today.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
-    val headerFontSize = (18 * config.typographyScale.headerScale).sp
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        when {
-            config.headerNavEnabled && config.headerNavStyle == HeaderNavStyle.ARROWS -> {
-                // Left arrow placeholder (preview always at offset 0, so left is disabled)
-                Spacer(modifier = Modifier.width(32.dp))
-
-                Text(
-                    text = monthYear,
-                    fontSize = headerFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER),
-                    modifier = Modifier.weight(1f)
-                )
-
-                Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.weight(1f))
+            if (config.showRefreshButton) {
                 Box(
                     modifier = Modifier
                         .size(28.dp)
@@ -202,87 +165,15 @@ private fun PreviewHeader(config: WidgetConfig) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = ">",
+                        text = "↺",
                         fontSize = (14 * config.typographyScale.headerScale).sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
                     )
                 }
+                Spacer(modifier = Modifier.width(4.dp))
             }
-
-            config.headerNavEnabled && config.headerNavStyle == HeaderNavStyle.CHIPS -> {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    for (offset in 0..3) {
-                        val chipDate = today.plusMonths(offset.toLong())
-                        val shortName = chipDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
-                        val isSelected = offset == 0
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(28.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .padding(horizontal = 2.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = shortName,
-                                fontSize = (11 * config.typographyScale.headerScale).sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
-                            )
-                        }
-                        if (offset < 3) Spacer(modifier = Modifier.width(4.dp))
-                    }
-                }
-            }
-
-            config.showMonthInHeader -> {
-                Text(
-                    text = monthYear,
-                    fontSize = headerFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            else -> {
-                Spacer(modifier = Modifier.weight(1f))
-            }
-        }
-
-        if (config.showRefreshButton) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "↺",
-                    fontSize = (14 * config.typographyScale.headerScale).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
-                )
-            }
-        }
-
-        if (!config.showMonthInHeader) {
-            Spacer(modifier = Modifier.width(4.dp))
             Box(
                 modifier = Modifier
                     .width(56.dp)
@@ -298,29 +189,378 @@ private fun PreviewHeader(config: WidgetConfig) {
                     modifier = Modifier.size(20.dp)
                 )
             }
-        }
-
-        if (config.showQuickAddFab) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .width(56.dp)
-                    .height(36.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+",
-                    fontSize = (18 * config.typographyScale.headerScale).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
-                )
+            if (config.showQuickAddFab) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = (18 * config.typographyScale.headerScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                    )
+                }
             }
         }
     }
 }
+
+@Composable
+private fun PreviewHeader(
+    config: WidgetConfig,
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    cycleUiStyle: CycleUiStyle
+) {
+    val today = LocalDate.now()
+    val displayDate = if (config.monthOffset == 0) today
+    else today.plusMonths(config.monthOffset.toLong()).withDayOfMonth(1)
+    val monthYear = displayDate.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+    val headerFontSize = (18 * config.typographyScale.headerScale).sp
+    val showCycler = profiles.size >= 2
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            when {
+                config.headerNavEnabled && config.headerNavStyle == HeaderNavStyle.ARROWS -> {
+                    Spacer(modifier = Modifier.width(32.dp))
+
+                    Text(
+                        text = monthYear,
+                        fontSize = headerFontSize,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = config.previewFont(FontCategory.MONTH_HEADER),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = ">",
+                            fontSize = (14 * config.typographyScale.headerScale).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                        )
+                    }
+                }
+
+                config.headerNavEnabled && config.headerNavStyle == HeaderNavStyle.CHIPS -> {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        for (offset in 0..3) {
+                            val chipDate = today.plusMonths(offset.toLong())
+                            val shortName = chipDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                            val isSelected = config.monthOffset == offset
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .padding(horizontal = 2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = shortName,
+                                    fontSize = (11 * config.typographyScale.headerScale).sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                                )
+                            }
+                            if (offset < 3) Spacer(modifier = Modifier.width(4.dp))
+                        }
+                    }
+                }
+
+                config.showMonthInHeader -> {
+                    Text(
+                        text = monthYear,
+                        fontSize = headerFontSize,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = config.previewFont(FontCategory.MONTH_HEADER),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                else -> {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+
+            if (showCycler && cycleUiStyle != CycleUiStyle.TABS) {
+                Spacer(modifier = Modifier.width(4.dp))
+                PreviewInlineProfileSwitcher(profiles, activeProfileId, cycleUiStyle)
+            }
+
+            if (config.showRefreshButton) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "↺",
+                        fontSize = (14 * config.typographyScale.headerScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                    )
+                }
+            }
+
+            if (!config.showMonthInHeader) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_calendar_open),
+                        contentDescription = "Open calendar",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            if (config.showQuickAddFab) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = (18 * config.typographyScale.headerScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+                    )
+                }
+            }
+        }
+
+        if (showCycler && cycleUiStyle == CycleUiStyle.TABS) {
+            Spacer(modifier = Modifier.height(2.dp))
+            PreviewProfileTabs(profiles, activeProfileId)
+        }
+    }
+}
+
+@Composable
+private fun PreviewInlineProfileSwitcher(
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    cycleUiStyle: CycleUiStyle,
+    transparentBackground: Boolean = false
+) {
+    when (cycleUiStyle) {
+        CycleUiStyle.PILL -> PreviewProfilePill(profiles, activeProfileId, transparentBackground)
+        CycleUiStyle.DOTS -> PreviewProfileDots(profiles, activeProfileId)
+        CycleUiStyle.TABS -> {}
+    }
+}
+
+@Composable
+private fun PreviewProfilePill(
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    transparentBackground: Boolean = false
+) {
+    val active = profiles.firstOrNull { it.id == activeProfileId } ?: profiles.firstOrNull() ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        PreviewProfileChevron("<", transparentBackground)
+        Spacer(modifier = Modifier.width(4.dp))
+        Box(
+            modifier = Modifier
+                .then(
+                    if (transparentBackground) {
+                        Modifier.padding(horizontal = 4.dp, vertical = 3.dp)
+                    } else {
+                        Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = active.name.take(10),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+        }
+        Spacer(modifier = Modifier.width(4.dp))
+        PreviewProfileChevron(">", transparentBackground)
+    }
+}
+
+@Composable
+private fun PreviewProfileChevron(
+    label: String,
+    transparentBackground: Boolean = false
+) {
+    Box(
+        modifier = Modifier
+            .size(24.dp)
+            .then(
+                if (transparentBackground) {
+                    Modifier
+                } else {
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+private fun PreviewProfileDots(profiles: List<WidgetProfileEntry>, activeProfileId: String) {
+    val resolvedActiveId = resolveActiveProfileId(profiles, activeProfileId)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        profiles.forEachIndexed { index, profile ->
+            val isActive = profile.id == resolvedActiveId
+            Box(
+                modifier = Modifier
+                    .width(if (isActive) 18.dp else 7.dp)
+                    .height(7.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(
+                        if (isActive) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    )
+            )
+            if (index < profiles.lastIndex) Spacer(modifier = Modifier.width(5.dp))
+        }
+    }
+}
+
+@Composable
+private fun PreviewProfileTabs(
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    transparentBackground: Boolean = false
+) {
+    val resolvedActiveId = resolveActiveProfileId(profiles, activeProfileId)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        profiles.forEachIndexed { index, profile ->
+            val isActive = profile.id == resolvedActiveId
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(24.dp)
+                    .then(
+                        if (transparentBackground) {
+                            Modifier.padding(horizontal = 2.dp)
+                        } else {
+                            Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(
+                                    if (isActive) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .padding(horizontal = 2.dp)
+                        }
+                    )
+                ,
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = profile.name,
+                    fontSize = 10.sp,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                    color = if (transparentBackground) {
+                        if (isActive) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1
+                )
+            }
+            if (index < profiles.lastIndex) Spacer(modifier = Modifier.width(2.dp))
+        }
+    }
+}
+
+private fun previewFloatingCycleUiStyle(
+    widgetStyle: WidgetStyle,
+    cycleUiStyle: CycleUiStyle
+): CycleUiStyle =
+    if (cycleUiStyle == CycleUiStyle.TABS && widgetStyle != WidgetStyle.GCAL_LEFT) {
+        CycleUiStyle.DOTS
+    } else {
+        cycleUiStyle
+    }
+
+private fun previewFloatingContentTopInset(
+    config: WidgetConfig,
+    profiles: List<WidgetProfileEntry>,
+    cycleUiStyle: CycleUiStyle
+) = when {
+    profiles.size < 2 -> 0.dp
+    previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle) == CycleUiStyle.TABS -> 64.dp
+    else -> 34.dp
+}
+
+private fun resolveActiveProfileId(
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String
+): String = profiles.firstOrNull { it.id == activeProfileId }?.id
+    ?: profiles.firstOrNull()?.id
+    .orEmpty()
 
 @Composable
 private fun PreviewMonthSectionHeader(date: LocalDate, config: WidgetConfig) {

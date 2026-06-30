@@ -84,6 +84,7 @@ data class WidgetConfig(
     val daysAheadToLoad: Int = 30,
     val showEmptyDays: Boolean = false,
     val alwaysShowToday: Boolean = false,
+    val showSpanningEventsEachDay: Boolean = false,
     val widgetStyle: WidgetStyle = WidgetStyle.GCAL_LEFT,
     val calendarLaunchView: CalendarLaunchView = CalendarLaunchView.DEFAULT,
     val activeProfile: AutomationProfile = AutomationProfile.STANDARD,
