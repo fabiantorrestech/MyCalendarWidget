@@ -177,8 +177,9 @@ class SettingsViewModel(
 
     fun updateConfig(newConfig: WidgetConfig) {
         viewModelScope.launch {
-            if (newConfig.syncIntervalMinutes != config.value.syncIntervalMinutes) {
-                WidgetSyncScheduler.schedule(appContext, appWidgetId, newConfig.syncIntervalMinutes)
+            val newInterval = WidgetSyncScheduler.effectiveIntervalMinutes(newConfig)
+            if (newInterval != WidgetSyncScheduler.effectiveIntervalMinutes(config.value)) {
+                WidgetSyncScheduler.schedule(appContext, appWidgetId, newInterval)
             }
             val profileId = profileRepo.ensureActiveProfileId(config.value)
             profileRepo.updateProfileConfig(profileId, newConfig)

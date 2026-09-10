@@ -5,6 +5,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 
 object WidgetSyncScheduler {
 
@@ -17,6 +19,18 @@ object WidgetSyncScheduler {
      * alarm to catch missed event changes and roll the displayed day over.
      */
     const val INSTANT_BACKSTOP_MINUTES = 15
+
+    /** Density widgets always refresh on this cadence, regardless of their configured interval. */
+    const val DENSITY_INTERVAL_MINUTES = 5
+
+    /**
+     * The sync interval a widget should actually be scheduled with: Density widgets are pinned
+     * to [DENSITY_INTERVAL_MINUTES] so their strip stays fresh; every other style keeps using
+     * its own configured [WidgetConfig.syncIntervalMinutes] (0 meaning "instant", handled by
+     * [schedule]'s backstop).
+     */
+    fun effectiveIntervalMinutes(config: WidgetConfig): Int =
+        if (config.widgetStyle == WidgetStyle.DENSITY) DENSITY_INTERVAL_MINUTES else config.syncIntervalMinutes
 
     fun schedule(context: Context, appWidgetId: Int, intervalMinutes: Int) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager

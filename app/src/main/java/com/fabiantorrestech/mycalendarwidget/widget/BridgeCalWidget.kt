@@ -1,6 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.widget
 
 import android.appwidget.AppWidgetManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.os.Build
 import androidx.glance.GlanceId
@@ -132,15 +133,22 @@ class BridgeCalWidgetReceiver : GlanceAppWidgetReceiver() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         // Ensure every widget has a refresh alarm scheduled, even one that was just added or
         // whose settings were never opened. Instant mode (interval 0) still gets a backstop.
-        val pendingResult = goAsync()
+        // Glance's own GlanceAppWidgetReceiver.onReceive already runs inside a goAsync() of its
+        // own, so this nested goAsync() returns null whenever the process is cold-started by the
+        // APPWIDGET_UPDATE broadcast that invokes onUpdate (e.g. right after install, after a
+        // force-stop, or at boot) — treat the result as nullable rather than crashing on it.
+        val pendingResult: BroadcastReceiver.PendingResult? = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 appWidgetIds.forEach { id ->
-                    val interval = WidgetConfigRepository(context, id).configFlow.first().syncIntervalMinutes
-                    WidgetSyncScheduler.schedule(context, id, interval)
+                    // The style a widget actually renders with lives in the profile repo's
+                    // active config, not the legacy WidgetConfigRepository store.
+                    val cfg = WidgetProfileRepository(context, id).activeConfigFlow.first()
+                    WidgetSyncScheduler.schedule(context, id, WidgetSyncScheduler.effectiveIntervalMinutes(cfg))
                 }
+                MidnightScheduler.schedule(context)
             } finally {
-                pendingResult.finish()
+                pendingResult?.finish()
             }
         }
     }
@@ -154,5 +162,10 @@ class BridgeCalWidgetReceiver : GlanceAppWidgetReceiver() {
             WidgetConfigRepository.clearCache(it)
             WidgetProfileRepository.clearCache(it)
         }
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        MidnightScheduler.cancel(context)
     }
 }
