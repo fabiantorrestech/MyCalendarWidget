@@ -115,10 +115,20 @@ object DensityCalculator {
         val dayEnd = dayRange.last + 1
 
         val onDay = raw.filter { it.end > dayStart && it.begin < dayEnd }
-        val hasAllDay = onDay.any { it.allDay }
+        // hasAllDay still honours the enabled-calendar set and excludes declined/canceled
+        // instances; only the all-day-ness itself is not filtered out here.
+        val hasAllDay = onDay.any {
+            it.allDay &&
+                (enabledCalendarIds.isEmpty() || it.calendarId in enabledCalendarIds) &&
+                it.selfAttendeeStatus != DensityConstants.ATTENDEE_STATUS_DECLINED &&
+                it.status != DensityConstants.EVENT_STATUS_CANCELED
+        }
 
         val busy = onDay
             .filter { isBusy(it, enabledCalendarIds) }
+            // Zero-length and negative-length instances are excluded entirely: they pass
+            // isBusy but must not inflate eventCount/busyEnds while contributing no interval.
+            .filter { it.end > it.begin }
             .sortedWith(compareBy({ it.begin }, { it.end }))
 
         val dayMerged = mergeIntervals(

@@ -225,6 +225,70 @@ class DensityCalculatorTest {
     }
 
     @Test
+    fun `hasAllDay is false when the all-day instance is on a disabled calendar`() {
+        val result = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(0, 0), at(tomorrow, 0, 0), allDay = true, calendarId = 7L)),
+            enabledCalendarIds = setOf(1L, 2L),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertFalse(result.hasAllDay)
+    }
+
+    @Test
+    fun `hasAllDay is false when the all-day instance is declined`() {
+        val result = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(
+                raw(
+                    t(0, 0), at(tomorrow, 0, 0),
+                    allDay = true,
+                    selfAttendeeStatus = DensityConstants.ATTENDEE_STATUS_DECLINED
+                )
+            ),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertFalse(result.hasAllDay)
+    }
+
+    @Test
+    fun `hasAllDay is false when the all-day instance is canceled`() {
+        val result = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(
+                raw(
+                    t(0, 0), at(tomorrow, 0, 0),
+                    allDay = true,
+                    status = DensityConstants.EVENT_STATUS_CANCELED
+                )
+            ),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertFalse(result.hasAllDay)
+    }
+
+    @Test
+    fun `hasAllDay is true when the all-day instance is on an enabled calendar`() {
+        val result = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(0, 0), at(tomorrow, 0, 0), allDay = true, calendarId = 1L)),
+            enabledCalendarIds = setOf(1L, 2L),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertTrue(result.hasAllDay)
+    }
+
+    @Test
     fun `eventCount excludes declined and canceled instances`() {
         val result = DensityCalculator.buildDay(
             date = day,
@@ -239,6 +303,48 @@ class DensityCalculatorTest {
             zone = zone
         )
         assertEquals(1, result.eventCount)
+    }
+
+    @Test
+    fun `a zero-length instance changes nothing in the resulting day`() {
+        val withoutZeroLength = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(9, 0), t(10, 0)), raw(t(13, 0), t(14, 0))),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        val withZeroLength = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(9, 0), t(10, 0)), raw(t(13, 0), t(14, 0)), raw(t(11, 0), t(11, 0))),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertEquals(withoutZeroLength, withZeroLength)
+    }
+
+    @Test
+    fun `a negative-length instance changes nothing in the resulting day`() {
+        val withoutBad = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(9, 0), t(10, 0))),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        val withBad = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(9, 0), t(10, 0)), raw(t(12, 0), t(11, 0))),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertEquals(withoutBad, withBad)
     }
 
     @Test
