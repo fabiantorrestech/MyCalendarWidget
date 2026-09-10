@@ -45,6 +45,17 @@ object ConfigExporter {
         put("monthOffset", config.monthOffset)
         put("showMonthInHeader", config.showMonthInHeader)
         put("syncIntervalMinutes", config.syncIntervalMinutes)
+        put("refreshNonce", config.refreshNonce)
+        put("densityWindowStartMinutes", config.densityWindowStartMinutes)
+        put("densityWindowEndMinutes", config.densityWindowEndMinutes)
+        put("densityLookaheadDays", config.densityLookaheadDays)
+        put("densityLoadBaselineMinutes", config.densityLoadBaselineMinutes)
+        put("densityRolloverHour", config.densityRolloverHour)
+        put("densityBusyColor", config.densityBusyColor)
+        put("densityStripMode", config.densityStripMode.name)
+        put("densityPeekFormat", config.densityPeekFormat.name)
+        put("densityCountMode", config.densityCountMode.name)
+        put("densityCalendarTones", JSONObject(calendarTonesToJson(config.densityCalendarTones)))
     }
 
     fun fromJson(json: JSONObject): WidgetConfig {
@@ -95,7 +106,21 @@ object ConfigExporter {
                 .let { runCatching { HeaderNavStyle.valueOf(it) }.getOrDefault(HeaderNavStyle.ARROWS) },
             monthOffset = json.optInt("monthOffset", 0),
             showMonthInHeader = json.optBoolean("showMonthInHeader", true),
-            syncIntervalMinutes = json.optInt("syncIntervalMinutes", 0)
+            syncIntervalMinutes = json.optInt("syncIntervalMinutes", 0),
+            refreshNonce = json.optInt("refreshNonce", 0),
+            densityWindowStartMinutes = json.optInt("densityWindowStartMinutes", 480),
+            densityWindowEndMinutes = json.optInt("densityWindowEndMinutes", 1320),
+            densityLookaheadDays = json.optInt("densityLookaheadDays", 3),
+            densityLoadBaselineMinutes = json.optInt("densityLoadBaselineMinutes", 480),
+            densityRolloverHour = json.optInt("densityRolloverHour", 19),
+            densityBusyColor = json.optInt("densityBusyColor", 0),
+            densityStripMode = json.optString("densityStripMode")
+                .let { runCatching { DensityStripMode.valueOf(it) }.getOrDefault(DensityStripMode.SHAPE) },
+            densityPeekFormat = json.optString("densityPeekFormat")
+                .let { runCatching { DensityPeekFormat.valueOf(it) }.getOrDefault(DensityPeekFormat.GROUPED) },
+            densityCountMode = json.optString("densityCountMode")
+                .let { runCatching { DensityCountMode.valueOf(it) }.getOrDefault(DensityCountMode.LEFT) },
+            densityCalendarTones = calendarTonesFromJson(json.optJSONObject("densityCalendarTones")?.toString())
         )
     }
 
@@ -136,6 +161,25 @@ object ConfigExporter {
             ?.let { runCatching { WidgetFont.valueOf(it) }.getOrNull() }
             ?: WidgetFont.DEFAULT
     )
+
+    /** Encodes calendarId -> tone as a JSON object string, e.g. {"12":0,"15":3}. */
+    internal fun calendarTonesToJson(tones: Map<Long, Int>): String =
+        JSONObject().apply {
+            tones.forEach { (calendarId, tone) -> put(calendarId.toString(), tone) }
+        }.toString()
+
+    /** Tolerant decode: null, blank or unparseable input yields an empty map. */
+    internal fun calendarTonesFromJson(json: String?): Map<Long, Int> {
+        if (json.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            val obj = JSONObject(json)
+            val result = mutableMapOf<Long, Int>()
+            obj.keys().forEach { key ->
+                key.toLongOrNull()?.let { calendarId -> result[calendarId] = obj.getInt(key) }
+            }
+            result
+        }.getOrDefault(emptyMap())
+    }
 
     suspend fun exportToUri(context: Context, uri: Uri, config: WidgetConfig): Result<Uri> {
         return runCatching {
