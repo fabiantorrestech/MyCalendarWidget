@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +32,7 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
@@ -50,6 +52,7 @@ private const val COUNT_SIZE_SP = 24
 private const val COUNT_SENTENCE_SIZE_SP = 17
 private const val QUALIFIER_SIZE_SP = 13
 private const val AXIS_SIZE_SP = 11
+private const val DAY_LABEL_SIZE_SP = 11
 
 /**
  * The density widget: a headline count, a qualifier and the busy strip — never any event
@@ -220,6 +223,16 @@ fun DensityWidgetContent(
                     )
                 }
 
+                if (!compact && config.densityLookaheadDays > 0 && snapshot.lookahead.isNotEmpty()) {
+                    DensityLookaheadBars(
+                        snapshot = snapshot,
+                        config = config,
+                        palette = palette,
+                        widthPx = widthPx,
+                        density = density
+                    )
+                }
+
                 if (narrow && !compact) {
                     Spacer(modifier = GlanceModifier.height(4.dp))
                     Row(
@@ -240,6 +253,76 @@ fun DensityWidgetContent(
                 }
             }
         }
+    }
+}
+
+/**
+ * The divider, day-of-week labels and load bars below the axis: a hairline (G5
+ * pre-blended, never alpha) in [DensityPalette.free], then one label per look-ahead day
+ * over the [DensityCanvas.renderLoadBars] bitmap. The label [Row] uses the same column
+ * count and the same [DensityLayout.DAY_BAR_GUTTER_DP] gap as the bars bitmap, so each
+ * label's cell lines up with the bar underneath it.
+ *
+ * Wrapped in its own [Column] rather than emitting its six elements as siblings of the
+ * caller's `Column`: a Glance `Column`/`Row` silently truncates past ten direct children
+ * (`GlanceAppWidget: Truncated Column container from 11 to 10 elements`, dropping
+ * whichever element lands 11th — the bars image, in the tall two-column layouts this
+ * block only ever appears in), so this whole block must count as exactly one child of
+ * the widget's outer `Column`.
+ */
+@Composable
+private fun DensityLookaheadBars(
+    snapshot: DensitySnapshot,
+    config: WidgetConfig,
+    palette: DensityPalette,
+    widthPx: Int,
+    density: Float
+) {
+    Column(modifier = GlanceModifier.fillMaxWidth()) {
+        Spacer(modifier = GlanceModifier.height(DensityLayout.DIVIDER_TOP_GAP_DP.dp))
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(ColorProvider(Color(palette.free)))
+        ) {}
+        Spacer(modifier = GlanceModifier.height(DensityLayout.LABELS_TOP_GAP_DP.dp))
+
+        val labels = DensitySpecBuilder.dayLabels(snapshot, Locale.getDefault())
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
+            labels.forEachIndexed { index, label ->
+                if (index > 0) {
+                    Spacer(modifier = GlanceModifier.width(DensityLayout.DAY_BAR_GUTTER_DP.dp))
+                }
+                Box(modifier = GlanceModifier.defaultWeight()) {
+                    Text(
+                        text = label,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = (DAY_LABEL_SIZE_SP * config.typographyScale.eventTimeScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
+                        ),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = GlanceModifier.height(DensityLayout.BARS_TOP_GAP_DP.dp))
+
+        val barsSpec = DensitySpecBuilder.loadBarsSpec(
+            snapshot = snapshot,
+            config = config,
+            palette = palette,
+            widthPx = widthPx,
+            density = density
+        )
+        Image(
+            ImageProvider(remember(barsSpec) { DensityCanvas.renderLoadBars(barsSpec) }),
+            null,
+            GlanceModifier.fillMaxWidth().height(DensityLayout.DAY_BAR_HEIGHT_DP.dp),
+            ContentScale.FillBounds
+        )
     }
 }
 

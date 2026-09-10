@@ -52,6 +52,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.density.AxisSpec
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityPalette
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import java.time.LocalDate
 import java.time.ZoneId
@@ -579,6 +580,16 @@ private fun PreviewDensityContent(
                 )
             }
 
+            if (!compact && config.densityLookaheadDays > 0 && snapshot.lookahead.isNotEmpty()) {
+                PreviewDensityLookaheadBars(
+                    snapshot = snapshot,
+                    config = config,
+                    palette = palette,
+                    widthPx = ((widthDp.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt(),
+                    density = density
+                )
+            }
+
             if (narrow && !compact) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
@@ -617,6 +628,63 @@ private fun PreviewDensityAxisRow(axis: AxisSpec, config: WidgetConfig) {
             }
         }
     }
+}
+
+/**
+ * Preview mirror of the widget's `DensityLookaheadBars`: divider, day labels, then the
+ * same [DensityCanvas.renderLoadBars] bitmap built from the same [DensitySpecBuilder]
+ * spec, so the settings preview and the widget draw the identical bars.
+ */
+@Composable
+private fun PreviewDensityLookaheadBars(
+    snapshot: DensitySnapshot,
+    config: WidgetConfig,
+    palette: DensityPalette,
+    widthPx: Int,
+    density: Float
+) {
+    Spacer(modifier = Modifier.height(DensityLayout.DIVIDER_TOP_GAP_DP.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Color(palette.free))
+    )
+    Spacer(modifier = Modifier.height(DensityLayout.LABELS_TOP_GAP_DP.dp))
+
+    val labels = DensitySpecBuilder.dayLabels(snapshot, Locale.getDefault())
+    Row(modifier = Modifier.fillMaxWidth()) {
+        labels.forEachIndexed { index, label ->
+            if (index > 0) {
+                Spacer(modifier = Modifier.width(DensityLayout.DAY_BAR_GUTTER_DP.dp))
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    fontSize = (11 * config.typographyScale.eventTimeScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    fontFamily = config.previewFont(FontCategory.EVENT_TIME)
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(DensityLayout.BARS_TOP_GAP_DP.dp))
+
+    val barsSpec = DensitySpecBuilder.loadBarsSpec(
+        snapshot = snapshot,
+        config = config,
+        palette = palette,
+        widthPx = widthPx,
+        density = density
+    )
+    Image(
+        bitmap = remember(barsSpec) { DensityCanvas.renderLoadBars(barsSpec).asImageBitmap() },
+        contentDescription = null,
+        contentScale = ContentScale.FillBounds,
+        modifier = Modifier.fillMaxWidth().height(DensityLayout.DAY_BAR_HEIGHT_DP.dp)
+    )
 }
 
 /** The widget's [com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton], inert. */
