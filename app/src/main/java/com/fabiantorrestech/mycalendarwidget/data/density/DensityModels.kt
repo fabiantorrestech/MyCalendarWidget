@@ -54,7 +54,12 @@ data class DayDensity(
     val date: LocalDate,
     /** Day-scoped busy event count; includes events outside the strip window. */
     val eventCount: Int,
-    /** True when the day carries an all-day instance, observed before any filtering. */
+    /**
+     * True when the day carries an all-day instance that honours the enabled-calendar
+     * set and excludes declined/cancelled instances, same as every other busy check here
+     * — only the all-day exclusion itself is skipped (an all-day instance has no time
+     * span to filter on).
+     */
     val hasAllDay: Boolean,
     /** Merged over the whole day; drives day load and the headline qualifier. */
     val dayMerged: List<BusyInterval>,

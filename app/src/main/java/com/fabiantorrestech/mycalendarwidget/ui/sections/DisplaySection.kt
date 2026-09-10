@@ -103,12 +103,26 @@ fun DisplaySection(
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
     }
 
-    IntSliderRow(
-        label = "Days to look ahead",
-        savedValue = config.daysAheadToLoad,
-        range = 7..90,
-        onValueChangeFinished = { onConfigChange(config.copy(daysAheadToLoad = it)) }
-    )
+    // Density's peek list is the only thing this range still drives in that style (the
+    // agenda/detail lines it also feeds are hidden above for Density), so it gets its own
+    // label and a one-line description there instead of sharing "Days to look ahead"
+    // with the density section's separate look-ahead-bars range.
+    if (config.widgetStyle == WidgetStyle.DENSITY) {
+        IntSliderRow(
+            label = "Peek horizon (days)",
+            description = "How far ahead the peek list reaches",
+            savedValue = config.daysAheadToLoad,
+            range = 7..90,
+            onValueChangeFinished = { onConfigChange(config.copy(daysAheadToLoad = it)) }
+        )
+    } else {
+        IntSliderRow(
+            label = "Days to look ahead",
+            savedValue = config.daysAheadToLoad,
+            range = 7..90,
+            onValueChangeFinished = { onConfigChange(config.copy(daysAheadToLoad = it)) }
+        )
+    }
     ToggleRow(
         label = "Show empty days",
         description = "Include days with no events in the list",

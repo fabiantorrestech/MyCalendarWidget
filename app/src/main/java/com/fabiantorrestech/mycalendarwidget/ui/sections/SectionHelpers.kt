@@ -74,6 +74,7 @@ fun IntSliderRow(
     savedValue: Int,
     range: IntRange,
     valueLabel: (Int) -> String = { it.toString() },
+    description: String? = null,
     onValueChangeFinished: (Int) -> Unit
 ) {
     var localValue by remember(savedValue) { mutableFloatStateOf(savedValue.toFloat()) }
@@ -83,11 +84,19 @@ fun IntSliderRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (description != null) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Text(
                 text = valueLabel(localValue.roundToInt()),
                 style = MaterialTheme.typography.bodySmall,

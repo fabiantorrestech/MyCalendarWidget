@@ -125,10 +125,14 @@ class DensityCalendarSource(private val context: Context) {
             val eventColorIdx = it.getColumnIndexOrThrow(Instances.EVENT_COLOR)
 
             while (it.moveToNext()) {
-                val calendarColor = if (it.isNull(calendarColorIdx)) {
-                    DensityConstants.DEFAULT_BUSY_COLOR
+                // 0 is treated the same as null: a present-but-zero CALENDAR_COLOR is not
+                // a real colour choice (Detail would otherwise paint a black block), so
+                // it falls back to the same default an absent column would.
+                val calendarColorRaw = if (it.isNull(calendarColorIdx)) 0 else it.getInt(calendarColorIdx)
+                val calendarColor = if (calendarColorRaw != 0) {
+                    calendarColorRaw
                 } else {
-                    it.getInt(calendarColorIdx)
+                    DensityConstants.DEFAULT_BUSY_COLOR
                 }
 
                 // Prefer EVENT_COLOR when set and non-zero, else DISPLAY_COLOR, else the

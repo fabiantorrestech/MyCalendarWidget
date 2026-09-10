@@ -150,7 +150,7 @@ fun DensitySection(
     )
 
     IntSliderRow(
-        label = "Days to look ahead",
+        label = "Look-ahead bars (days)",
         savedValue = config.densityLookaheadDays,
         range = 0..7,
         onValueChangeFinished = { onConfigChange(config.copy(densityLookaheadDays = it)) }
