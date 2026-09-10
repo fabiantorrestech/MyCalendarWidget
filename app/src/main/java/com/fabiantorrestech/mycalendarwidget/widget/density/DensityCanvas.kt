@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.LaneRect
 import kotlin.math.max
 import kotlin.math.min
@@ -48,7 +49,12 @@ sealed interface StripContent {
     ) : StripContent
 }
 
-/** The dimmed, blurred backdrop behind the peek sheet. Consumed by the peek task. */
+/**
+ * Turns [DensityCanvas.renderStrip] into the dimmed, blurred backdrop the peek sheet
+ * sits on. [dimToward] is how far every colour is pushed toward [backgroundColor] before
+ * anything is drawn (0 = untouched, 1 = a flat ground); [blurFactor] is the downscale
+ * ratio the blur is done at — larger is blurrier and cheaper.
+ */
 data class GhostSpec(
     val backgroundColor: Int,
     val dimToward: Float = 0.6f,
@@ -139,9 +145,15 @@ object DensityCanvas {
      * The strip as a transparent-backed ARGB bitmap: free track, then the busy content
      * clipped to the track, then the now-marker on top. Oversized specs are scaled down
      * uniformly so the result stays inside [MAX_BITMAP_BYTES].
+     *
+     * With a [StripSpec.ghost] set the same drawing becomes the peek sheet's backdrop:
+     * every colour is dimmed toward the ground *before* it is drawn (G5 — the widget
+     * never stacks a translucent scrim over the launcher), the overhang rows are filled
+     * so the bitmap is opaque edge to edge, and the finished bitmap is blurred. The
+     * bitmap's size is unchanged, so the `Image` hosting it needs no special case.
      */
     fun renderStrip(spec: StripSpec): Bitmap {
-        val scaled = withinBudget(spec)
+        val scaled = withinBudget(spec).let { if (it.ghost != null) dimmed(it, it.ghost) else it }
         val bitmap = Bitmap.createBitmap(
             max(1, scaled.widthPx),
             max(1, scaled.heightPx),
@@ -154,6 +166,20 @@ object DensityCanvas {
         }
 
         val track = trackRect(scaled)
+
+        // The caret's overhang bands are transparent in the normal strip (the launcher
+        // wallpaper shows through around the caret). Under the peek they must not be:
+        // blurring a bitmap with transparent rows drags that transparency inward and
+        // leaves a washed-out halo along the strip's top and bottom edges.
+        if (scaled.ghost != null && scaled.overhangPx > 0) {
+            paint.color = scaled.backgroundColor
+            canvas.drawRect(IntRect(0, 0, scaled.widthPx, track.top).toRect(), paint)
+            canvas.drawRect(
+                IntRect(0, track.bottom, scaled.widthPx, scaled.heightPx).toRect(),
+                paint
+            )
+        }
+
         paint.color = scaled.freeColor
         canvas.drawRect(track.toRect(), paint)
 
@@ -171,7 +197,57 @@ object DensityCanvas {
             paint.color = scaled.nowColor
             canvas.drawRect(caret.toRect(), paint)
         }
-        return bitmap
+
+        return scaled.ghost?.let { blurred(bitmap, it) } ?: bitmap
+    }
+
+    /**
+     * Every colour in [spec] pushed [GhostSpec.dimToward] of the way to
+     * [GhostSpec.backgroundColor]. Pre-blending rather than drawing a scrim on top is
+     * what keeps G5: the result is a set of opaque colours, so nothing about this bitmap
+     * depends on alpha compositing against the launcher.
+     */
+    private fun dimmed(spec: StripSpec, ghost: GhostSpec): StripSpec {
+        fun dim(color: Int) = ColorMath.lerp(color, ghost.backgroundColor, ghost.dimToward)
+        val content = when (val c = spec.content) {
+            is StripContent.Shape -> c.copy(colorInt = dim(c.colorInt))
+            is StripContent.Lanes -> c.copy(
+                rects = c.rects.map { it.copy(colorInt = dim(it.colorInt)) },
+                laneOutlineColor = c.laneOutlineColor?.let(::dim),
+                edgeColors = c.edgeColors.mapValues { (_, color) -> dim(color) }
+            )
+        }
+        return spec.copy(
+            content = content,
+            freeColor = dim(spec.freeColor),
+            nowColor = dim(spec.nowColor),
+            backgroundColor = dim(spec.backgroundColor)
+        )
+    }
+
+    /**
+     * A cheap box blur: downscale by [GhostSpec.blurFactor] with bilinear filtering, then
+     * stretch back to the original size with the same filtering. `RenderEffect` is not an
+     * option here (this bitmap is handed to a `RemoteViews` `ImageView`, not a hardware
+     * layer) and `ScriptIntrinsicBlur` is deprecated and removed above API 31, so two
+     * filtered scales is both the portable choice and, at a factor of 8, a very fast one.
+     */
+    private fun blurred(source: Bitmap, ghost: GhostSpec): Bitmap {
+        val factor = max(1, ghost.blurFactor)
+        val small = Bitmap.createScaledBitmap(
+            source,
+            max(1, source.width / factor),
+            max(1, source.height / factor),
+            true
+        )
+        val out = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(
+            small,
+            Rect(0, 0, small.width, small.height),
+            Rect(0, 0, out.width, out.height),
+            Paint(Paint.FILTER_BITMAP_FLAG)
+        )
+        return out
     }
 
     private fun drawShape(

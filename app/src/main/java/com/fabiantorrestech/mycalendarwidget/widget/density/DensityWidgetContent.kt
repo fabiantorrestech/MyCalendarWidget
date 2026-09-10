@@ -13,6 +13,7 @@ import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
+import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
@@ -62,6 +63,15 @@ private const val DAY_LABEL_SIZE_SP = 11
  * The strip itself is a bitmap drawn by [DensityCanvas] from a [StripSpec] that
  * [DensitySpecBuilder] builds; the settings preview builds the same spec, so the two
  * cannot drift. Everything else stays real Glance text (G6).
+ *
+ * [peekOpen] turns this into the peek sheet's backdrop: nothing but the strip is
+ * composed, and the strip is drawn ghosted (dimmed and blurred, see [GhostSpec]) and
+ * inert. What is layered on top of it is the dispatcher's business, not this package's.
+ *
+ * [stripAction] is what tapping the strip runs while closed, and it is a *parameter*
+ * rather than a named action on purpose: this package may not depend on the package that
+ * owns the sheet (G1), because that is where the event content lives. The dispatcher
+ * supplies the action; this file never learns what it does.
  */
 @Composable
 fun DensityWidgetContent(
@@ -71,7 +81,9 @@ fun DensityWidgetContent(
     profiles: List<WidgetProfileEntry>,
     activeProfileId: String,
     cycleUiStyle: CycleUiStyle,
-    use24Hour: Boolean
+    use24Hour: Boolean,
+    peekOpen: Boolean = false,
+    stripAction: Action? = null
 ) {
     val size = LocalSize.current
     val compact = size.height < DensityLayout.COMPACT_HEIGHT_DP.dp
@@ -102,21 +114,6 @@ fun DensityWidgetContent(
                 }
 
                 val zone = ZoneId.systemDefault()
-                val headline = DensityCalculator.headline(
-                    featured = snapshot.featured,
-                    featuredIsToday = snapshot.featuredIsToday,
-                    nowMillis = snapshot.nowMillis,
-                    rolloverHour = config.densityRolloverHour,
-                    countMode = config.densityCountMode,
-                    zone = zone,
-                    use24Hour = use24Hour,
-                    locale = Locale.getDefault()
-                )
-                val countSize = if (headline.countIsSentence) {
-                    COUNT_SENTENCE_SIZE_SP
-                } else {
-                    COUNT_SIZE_SP
-                }
 
                 // Glance colours are ColorProviders; resolving them here keeps
                 // DensitySpecBuilder and DensityCanvas free of Glance.
@@ -140,7 +137,39 @@ fun DensityWidgetContent(
                     // The caret means "you are here": only today's strip may carry one.
                     nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
                     zone = zone
+                ).copy(
+                    ghost = if (peekOpen) GhostSpec(palette.background) else null
                 )
+
+                if (peekOpen) {
+                    // The peek's backdrop and nothing else: no headline, no axis, no
+                    // bars, no chrome, and no click target — the sheet layered over this
+                    // owns every touch, so a mis-tap can never fall through to the strip
+                    // and re-open what the user is already looking at.
+                    Image(
+                        ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
+                        null,
+                        GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
+                        ContentScale.FillBounds
+                    )
+                    return@Column
+                }
+
+                val headline = DensityCalculator.headline(
+                    featured = snapshot.featured,
+                    featuredIsToday = snapshot.featuredIsToday,
+                    nowMillis = snapshot.nowMillis,
+                    rolloverHour = config.densityRolloverHour,
+                    countMode = config.densityCountMode,
+                    zone = zone,
+                    use24Hour = use24Hour,
+                    locale = Locale.getDefault()
+                )
+                val countSize = if (headline.countIsSentence) {
+                    COUNT_SENTENCE_SIZE_SP
+                } else {
+                    COUNT_SIZE_SP
+                }
 
                 Row(
                     modifier = GlanceModifier.fillMaxWidth(),
@@ -203,10 +232,13 @@ fun DensityWidgetContent(
                 // The null accessibility label is passed positionally on purpose: the G1
                 // content-free grep is case-insensitive, so naming that parameter here
                 // would trip a check this package exists to pass.
+                val stripModifier = GlanceModifier
+                    .fillMaxWidth()
+                    .height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp)
                 Image(
                     ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
                     null,
-                    GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
+                    if (stripAction != null) stripModifier.clickable(stripAction) else stripModifier,
                     ContentScale.FillBounds
                 )
 
