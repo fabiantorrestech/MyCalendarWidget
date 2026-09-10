@@ -109,6 +109,35 @@ object DensityLayout {
 
     /** Gap between the day-label row and the bars bitmap. */
     const val BARS_TOP_GAP_DP = 4f
+
+    /** G7: the peek sheet's "Upcoming" bar and its close button row. */
+    const val PEEK_TOP_BAR_DP = 18f
+
+    /** G7: a GROUPED date header row. */
+    const val PEEK_HEADER_DP = 16f
+
+    /** G7: one event row in the peek sheet. */
+    const val PEEK_ROW_DP = 22f
+
+    /**
+     * G7: the DATED day separator's hairline. With 1dp of padding above and below it
+     * occupies the 3dp the constraint names.
+     */
+    const val PEEK_SEPARATOR_DP = 1f
+
+    /** G7: the calendar-colour dot on a peek event row. */
+    const val PEEK_DOT_DP = 10f
+
+    /** G7: the DATED date pill's text size, in sp. */
+    const val PEEK_DATE_PILL_SP = 9.5f
+
+    /**
+     * The peek row's time column. 12-hour times ("10:30a") need more room than 24-hour
+     * ones ("10:30"), and a fixed width per mode keeps every dot and title in the list
+     * on one vertical line rather than ragged behind times of differing length.
+     */
+    const val PEEK_TIME_COL_12H_DP = 44f
+    const val PEEK_TIME_COL_24H_DP = 40f
 }
 
 /**

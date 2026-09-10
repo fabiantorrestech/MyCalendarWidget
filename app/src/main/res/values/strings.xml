@@ -6,4 +6,9 @@
     <string name="no_events">No upcoming events</string>
     <string name="permission_required">Calendar permission required to display events</string>
     <string name="density_no_permission">Tap to grant calendar access</string>
+    <string name="peek_upcoming">Upcoming</string>
+    <string name="peek_today">Today</string>
+    <string name="peek_tomorrow">Tomorrow</string>
+    <string name="peek_all_day">All day</string>
+    <string name="peek_empty">Nothing coming up</string>
 </resources>

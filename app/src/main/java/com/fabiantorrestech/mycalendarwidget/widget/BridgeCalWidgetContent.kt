@@ -1,7 +1,9 @@
 package com.fabiantorrestech.mycalendarwidget.widget
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -22,7 +24,11 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekOverlay
+import com.fabiantorrestech.mycalendarwidget.widget.peek.SetPeekAction
+import com.fabiantorrestech.mycalendarwidget.widget.peek.peekOpenKey
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
@@ -72,20 +78,56 @@ fun BridgeCalWidgetContent(
     activeProfileId: String = "",
     cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
     densitySnapshot: DensitySnapshot? = null,
-    use24Hour: Boolean = false
+    use24Hour: Boolean = false,
+    peekOpen: Boolean = false
 ) {
     // The style dispatch is exhaustive with no `else`: a new WidgetStyle must be given an
     // explicit arm here rather than silently rendering as the agenda list.
     when (config.widgetStyle) {
-        WidgetStyle.DENSITY -> DensityWidgetContent(
-            snapshot = densitySnapshot,
-            config = config,
-            context = context,
-            profiles = profiles,
-            activeProfileId = activeProfileId,
-            cycleUiStyle = cycleUiStyle,
-            use24Hour = use24Hour
-        )
+        WidgetStyle.DENSITY -> {
+            // One Box, two layers: the density renderer (which becomes a ghosted strip
+            // and nothing else once the peek opens) and, above it, the peek sheet. The
+            // sheet lives in `widget/peek/` and the renderer in `widget/density/`; only
+            // this dispatcher knows about both, which is what keeps the density pipeline
+            // free of event content by construction (G1) — DensityWidgetContent is never
+            // handed `eventsByDay` at all.
+            Box(modifier = GlanceModifier.fillMaxSize()) {
+                DensityWidgetContent(
+                    snapshot = densitySnapshot,
+                    config = config,
+                    context = context,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    use24Hour = use24Hour,
+                    peekOpen = peekOpen,
+                    // Supplied from here because `widget/density/` may not reference the
+                    // peek package; the renderer only knows "the strip runs this".
+                    stripAction = actionRunCallback<SetPeekAction>(
+                        actionParametersOf(peekOpenKey to true)
+                    )
+                )
+                if (peekOpen) {
+                    val isDark = (context.resources.configuration.uiMode and
+                        Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                    PeekOverlay(
+                        eventsByDay = eventsByDay,
+                        config = config,
+                        context = context,
+                        use24Hour = use24Hour,
+                        // The same palette the ghosted strip behind the sheet was drawn
+                        // from, so the DATED date pill and the strip agree on their ground.
+                        palette = DensitySpecBuilder.palette(
+                            config = config,
+                            isDark = isDark,
+                            background = GlanceTheme.colors.widgetBackground.getColor(context).toArgb(),
+                            onSurface = GlanceTheme.colors.onSurface.getColor(context).toArgb(),
+                            primary = GlanceTheme.colors.primary.getColor(context).toArgb()
+                        )
+                    )
+                }
+            }
+        }
 
         WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.GCAL_LEFT -> {
             val rootPadding = if (config.strictGridMode) 0.dp else 8.dp

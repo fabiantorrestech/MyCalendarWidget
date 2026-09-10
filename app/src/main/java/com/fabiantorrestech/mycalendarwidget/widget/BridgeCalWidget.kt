@@ -38,6 +38,10 @@ import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.datastore.preferences.core.Preferences
+import androidx.glance.currentState
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
 
 class BridgeCalWidget : GlanceAppWidget() {
 
@@ -74,6 +78,13 @@ class BridgeCalWidget : GlanceAppWidget() {
             // branch sits above the fetch rather than inside the renderer.
             val isDensity = config.widgetStyle == WidgetStyle.DENSITY
 
+            // Read inside provideContent, not in provideGlance: currentState<Preferences>()
+            // does see a write made by an ActionCallback followed by update() (verified on
+            // device), so the peek needs no separate getAppWidgetState read. The expiry is
+            // compared here rather than stored as a boolean, which is what lets the sheet
+            // lapse on its own if nothing ever closes it (see PeekState).
+            val peekOpen = PeekState.isOpen(currentState<Preferences>(), System.currentTimeMillis())
+
             val densitySnapshot by produceState<DensitySnapshot?>(
                 initialValue = null,
                 key1 = config
@@ -85,14 +96,24 @@ class BridgeCalWidget : GlanceAppWidget() {
                 }
             }
 
+            // The density style is content-free until the user asks for content: the
+            // repository is queried only when the peek is actually open, so a widget
+            // sitting closed on the home screen never reads an event title at all. The
+            // key includes peekOpen so opening (or the TTL closing) the sheet re-runs it.
+            val loadEvents = !isDensity || peekOpen
             val eventsByDay by produceState<Map<LocalDate, List<CalendarEvent>>>(
                 initialValue = emptyMap(),
-                key1 = config
+                key1 = config,
+                key2 = peekOpen
             ) {
-                value = if (isDensity) {
+                value = if (!loadEvents) {
                     emptyMap()
                 } else {
-                    withContext(Dispatchers.IO) { calRepo.getEventsByDay(config) }
+                    withContext(Dispatchers.IO) {
+                        calRepo.getEventsByDay(
+                            if (isDensity) PeekList.peekQueryConfig(config) else config
+                        )
+                    }
                 }
             }
 
@@ -115,7 +136,8 @@ class BridgeCalWidget : GlanceAppWidget() {
                     activeProfileId = activeProfileId,
                     cycleUiStyle = cycleUiStyle,
                     densitySnapshot = densitySnapshot,
-                    use24Hour = remember(context) { use24Hour(context) }
+                    use24Hour = remember(context) { use24Hour(context) },
+                    peekOpen = peekOpen
                 )
             }
         }
