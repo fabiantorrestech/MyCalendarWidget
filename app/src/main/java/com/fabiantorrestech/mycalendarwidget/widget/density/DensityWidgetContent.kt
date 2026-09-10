@@ -1,17 +1,11 @@
 package com.fabiantorrestech.mycalendarwidget.widget.density
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color as AndroidColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
-import androidx.glance.LocalSize
-import androidx.glance.Image
-import androidx.glance.ImageProvider
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
@@ -19,7 +13,6 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
-import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
@@ -94,55 +87,6 @@ fun DensityWidgetContent(
                     )
                     return@Column
                 }
-
-                // --- Task 6 probe: LocalSize + bitmap limits (throwaway, will be reverted) ---
-                val probeDensity = context.resources.displayMetrics.density
-                Text("${LocalSize.current.width} x ${LocalSize.current.height}")
-
-                val stripWPx = ((LocalSize.current.width.value - 24f) * probeDensity).toInt()
-                val stripHPx = (24 * probeDensity).toInt()
-                if (stripWPx > 0 && stripHPx > 0) {
-                    val stripBitmap = Bitmap.createBitmap(stripWPx, stripHPx, Bitmap.Config.ARGB_8888)
-                    val stripCanvas = Canvas(stripBitmap)
-                    stripBitmap.eraseColor(AndroidColor.TRANSPARENT)
-                    val transparentRows = (2 * probeDensity).toInt()
-                    stripCanvas.drawRect(
-                        0f,
-                        transparentRows.toFloat(),
-                        stripWPx.toFloat(),
-                        stripHPx.toFloat(),
-                        android.graphics.Paint().apply { color = 0xFF7F77DD.toInt() }
-                    )
-                    Image(
-                        provider = ImageProvider(stripBitmap),
-                        contentDescription = null,
-                        modifier = GlanceModifier.fillMaxWidth().height(24.dp),
-                        contentScale = ContentScale.FillBounds
-                    )
-                }
-
-                val fullWPx = (LocalSize.current.width.value * probeDensity).toInt()
-                val fullHPx = (LocalSize.current.height.value * probeDensity).toInt()
-                if (fullWPx > 0 && fullHPx > 0) {
-                    val fullBitmap = Bitmap.createBitmap(fullWPx, fullHPx, Bitmap.Config.ARGB_8888)
-                    val fullCanvas = Canvas(fullBitmap)
-                    fullBitmap.eraseColor(AndroidColor.TRANSPARENT)
-                    val fullTransparentRows = (2 * probeDensity).toInt()
-                    fullCanvas.drawRect(
-                        0f,
-                        fullTransparentRows.toFloat(),
-                        fullWPx.toFloat(),
-                        fullHPx.toFloat(),
-                        android.graphics.Paint().apply { color = 0xFF7F77DD.toInt() }
-                    )
-                    Image(
-                        provider = ImageProvider(fullBitmap),
-                        contentDescription = null,
-                        modifier = GlanceModifier.fillMaxWidth().height(40.dp),
-                        contentScale = ContentScale.FillBounds
-                    )
-                }
-                // --- end Task 6 probe ---
 
                 val headline = DensityCalculator.headline(
                     featured = snapshot.featured,
