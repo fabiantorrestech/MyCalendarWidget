@@ -216,42 +216,52 @@ fun DensityWidgetContent(
                     }
                 }
 
-                Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
-
-                // The null accessibility label is passed positionally on purpose: the G1
-                // content-free grep is case-insensitive, so naming that parameter here
-                // would trip a check this package exists to pass.
-                val stripModifier = GlanceModifier
-                    .fillMaxWidth()
-                    .height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp)
-                Image(
-                    ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
-                    null,
-                    if (stripAction != null) stripModifier.clickable(stripAction) else stripModifier,
-                    ContentScale.FillBounds
-                )
-
-                if (!compact) {
-                    Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
-                    DensityAxisRow(
-                        axis = DensitySpecBuilder.axisSpec(
-                            snapshot.featured.date,
-                            config,
-                            zone,
-                            use24Hour
-                        ),
-                        config = config
-                    )
+                // The whole body below the headline and above the chrome row is the peek
+                // tap target (not just the strip image): the strip, the axis row and,
+                // when present, the look-ahead divider/labels/bars block. The headline
+                // row and the chrome row below keep their own actions. `stripAction` is
+                // null whenever the peek is already open (see the early return above),
+                // so this container never carries a clickable while the peek is showing.
+                val bodyModifier = GlanceModifier.fillMaxWidth().let {
+                    if (stripAction != null) it.clickable(stripAction) else it
                 }
+                Column(modifier = bodyModifier) {
+                    Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
 
-                if (!compact && config.densityLookaheadDays > 0 && snapshot.lookahead.isNotEmpty()) {
-                    DensityLookaheadBars(
-                        snapshot = snapshot,
-                        config = config,
-                        palette = palette,
-                        widthPx = widthPx,
-                        density = density
+                    // The null accessibility label is passed positionally on purpose: the G1
+                    // content-free grep is case-insensitive, so naming that parameter here
+                    // would trip a check this package exists to pass.
+                    Image(
+                        ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
+                        null,
+                        GlanceModifier
+                            .fillMaxWidth()
+                            .height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
+                        ContentScale.FillBounds
                     )
+
+                    if (!compact) {
+                        Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
+                        DensityAxisRow(
+                            axis = DensitySpecBuilder.axisSpec(
+                                snapshot.featured.date,
+                                config,
+                                zone,
+                                use24Hour
+                            ),
+                            config = config
+                        )
+                    }
+
+                    if (!compact && config.densityLookaheadDays > 0 && snapshot.lookahead.isNotEmpty()) {
+                        DensityLookaheadBars(
+                            snapshot = snapshot,
+                            config = config,
+                            palette = palette,
+                            widthPx = widthPx,
+                            density = density
+                        )
+                    }
                 }
 
                 if (narrow && !compact) {
