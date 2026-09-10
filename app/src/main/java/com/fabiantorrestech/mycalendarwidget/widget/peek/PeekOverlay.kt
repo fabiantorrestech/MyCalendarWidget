@@ -110,9 +110,7 @@ fun PeekOverlay(
                 }
             }
             if (upcoming.isEmpty()) {
-                // One past the top bar's id, so the two fixed rows can never collide
-                // with each other or with a (positive) event id.
-                item(itemId = Long.MIN_VALUE + 1) {
+                item(itemId = PeekList.EMPTY_ITEM_ID) {
                     Text(
                         text = context.getString(R.string.peek_empty),
                         style = TextStyle(

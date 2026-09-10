@@ -159,7 +159,7 @@ class PeekListTest {
     fun `grouped starts with a top bar and has one header per day change`() {
         val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.GROUPED)
         assertEquals(PeekItemKind.TOP_BAR, items.first().kind)
-        assertEquals(Long.MIN_VALUE, items.first().itemId)
+        assertEquals(PeekList.TOP_BAR_ITEM_ID, items.first().itemId)
         assertEquals(
             listOf(TODAY, TODAY.plusDays(1)),
             items.filter { it.kind == PeekItemKind.HEADER }.map { it.date }
@@ -206,6 +206,15 @@ class PeekListTest {
             assertEquals("$format has duplicate itemIds", ids.size, ids.distinct().size)
             assertEquals(ids, second.map { it.itemId })
         }
+    }
+
+    @Test
+    fun `fixed item ids clear Glance's reserved range`() {
+        // Glance throws on any item id at or below Long.MIN_VALUE / 2.
+        val floor = Long.MIN_VALUE / 2
+        assertTrue(PeekList.TOP_BAR_ITEM_ID > floor)
+        assertTrue(PeekList.EMPTY_ITEM_ID > floor)
+        assertTrue(PeekList.TOP_BAR_ITEM_ID != PeekList.EMPTY_ITEM_ID)
     }
 
     @Test

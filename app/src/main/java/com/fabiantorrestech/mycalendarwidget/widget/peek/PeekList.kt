@@ -34,6 +34,19 @@ data class PeekItem(
 object PeekList {
 
     /**
+     * Glance reserves every item id at or below `Long.MIN_VALUE / 2` for the ids it
+     * generates itself and throws `IllegalArgumentException` on anything lower ("You may
+     * not specify item ids less than -4611686018427387904 in a Glance"), so the obvious
+     * `Long.MIN_VALUE` sentinel is not available. These two sit immediately above that
+     * floor instead: far enough from any real id — a negated epoch day is within a few
+     * million of zero, an `Instances._ID` is positive — that a collision is impossible.
+     */
+    const val TOP_BAR_ITEM_ID = Long.MIN_VALUE / 2 + 1
+
+    /** The "nothing coming up" row; see [TOP_BAR_ITEM_ID]. */
+    const val EMPTY_ITEM_ID = Long.MIN_VALUE / 2 + 2
+
+    /**
      * The config the peek queries with. The agenda list's display conveniences are all
      * wrong for a "what is coming up" sheet: [WidgetConfig.monthOffset] would follow the
      * user's month paging away from today, [WidgetConfig.showSpanningEventsEachDay]
@@ -94,8 +107,8 @@ object PeekList {
      * for: a date header above each day in `GROUPED`, a hairline between days in `DATED`
      * (where every row already carries its own date pill, so a header would be noise).
      *
-     * Item ids must be unique across the whole list, so the two id spaces are kept apart
-     * by sign: `Long.MIN_VALUE` for the top bar, negated epoch days for day markers, and
+     * Item ids must be unique across the whole list, so the id spaces are kept apart by
+     * sign: [TOP_BAR_ITEM_ID] for the top bar, negated epoch days for day markers, and
      * the event's own (positive) `Instances._ID` for event rows.
      */
     fun items(
@@ -103,7 +116,7 @@ object PeekList {
         format: DensityPeekFormat
     ): List<PeekItem> {
         val items = ArrayList<PeekItem>(upcoming.size + 8)
-        items.add(PeekItem(PeekItemKind.TOP_BAR, Long.MIN_VALUE, null, null))
+        items.add(PeekItem(PeekItemKind.TOP_BAR, TOP_BAR_ITEM_ID, null, null))
 
         var lastDate: LocalDate? = null
         upcoming.forEach { (date, event) ->
