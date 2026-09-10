@@ -531,7 +531,7 @@ private fun SyncDialog(
                                     onClick = { onSelectId(widget.appWidgetId) }
                                 )
                                 Text(
-                                    text = "$label — ${widget.style.name}",
+                                    text = "$label — ${widget.style.displayName}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.padding(start = 4.dp)
                                 )
