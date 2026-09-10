@@ -49,4 +49,16 @@ object TimeFormat {
 
     /** "40m". */
     fun minutesLabel(minutes: Int): String = "${minutes}m"
+
+    /**
+     * "—" (em dash) for zero, "45m" under an hour, "1h"/"5h" on the hour, otherwise
+     * "6h40"/"1h05" with the minute remainder padded to two digits.
+     */
+    fun durationLabel(minutes: Int): String {
+        if (minutes == 0) return "—"
+        if (minutes < 60) return "${minutes}m"
+        val hours = minutes / 60
+        val rest = minutes % 60
+        return if (rest == 0) "${hours}h" else "${hours}h${rest.toString().padStart(2, '0')}"
+    }
 }

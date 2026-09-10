@@ -74,4 +74,9 @@ data class DensitySnapshot(
 )
 
 /** The two lines of text above the strip. */
-data class DensityHeadline(val countText: String, val qualifierText: String)
+data class DensityHeadline(
+    val countText: String,
+    val qualifierText: String,
+    /** True when [countText] reads as a sentence ("Done today") rather than a number. */
+    val countIsSentence: Boolean = false
+)

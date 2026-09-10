@@ -31,6 +31,7 @@ import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
+import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
@@ -453,7 +454,7 @@ private fun PreviewDensityContent(
             use24Hour = use24Hour,
             locale = Locale.getDefault()
         )
-        val countSize = if (headline.countText in previewSentenceCounts) 17 else 24
+        val countSize = if (headline.countIsSentence) 17 else 24
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -503,19 +504,11 @@ private fun PreviewDensityContent(
     }
 }
 
-private val previewSentenceCounts = setOf("Done today", "Nothing today", "Nothing tomorrow")
-
 private fun previewLookaheadSummary(lookahead: List<DayDensity>): String {
     val locale = Locale.getDefault()
     return lookahead.joinToString(separator = " · ") { day ->
         val weekday = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
-        val minutes = day.busyMinutes
-        val label = when {
-            minutes < 60 -> "${minutes}m"
-            minutes % 60 == 0 -> "${minutes / 60}h"
-            else -> "${minutes / 60}h%02d".format(minutes % 60)
-        }
-        "$weekday $label"
+        "$weekday ${TimeFormat.durationLabel(day.busyMinutes)}"
     }
 }
 

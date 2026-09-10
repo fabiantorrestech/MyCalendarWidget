@@ -485,6 +485,7 @@ class DensityCalculatorTest {
         val headline = headlineFor(standardDay(), t(12, 20))
         assertEquals("3 left", headline.countText)
         assertEquals("next in 40m", headline.qualifierText)
+        assertFalse(headline.countIsSentence)
     }
 
     @Test
@@ -531,11 +532,14 @@ class DensityCalculatorTest {
         val headline = headlineFor(standardDay(), t(17, 20))
         assertEquals("Done today", headline.countText)
         assertEquals("", headline.qualifierText)
+        assertTrue(headline.countIsSentence)
     }
 
     @Test
     fun `TOTAL reports the whole day count`() {
-        assertEquals("6 today", headlineFor(standardDay(), t(12, 20), DensityCountMode.TOTAL).countText)
+        val headline = headlineFor(standardDay(), t(12, 20), DensityCountMode.TOTAL)
+        assertEquals("6 today", headline.countText)
+        assertFalse(headline.countIsSentence)
     }
 
     @Test
@@ -543,6 +547,7 @@ class DensityCalculatorTest {
         val headline = headlineFor(standardDay(), t(12, 20), DensityCountMode.FRACTION)
         assertEquals("3/6 left", headline.countText)
         assertEquals("next in 40m", headline.qualifierText)
+        assertFalse(headline.countIsSentence)
     }
 
     @Test
@@ -565,6 +570,7 @@ class DensityCalculatorTest {
         val headline = headlineFor(empty, t(12, 20))
         assertEquals("Nothing today", headline.countText)
         assertEquals("", headline.qualifierText)
+        assertTrue(headline.countIsSentence)
     }
 
     @Test
@@ -617,6 +623,7 @@ class DensityCalculatorTest {
         val headline = headlineFor(next, t(19, 30), DensityCountMode.LEFT, featuredIsToday = false)
         assertEquals("3 tomorrow", headline.countText)
         assertEquals("first at 9:00", headline.qualifierText)
+        assertFalse(headline.countIsSentence)
     }
 
     @Test
@@ -632,6 +639,7 @@ class DensityCalculatorTest {
         val headline = headlineFor(next, t(19, 30), DensityCountMode.LEFT, featuredIsToday = false)
         assertEquals("Nothing tomorrow", headline.countText)
         assertEquals("", headline.qualifierText)
+        assertTrue(headline.countIsSentence)
     }
 
     // -------------------------------------------------------- remainingCount

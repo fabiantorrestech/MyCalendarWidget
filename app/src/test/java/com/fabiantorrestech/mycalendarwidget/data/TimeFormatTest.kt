@@ -72,4 +72,34 @@ class TimeFormatTest {
     fun `minutesLabel appends a minute suffix`() {
         assertEquals("40m", TimeFormat.minutesLabel(40))
     }
+
+    @Test
+    fun `durationLabel renders zero minutes as an em dash`() {
+        assertEquals("—", TimeFormat.durationLabel(0))
+    }
+
+    @Test
+    fun `durationLabel renders minutes under an hour with an m suffix`() {
+        assertEquals("45m", TimeFormat.durationLabel(45))
+    }
+
+    @Test
+    fun `durationLabel renders exactly one hour without minutes`() {
+        assertEquals("1h", TimeFormat.durationLabel(60))
+    }
+
+    @Test
+    fun `durationLabel renders exactly five hours without minutes`() {
+        assertEquals("5h", TimeFormat.durationLabel(300))
+    }
+
+    @Test
+    fun `durationLabel pads minutes past the hour to two digits`() {
+        assertEquals("6h40", TimeFormat.durationLabel(400))
+    }
+
+    @Test
+    fun `durationLabel pads a single-digit remainder with a leading zero`() {
+        assertEquals("1h05", TimeFormat.durationLabel(65))
+    }
 }

@@ -26,6 +26,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
+import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
@@ -38,9 +39,6 @@ import com.fabiantorrestech.mycalendarwidget.widget.floatingProfileUiStyle
 import java.time.ZoneId
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
-
-/** Count texts that read as a sentence rather than a number, so they are set smaller. */
-private val SENTENCE_COUNTS = setOf("Done today", "Nothing today", "Nothing tomorrow")
 
 private const val COUNT_SIZE_SP = 24
 private const val COUNT_SENTENCE_SIZE_SP = 17
@@ -96,7 +94,7 @@ fun DensityWidgetContent(
                 use24Hour = use24Hour,
                 locale = Locale.getDefault()
             )
-            val countSize = if (headline.countText in SENTENCE_COUNTS) {
+            val countSize = if (headline.countIsSentence) {
                 COUNT_SENTENCE_SIZE_SP
             } else {
                 COUNT_SIZE_SP
@@ -169,7 +167,7 @@ private fun LookaheadSummaryRow(lookahead: List<DayDensity>, config: WidgetConfi
     val locale = Locale.getDefault()
     val summary = lookahead.joinToString(separator = " · ") { day ->
         val weekday = day.date.dayOfWeek.getDisplayName(JvmTextStyle.SHORT, locale)
-        "$weekday ${busyLabel(day.busyMinutes)}"
+        "$weekday ${TimeFormat.durationLabel(day.busyMinutes)}"
     }
     Text(
         text = summary,
@@ -180,12 +178,4 @@ private fun LookaheadSummaryRow(lookahead: List<DayDensity>, config: WidgetConfi
         maxLines = 1,
         modifier = GlanceModifier.fillMaxWidth()
     )
-}
-
-/** "5h", "6h40" or "45m" — hours win once there is at least one full hour. */
-private fun busyLabel(minutes: Int): String {
-    if (minutes < 60) return "${minutes}m"
-    val hours = minutes / 60
-    val rest = minutes % 60
-    return if (rest == 0) "${hours}h" else "${hours}h%02d".format(rest)
 }

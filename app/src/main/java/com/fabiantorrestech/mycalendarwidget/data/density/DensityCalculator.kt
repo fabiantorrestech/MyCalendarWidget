@@ -235,7 +235,9 @@ object DensityCalculator {
         locale: Locale
     ): DensityHeadline {
         if (!featuredIsToday) {
-            if (featured.eventCount == 0) return DensityHeadline("Nothing tomorrow", "")
+            if (featured.eventCount == 0) {
+                return DensityHeadline("Nothing tomorrow", "", countIsSentence = true)
+            }
             val first = featured.dayMerged.firstOrNull()
             val qualifier = if (first == null) {
                 ""
@@ -245,7 +247,7 @@ object DensityCalculator {
             return DensityHeadline("${featured.eventCount} tomorrow", qualifier)
         }
 
-        if (featured.eventCount == 0) return DensityHeadline("Nothing today", "")
+        if (featured.eventCount == 0) return DensityHeadline("Nothing today", "", countIsSentence = true)
 
         val total = featured.eventCount
         val remaining = remainingCount(featured, nowMillis)
@@ -254,7 +256,7 @@ object DensityCalculator {
         return when (countMode) {
             DensityCountMode.LEFT ->
                 if (remaining == 0) {
-                    DensityHeadline("Done today", "")
+                    DensityHeadline("Done today", "", countIsSentence = true)
                 } else {
                     DensityHeadline("$remaining left", qualifier)
                 }
