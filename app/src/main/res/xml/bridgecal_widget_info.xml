@@ -4,7 +4,7 @@
     android:description="@string/widget_description"
     android:initialLayout="@layout/bridgecal_widget_initial"
     android:minWidth="180dp"
-    android:minHeight="40dp"
+    android:minHeight="110dp"
     android:minResizeWidth="180dp"
     android:minResizeHeight="40dp"
     android:resizeMode="horizontal|vertical"
