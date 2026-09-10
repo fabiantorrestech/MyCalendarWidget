@@ -1,4 +1,4 @@
-package com.fabiantorrestech.mycalendarwidget.widget.density
+package com.fabiantorrestech.mycalendarwidget.data.density
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
