@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,7 +39,12 @@ class DateChangeReceiver : BroadcastReceiver() {
                 }
                 val manager = GlanceAppWidgetManager(context)
                 val ids = manager.getGlanceIds(BridgeCalWidget::class.java)
-                ids.forEach { BridgeCalWidget().update(context, it) }
+                // A day/time/zone change invalidates whatever the peek sheet was
+                // showing, so it closes with the same update that redraws the widget.
+                ids.forEach {
+                    PeekState.close(context, it)
+                    BridgeCalWidget().update(context, it)
+                }
             } finally {
                 pendingResult.finish()
             }
