@@ -13,7 +13,6 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.material3.ColorProviders
 import com.fabiantorrestech.mycalendarwidget.data.CalendarRepository
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
-import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetNameRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
@@ -56,9 +55,15 @@ class BridgeCalWidget : GlanceAppWidget() {
         profileRepo.migrateIfNeeded(configRepo.configFlow.first())
         // Per-widget identity — read from its own (real appWidgetId) store, not the shared config.
         val widgetName = WidgetNameRepository.getName(context, appWidgetId)
+        // Read the real, already-stored config before the first composition rather than
+        // starting from WidgetConfig() defaults: with the defaults' widgetStyle (not
+        // DENSITY), the first frame of a density widget would otherwise think isDensity
+        // is false and query CalendarRepository for event content on every cold render,
+        // before the real config flow even emits once.
+        val initialConfig = profileRepo.activeConfigFlow.first()
 
         provideContent {
-            val config = produceState(initialValue = WidgetConfig()) {
+            val config = produceState(initialValue = initialConfig) {
                 profileRepo.activeConfigFlow.collect { value = it }
             }.value.copy(widgetName = widgetName)
 
