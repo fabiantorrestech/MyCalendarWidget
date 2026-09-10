@@ -171,7 +171,7 @@ private fun WidgetListItem(widget: WidgetSummary, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
-                text = widget.style.name,
+                text = widget.style.displayName,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

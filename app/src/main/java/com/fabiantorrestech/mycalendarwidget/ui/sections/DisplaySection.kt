@@ -39,9 +39,9 @@ fun DisplaySection(
     )
 
     val styles = listOf(
-        WidgetStyle.AGENDA to "Standard",
-        WidgetStyle.GCAL to "GCal Style 1",
-        WidgetStyle.GCAL_LEFT to "GCal Style 2"
+        WidgetStyle.AGENDA to WidgetStyle.AGENDA.displayName,
+        WidgetStyle.GCAL to WidgetStyle.GCAL.displayName,
+        WidgetStyle.GCAL_LEFT to WidgetStyle.GCAL_LEFT.displayName
     )
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         styles.forEachIndexed { index, (style, label) ->
