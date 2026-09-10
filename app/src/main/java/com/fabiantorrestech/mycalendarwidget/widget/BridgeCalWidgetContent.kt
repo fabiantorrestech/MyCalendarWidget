@@ -21,6 +21,7 @@ import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
+import com.fabiantorrestech.mycalendarwidget.widget.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
@@ -719,7 +720,7 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
 private fun EventChipGcal(event: CalendarEvent, config: WidgetConfig, context: Context) {
     val intent = WidgetClickActions.eventIntent(event, config)
     val timeLabel = eventTimeLabel(event)
-    val dark = isDarkColor(event.displayColor)
+    val dark = ColorMath.isDark(event.displayColor)
     // Pre-multiplied colors avoid alpha compositing issues in RemoteViews
     val textPrimary = ColorProvider(
         if (dark) androidx.compose.ui.graphics.Color.White
@@ -871,7 +872,7 @@ private fun DayGroupGcalLeft(
 private fun EventChipGcalLeftItem(event: CalendarEvent, config: WidgetConfig, context: Context) {
     val intent = WidgetClickActions.eventIntent(event, config)
     val timeLabel = eventTimeRangeLabel(event)
-    val dark = isDarkColor(event.displayColor)
+    val dark = ColorMath.isDark(event.displayColor)
     val textPrimary = ColorProvider(
         if (dark) androidx.compose.ui.graphics.Color.White
         else androidx.compose.ui.graphics.Color.Black
@@ -960,13 +961,6 @@ private fun eventTimeRangeLabel(event: CalendarEvent): String {
     val start = java.time.Instant.ofEpochMilli(event.dtStart).atZone(zone).format(fmt)
     val end = java.time.Instant.ofEpochMilli(event.dtEnd).atZone(zone).format(fmt)
     return "$start–$end"
-}
-
-private fun isDarkColor(colorInt: Int): Boolean {
-    val r = (colorInt shr 16 and 0xFF) / 255.0
-    val g = (colorInt shr 8 and 0xFF) / 255.0
-    val b = (colorInt and 0xFF) / 255.0
-    return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
 }
 
 @Composable

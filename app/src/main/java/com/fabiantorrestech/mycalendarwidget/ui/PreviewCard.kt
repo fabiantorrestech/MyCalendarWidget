@@ -48,6 +48,7 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.widget.density.AxisSpec
+import com.fabiantorrestech.mycalendarwidget.widget.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import java.time.LocalDate
@@ -899,7 +900,7 @@ private fun PreviewDayGroupGcalLeft(date: LocalDate, events: List<CalendarEvent>
 @Composable
 private fun PreviewEventChipGcalLeftItem(event: CalendarEvent, config: WidgetConfig) {
     val timeLabel = previewTimeRangeLabel(event)
-    val dark = isDarkColor(event.displayColor)
+    val dark = ColorMath.isDark(event.displayColor)
     val textPrimary = if (dark) Color.White else Color.Black
     val textSecondary = if (dark) Color.White.copy(alpha = 0.75f) else Color.Black.copy(alpha = 0.65f)
 
@@ -978,7 +979,7 @@ private fun PreviewEventChipAgenda(event: CalendarEvent, config: WidgetConfig) {
 @Composable
 private fun PreviewEventChipGcal(event: CalendarEvent, config: WidgetConfig) {
     val timeLabel = previewTimeLabel(event)
-    val dark = isDarkColor(event.displayColor)
+    val dark = ColorMath.isDark(event.displayColor)
     val textPrimary = if (dark) Color.White else Color.Black
     val textSecondary = if (dark) Color.White.copy(alpha = 0.75f) else Color.Black.copy(alpha = 0.65f)
 
@@ -1033,10 +1034,3 @@ private fun WidgetFont.toComposeFontFamily(): FontFamily = when (this) {
 
 private fun WidgetConfig.previewFont(category: FontCategory): FontFamily =
     fontConfig.resolve(category).toComposeFontFamily()
-
-private fun isDarkColor(colorInt: Int): Boolean {
-    val r = (colorInt shr 16 and 0xFF) / 255.0
-    val g = (colorInt shr 8 and 0xFF) / 255.0
-    val b = (colorInt and 0xFF) / 255.0
-    return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
-}
