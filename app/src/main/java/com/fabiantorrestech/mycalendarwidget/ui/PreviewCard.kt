@@ -654,11 +654,16 @@ private fun PreviewDensityLookaheadBars(
 
     val labels = DensitySpecBuilder.dayLabels(snapshot, Locale.getDefault())
     Row(modifier = Modifier.fillMaxWidth()) {
+        // Mirrors the widget: gutter as start-padding on each box after the first
+        // (rather than a sibling Spacer) so the two stay structurally identical, even
+        // though Compose here has no Glance child-count cap to work around.
         labels.forEachIndexed { index, label ->
-            if (index > 0) {
-                Spacer(modifier = Modifier.width(DensityLayout.DAY_BAR_GUTTER_DP.dp))
+            val boxModifier = if (index > 0) {
+                Modifier.weight(1f).padding(start = DensityLayout.DAY_BAR_GUTTER_DP.dp)
+            } else {
+                Modifier.weight(1f)
             }
-            Box(modifier = Modifier.weight(1f)) {
+            Box(modifier = boxModifier) {
                 Text(
                     text = label,
                     fontSize = (11 * config.typographyScale.eventTimeScale).sp,

@@ -290,11 +290,17 @@ private fun DensityLookaheadBars(
 
         val labels = DensitySpecBuilder.dayLabels(snapshot, Locale.getDefault())
         Row(modifier = GlanceModifier.fillMaxWidth()) {
+            // The gutter is a start-padding on each box after the first rather than a
+            // sibling Spacer: a Spacer per gap makes this Row's child count 2n-1, which
+            // blows Glance's 10-child cap once densityLookaheadDays reaches 6 (the field
+            // is documented 0..7). This keeps the Row at exactly n children.
             labels.forEachIndexed { index, label ->
-                if (index > 0) {
-                    Spacer(modifier = GlanceModifier.width(DensityLayout.DAY_BAR_GUTTER_DP.dp))
+                val boxModifier = if (index > 0) {
+                    GlanceModifier.defaultWeight().padding(start = DensityLayout.DAY_BAR_GUTTER_DP.dp)
+                } else {
+                    GlanceModifier.defaultWeight()
                 }
-                Box(modifier = GlanceModifier.defaultWeight()) {
+                Box(modifier = boxModifier) {
                     Text(
                         text = label,
                         style = TextStyle(
