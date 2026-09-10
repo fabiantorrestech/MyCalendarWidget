@@ -1,0 +1,114 @@
+package com.fabiantorrestech.mycalendarwidget.data.density
+
+import android.Manifest
+import android.content.ContentUris
+import android.content.Context
+import android.content.pm.PackageManager
+import android.provider.CalendarContract
+import android.provider.CalendarContract.Instances
+import androidx.core.content.ContextCompat
+
+/**
+ * The only file in the density feature that touches [android.content.ContentResolver].
+ *
+ * G1 contract: this class is content-free by construction. Its projection is exactly ten
+ * columns — begin/end/all-day/calendar id/self-attendee-status/status/availability and
+ * three colour columns — and physically cannot carry an event's own words, notes, place or
+ * participants, because those columns are never requested. Nothing downstream of
+ * [RawInstance] (in this package or the widget's density package) may import the app's
+ * other, text-bearing calendar model, or add a text column here; doing so would break the
+ * guarantee this class exists to provide.
+ */
+class DensityCalendarSource(private val context: Context) {
+
+    /** True when the app currently holds READ_CALENDAR. */
+    fun hasPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Raw, content-free instances overlapping `[startMillis, endMillisExclusive)`. Returns
+     * an empty list when permission is missing or the cursor comes back null — callers
+     * never see an exception from this method.
+     */
+    fun queryRawInstances(startMillis: Long, endMillisExclusive: Long): List<RawInstance> {
+        if (!hasPermission()) return emptyList()
+
+        val uri = Instances.CONTENT_URI.buildUpon().let {
+            ContentUris.appendId(it, startMillis)
+            ContentUris.appendId(it, endMillisExclusive)
+            it.build()
+        }
+
+        val projection = arrayOf(
+            Instances.BEGIN,
+            Instances.END,
+            Instances.ALL_DAY,
+            Instances.CALENDAR_ID,
+            Instances.SELF_ATTENDEE_STATUS,
+            Instances.STATUS,
+            Instances.AVAILABILITY,
+            Instances.DISPLAY_COLOR,
+            Instances.CALENDAR_COLOR,
+            Instances.EVENT_COLOR
+        )
+
+        val selection = "${CalendarContract.Events.DELETED} != 1"
+
+        val result = mutableListOf<RawInstance>()
+        val cursor = context.contentResolver.query(
+            uri,
+            projection,
+            selection,
+            null,
+            "${Instances.BEGIN} ASC"
+        ) ?: return emptyList()
+
+        cursor.use {
+            val beginIdx = it.getColumnIndexOrThrow(Instances.BEGIN)
+            val endIdx = it.getColumnIndexOrThrow(Instances.END)
+            val allDayIdx = it.getColumnIndexOrThrow(Instances.ALL_DAY)
+            val calendarIdIdx = it.getColumnIndexOrThrow(Instances.CALENDAR_ID)
+            val selfAttendeeStatusIdx = it.getColumnIndexOrThrow(Instances.SELF_ATTENDEE_STATUS)
+            val statusIdx = it.getColumnIndexOrThrow(Instances.STATUS)
+            val availabilityIdx = it.getColumnIndexOrThrow(Instances.AVAILABILITY)
+            val displayColorIdx = it.getColumnIndexOrThrow(Instances.DISPLAY_COLOR)
+            val calendarColorIdx = it.getColumnIndexOrThrow(Instances.CALENDAR_COLOR)
+            val eventColorIdx = it.getColumnIndexOrThrow(Instances.EVENT_COLOR)
+
+            while (it.moveToNext()) {
+                val calendarColor = if (it.isNull(calendarColorIdx)) {
+                    DensityConstants.DEFAULT_BUSY_COLOR
+                } else {
+                    it.getInt(calendarColorIdx)
+                }
+
+                // Prefer EVENT_COLOR when set and non-zero, else DISPLAY_COLOR, else the
+                // calendar's own colour, which is already null-safe above.
+                val eventColor = if (!it.isNull(eventColorIdx)) it.getInt(eventColorIdx) else 0
+                val displayColorRaw = if (it.isNull(displayColorIdx)) 0 else it.getInt(displayColorIdx)
+                val displayColor = when {
+                    eventColor != 0 -> eventColor
+                    displayColorRaw != 0 -> displayColorRaw
+                    else -> calendarColor
+                }
+
+                result.add(
+                    RawInstance(
+                        begin = it.getLong(beginIdx),
+                        end = it.getLong(endIdx),
+                        allDay = it.getInt(allDayIdx) == 1,
+                        calendarId = it.getLong(calendarIdIdx),
+                        selfAttendeeStatus = it.getInt(selfAttendeeStatusIdx),
+                        status = it.getInt(statusIdx),
+                        availability = it.getInt(availabilityIdx),
+                        displayColor = displayColor,
+                        calendarColor = calendarColor
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+}
