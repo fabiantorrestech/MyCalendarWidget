@@ -31,7 +31,8 @@ class DensityCanvasGeometryTest {
         freeColor = 0,
         nowColor = 0,
         nowMarkerWidthPx = 8,
-        backgroundColor = 0
+        backgroundColor = 0,
+        pxPerDp = 4f
     )
 
     @Test

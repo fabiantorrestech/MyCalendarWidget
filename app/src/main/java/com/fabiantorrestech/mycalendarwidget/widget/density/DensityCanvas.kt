@@ -69,6 +69,8 @@ data class StripSpec(
     val nowColor: Int,
     val nowMarkerWidthPx: Int,
     val backgroundColor: Int,
+    /** Device pixels per dp, for lane metrics that are specified in dp (G7). */
+    val pxPerDp: Float,
     val ghost: GhostSpec? = null
 ) {
     val heightPx: Int get() = trackHeightPx + 2 * overhangPx
@@ -96,9 +98,6 @@ object DensityCanvas {
 
     /** Above this the bitmap is scaled down rather than risking a RemoteViews rejection. */
     const val MAX_BITMAP_BYTES = 512 * 1024
-
-    /** The track is [G7] 14dp tall, which is how lane metrics recover the dp unit. */
-    private const val TRACK_DP = 14f
 
     private const val LANE_GAP_DP = 2f
     private const val LANE_MIN_WIDTH_DP = 2f
@@ -191,7 +190,7 @@ object DensityCanvas {
         content: StripContent.Lanes
     ) {
         if (content.rects.isEmpty()) return
-        val unit = spec.trackHeightPx / TRACK_DP
+        val unit = spec.pxPerDp
         val gap = (LANE_GAP_DP * unit).roundToInt()
         val minWidth = max(1, (LANE_MIN_WIDTH_DP * unit).roundToInt())
         val endInset = max(1, (LANE_END_INSET_DP * unit).roundToInt())
@@ -235,7 +234,8 @@ object DensityCanvas {
             trackHeightPx = max(1, (spec.trackHeightPx * scale).toInt()),
             overhangPx = (spec.overhangPx * scale).toInt(),
             haloPx = (spec.haloPx * scale).toInt(),
-            nowMarkerWidthPx = max(1, (spec.nowMarkerWidthPx * scale).toInt())
+            nowMarkerWidthPx = max(1, (spec.nowMarkerWidthPx * scale).toInt()),
+            pxPerDp = spec.pxPerDp * scale
         )
     }
 }

@@ -3,6 +3,7 @@ package com.fabiantorrestech.mycalendarwidget.widget.density
 import android.os.Build
 import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
@@ -27,6 +28,40 @@ data class DensityPalette(
 )
 
 /**
+ * Layout numbers shared by the real widget ([DensityWidgetContent]) and the settings
+ * preview (`PreviewDensityContent`) — plain floats rather than `Dp` so this file stays
+ * Compose-free; callers append `.dp` at the point of use. Hoisted here instead of
+ * duplicated in both call sites so the two chrome breakpoints and spacer sizes cannot
+ * drift apart (G7).
+ */
+object DensityLayout {
+    /**
+     * Below this the axis (and, later, the day bars) is dropped: one launcher row is
+     * 104dp on a Pixel 9, three rows 344dp, so 160dp separates "one row" from "two or
+     * more".
+     */
+    const val COMPACT_HEIGHT_DP = 160f
+
+    /**
+     * Below this the profile switcher and calendar button no longer fit beside the
+     * qualifier without truncating it to an ellipsis, so they move to a row of their own.
+     */
+    const val NARROW_WIDTH_DP = 300f
+
+    /** G7: 12dp of padding on every side of the widget/preview content. */
+    const val WIDGET_PADDING_DP = 12f
+
+    /** G7: the strip track is 14dp tall. */
+    const val STRIP_HEIGHT_DP = 14f
+
+    /** Gap between the headline row and the strip. */
+    const val STRIP_TOP_GAP_DP = 4f
+
+    /** Gap between the strip and the hour axis. */
+    const val AXIS_TOP_GAP_DP = 2f
+}
+
+/**
  * The axis as a row of [cellCount] equal-width cells; [labels] has one entry per cell and
  * holds a tick label where a tick starts, null elsewhere.
  *
@@ -48,8 +83,7 @@ data class AxisSpec(val cellCount: Int, val labels: List<String?>)
  */
 object DensitySpecBuilder {
 
-    /** G7: track 14dp, now-marker 2dp. */
-    private const val TRACK_DP = 14f
+    /** G7: now-marker 2dp; the track height itself comes from [DensityLayout.STRIP_HEIGHT_DP]. */
     private const val NOW_MARKER_DP = 2f
 
     /** G9: the free track is 12% of the primary text colour blended onto the ground. */
@@ -66,19 +100,22 @@ object DensitySpecBuilder {
     /**
      * [background], [onSurface] and [primary] are the theme colours the caller has
      * already resolved — `GlanceTheme.colors.X.getColor(context).toArgb()` in the widget,
-     * `MaterialTheme.colorScheme.X.toArgb()` in the preview.
+     * `MaterialTheme.colorScheme.X.toArgb()` in the preview. [sdkInt] defaults to the
+     * device's own `Build.VERSION.SDK_INT` but is a parameter so a plain JVM unit test
+     * can exercise both sides of the API-31 dynamic-colour gate without Robolectric.
      */
     fun palette(
         config: WidgetConfig,
         isDark: Boolean,
         background: Int,
         onSurface: Int,
-        primary: Int
+        primary: Int,
+        sdkInt: Int = Build.VERSION.SDK_INT
     ): DensityPalette {
         val busy = when {
             // 0 means "unset, follow the theme"; anything else is the user's own choice.
             config.densityBusyColor != 0 -> config.densityBusyColor
-            config.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> primary
+            config.dynamicColor && sdkInt >= Build.VERSION_CODES.S -> primary
             else -> DensityConstants.DEFAULT_BUSY_COLOR
         }
         return DensityPalette(
@@ -140,7 +177,7 @@ object DensitySpecBuilder {
 
         return StripSpec(
             widthPx = max(1, widthPx),
-            trackHeightPx = max(1, (TRACK_DP * density).roundToInt()),
+            trackHeightPx = max(1, (DensityLayout.STRIP_HEIGHT_DP * density).roundToInt()),
             overhangPx = 0,
             haloPx = 0,
             content = content,
@@ -151,6 +188,7 @@ object DensitySpecBuilder {
             nowColor = palette.now,
             nowMarkerWidthPx = max(1, (NOW_MARKER_DP * density).roundToInt()),
             backgroundColor = palette.background,
+            pxPerDp = density,
             ghost = null
         )
     }
@@ -196,8 +234,11 @@ object DensitySpecBuilder {
     }
 
     /**
-     * The smallest cell count that puts every tick nearest to its own cell. The default
-     * 08:00–22:00 window lands exactly on seven cells (ticks at 0, 2, 4 and 6).
+     * The cell count (from [MIN_AXIS_CELLS] to [MAX_AXIS_CELLS]) with the lowest maximum
+     * tick error — how far a tick's true fraction sits from the centre of the cell it is
+     * rounded into — ties broken toward the fewest cells by only replacing the current
+     * best on a strict improvement. The default 08:00–22:00 window lands exactly on
+     * seven cells (ticks at 0, 2, 4 and 6).
      */
     private fun axisCellCount(fractions: List<Float>): Int {
         var best = MAX_AXIS_CELLS

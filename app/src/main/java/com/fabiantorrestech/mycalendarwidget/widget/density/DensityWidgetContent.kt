@@ -51,22 +51,6 @@ private const val COUNT_SENTENCE_SIZE_SP = 17
 private const val QUALIFIER_SIZE_SP = 13
 private const val AXIS_SIZE_SP = 11
 
-/** G7: 12dp of widget padding on each side, and a 14dp track. */
-private const val WIDGET_PADDING_DP = 12f
-private val STRIP_HEIGHT = 14.dp
-
-/**
- * Below this the axis (and, later, the day bars) is dropped: one launcher row is 104dp
- * on a Pixel 9, three rows 344dp, so 160dp separates "one row" from "two or more".
- */
-private val COMPACT_HEIGHT = 160.dp
-
-/**
- * Below this the profile switcher and calendar button no longer fit beside the qualifier
- * without truncating it to an ellipsis, so they move to a row of their own.
- */
-private val NARROW_WIDTH = 300.dp
-
 /**
  * The density widget: a headline count, a qualifier and the busy strip — never any event
  * text. It sees only a [DensitySnapshot] (geometry and counts) plus the profile and
@@ -87,15 +71,15 @@ fun DensityWidgetContent(
     use24Hour: Boolean
 ) {
     val size = LocalSize.current
-    val compact = size.height < COMPACT_HEIGHT
-    val narrow = size.width < NARROW_WIDTH
+    val compact = size.height < DensityLayout.COMPACT_HEIGHT_DP.dp
+    val narrow = size.width < DensityLayout.NARROW_WIDTH_DP.dp
 
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.widgetBackground)
             .cornerRadius(16.dp)
-            .padding(WIDGET_PADDING_DP.dp)
+            .padding(DensityLayout.WIDGET_PADDING_DP.dp)
     ) {
         if (snapshot != null) {
             Column(modifier = GlanceModifier.fillMaxWidth()) {
@@ -143,7 +127,7 @@ fun DensityWidgetContent(
                     primary = GlanceTheme.colors.primary.getColor(context).toArgb()
                 )
                 val density = context.resources.displayMetrics.density
-                val widthPx = ((size.width.value - 2 * WIDGET_PADDING_DP) * density).toInt()
+                val widthPx = ((size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt()
                 val spec = DensitySpecBuilder.stripSpec(
                     day = snapshot.featured,
                     config = config,
@@ -211,7 +195,7 @@ fun DensityWidgetContent(
                     }
                 }
 
-                Spacer(modifier = GlanceModifier.height(4.dp))
+                Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_DP.dp))
 
                 // The null accessibility label is passed positionally on purpose: the G1
                 // content-free grep is case-insensitive, so naming that parameter here
@@ -219,12 +203,12 @@ fun DensityWidgetContent(
                 Image(
                     ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
                     null,
-                    GlanceModifier.fillMaxWidth().height(STRIP_HEIGHT),
+                    GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_HEIGHT_DP.dp),
                     ContentScale.FillBounds
                 )
 
                 if (!compact) {
-                    Spacer(modifier = GlanceModifier.height(2.dp))
+                    Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_DP.dp))
                     DensityAxisRow(
                         axis = DensitySpecBuilder.axisSpec(
                             snapshot.featured.date,

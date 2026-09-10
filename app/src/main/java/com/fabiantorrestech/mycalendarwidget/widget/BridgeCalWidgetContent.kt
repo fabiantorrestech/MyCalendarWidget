@@ -21,7 +21,7 @@ import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
-import com.fabiantorrestech.mycalendarwidget.widget.density.ColorMath
+import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items

@@ -49,8 +49,9 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.widget.density.AxisSpec
-import com.fabiantorrestech.mycalendarwidget.widget.density.ColorMath
+import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import java.time.LocalDate
 import java.time.ZoneId
@@ -441,14 +442,8 @@ private fun PreviewInlineProfileSwitcher(
     }
 }
 
-/** Widget-side breakpoints, mirrored so the preview never shows text the widget hides. */
-private val PREVIEW_COMPACT_HEIGHT = 160.dp
-private val PREVIEW_NARROW_WIDTH = 300.dp
-
 /** What the card assumes when the settings page gives it no height of its own. */
 private val PREVIEW_DENSITY_HEIGHT = 200.dp
-
-private const val PREVIEW_PADDING_DP = 12f
 
 /**
  * Compose approximation of [com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent]:
@@ -470,10 +465,10 @@ private fun PreviewDensityContent(
     widthDp: Dp,
     heightDp: Dp
 ) {
-    val compact = heightDp < PREVIEW_COMPACT_HEIGHT
-    val narrow = widthDp < PREVIEW_NARROW_WIDTH
+    val compact = heightDp < DensityLayout.COMPACT_HEIGHT_DP.dp
+    val narrow = widthDp < DensityLayout.NARROW_WIDTH_DP.dp
 
-    Column(modifier = Modifier.padding(PREVIEW_PADDING_DP.dp)) {
+    Column(modifier = Modifier.padding(DensityLayout.WIDGET_PADDING_DP.dp)) {
         if (snapshot != null) {
             if (!snapshot.hasPermission) {
                 Text(
@@ -512,7 +507,7 @@ private fun PreviewDensityContent(
                 day = snapshot.featured,
                 config = config,
                 palette = palette,
-                widthPx = ((widthDp.value - 2 * PREVIEW_PADDING_DP) * density).toInt(),
+                widthPx = ((widthDp.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt(),
                 density = density,
                 nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
                 zone = zone
@@ -562,17 +557,17 @@ private fun PreviewDensityContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(DensityLayout.STRIP_TOP_GAP_DP.dp))
 
             Image(
                 bitmap = remember(spec) { DensityCanvas.renderStrip(spec).asImageBitmap() },
                 contentDescription = null,
                 contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxWidth().height(14.dp)
+                modifier = Modifier.fillMaxWidth().height(DensityLayout.STRIP_HEIGHT_DP.dp)
             )
 
             if (!compact) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(DensityLayout.AXIS_TOP_GAP_DP.dp))
                 PreviewDensityAxisRow(
                     axis = DensitySpecBuilder.axisSpec(
                         snapshot.featured.date,
