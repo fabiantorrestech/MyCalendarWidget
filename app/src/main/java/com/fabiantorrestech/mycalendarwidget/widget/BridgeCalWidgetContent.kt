@@ -148,44 +148,52 @@ private fun EventList(
     context: Context
 ) {
     LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-        if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
-            var lastMonth: java.time.Month? = null
-            eventsByDay.forEach { (date, events) ->
-                if (date.month != lastMonth) {
-                    val ym = YearMonth.of(date.year, date.month)
-                    if (ym != firstDisplayedMonth) {
-                        item(itemId = date.toEpochDay() * 1000 + 999) {
-                            MonthSectionHeader(date, config)
+        when (config.widgetStyle) {
+            WidgetStyle.GCAL_LEFT -> {
+                var lastMonth: java.time.Month? = null
+                eventsByDay.forEach { (date, events) ->
+                    if (date.month != lastMonth) {
+                        val ym = YearMonth.of(date.year, date.month)
+                        if (ym != firstDisplayedMonth) {
+                            item(itemId = date.toEpochDay() * 1000 + 999) {
+                                MonthSectionHeader(date, config)
+                            }
                         }
+                        lastMonth = date.month
                     }
-                    lastMonth = date.month
-                }
-                item(itemId = date.toEpochDay()) {
-                    DayGroupGcalLeft(date, events, config, context)
+                    item(itemId = date.toEpochDay()) {
+                        DayGroupGcalLeft(date, events, config, context)
+                    }
                 }
             }
-        } else {
-            var lastMonth: java.time.Month? = null
-            eventsByDay.forEach { (date, events) ->
-                if (date.month != lastMonth) {
-                    val ym = YearMonth.of(date.year, date.month)
-                    if (ym != firstDisplayedMonth) {
-                        item(itemId = date.toEpochDay() * 1000 + 999) {
-                            MonthSectionHeader(date, config)
+
+            WidgetStyle.AGENDA, WidgetStyle.GCAL -> {
+                var lastMonth: java.time.Month? = null
+                eventsByDay.forEach { (date, events) ->
+                    if (date.month != lastMonth) {
+                        val ym = YearMonth.of(date.year, date.month)
+                        if (ym != firstDisplayedMonth) {
+                            item(itemId = date.toEpochDay() * 1000 + 999) {
+                                MonthSectionHeader(date, config)
+                            }
                         }
+                        lastMonth = date.month
                     }
-                    lastMonth = date.month
-                }
-                item(itemId = date.toEpochDay()) {
-                    DayHeader(date, config)
-                }
-                items(
-                    items = events.map { DayEventRenderItem(date, it) },
-                    itemId = { it.itemId }
-                ) { renderItem ->
-                    EventChip(renderItem.event, config, context)
+                    item(itemId = date.toEpochDay()) {
+                        DayHeader(date, config)
+                    }
+                    items(
+                        items = events.map { DayEventRenderItem(date, it) },
+                        itemId = { it.itemId }
+                    ) { renderItem ->
+                        EventChip(renderItem.event, config, context)
+                    }
                 }
             }
+
+            // Density never renders an event list: the root dispatch routes it away long
+            // before this point, and the fetch that feeds this list is skipped entirely.
+            WidgetStyle.DENSITY -> error("DENSITY must not reach EventList")
         }
     }
 }
@@ -482,7 +490,7 @@ private fun FloatingControlsOverlay(
 }
 
 @Composable
-private fun InlineProfileSwitcher(
+internal fun InlineProfileSwitcher(
     profiles: List<WidgetProfileEntry>,
     activeProfileId: String,
     cycleUiStyle: CycleUiStyle,
@@ -495,15 +503,15 @@ private fun InlineProfileSwitcher(
     }
 }
 
-private fun floatingProfileUiStyle(
+internal fun floatingProfileUiStyle(
     widgetStyle: WidgetStyle,
     cycleUiStyle: CycleUiStyle
-): CycleUiStyle =
-    if (cycleUiStyle == CycleUiStyle.TABS && widgetStyle != WidgetStyle.GCAL_LEFT) {
-        CycleUiStyle.DOTS
-    } else {
-        cycleUiStyle
-    }
+): CycleUiStyle = when (widgetStyle) {
+    // Only the left-rail layout has room for the tab strip; every other style falls back to dots.
+    WidgetStyle.GCAL_LEFT -> cycleUiStyle
+    WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.DENSITY ->
+        if (cycleUiStyle == CycleUiStyle.TABS) CycleUiStyle.DOTS else cycleUiStyle
+}
 
 private fun floatingContentTopInset(
     config: WidgetConfig,
@@ -523,7 +531,7 @@ private fun dayEventItemId(date: LocalDate, eventId: Long): Long {
 }
 
 @Composable
-private fun OpenCalendarButton(config: WidgetConfig) {
+internal fun OpenCalendarButton(config: WidgetConfig) {
     Box(
         modifier = GlanceModifier
             .width(56.dp)
@@ -583,10 +591,10 @@ private fun DayHeader(date: LocalDate, config: WidgetConfig) {
 
 @Composable
 private fun EventChip(event: CalendarEvent, config: WidgetConfig, context: Context) {
-    if (config.widgetStyle == WidgetStyle.GCAL) {
-        EventChipGcal(event, config, context)
-    } else {
-        EventChipAgenda(event, config, context)
+    when (config.widgetStyle) {
+        WidgetStyle.GCAL -> EventChipGcal(event, config, context)
+        WidgetStyle.AGENDA, WidgetStyle.GCAL_LEFT -> EventChipAgenda(event, config, context)
+        WidgetStyle.DENSITY -> error("DENSITY must not reach EventChip")
     }
 }
 
