@@ -12,6 +12,24 @@ import kotlinx.coroutines.launch
 
 class WidgetSyncReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == MidnightScheduler.ACTION_MIDNIGHT) {
+            val pendingResult = goAsync()
+            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                try {
+                    // Re-arm tomorrow's alarm first: if updating widgets below throws, we must
+                    // not lose the next midnight rollover.
+                    MidnightScheduler.schedule(context)
+                    val manager = GlanceAppWidgetManager(context)
+                    manager.getGlanceIds(BridgeCalWidget::class.java).forEach {
+                        BridgeCalWidget().update(context, it)
+                    }
+                } finally {
+                    pendingResult.finish()
+                }
+            }
+            return
+        }
+
         val appWidgetId = intent.getIntExtra("appWidgetId", AppWidgetManager.INVALID_APPWIDGET_ID)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
 
