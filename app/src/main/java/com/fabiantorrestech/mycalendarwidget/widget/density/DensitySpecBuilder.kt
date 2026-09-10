@@ -278,7 +278,8 @@ object DensitySpecBuilder {
                 val rects = DensityCalculator.laneRects(day.stripEvents)
                 StripContent.Lanes(
                     rects = rects,
-                    widthFractionOf = fraction,
+                    windowStartMillis = windowStart,
+                    windowEndMillis = windowEnd,
                     laneOutlineColor = null,
                     edgeColors = contrastEdgeColors(rects, palette)
                 )
@@ -295,7 +296,8 @@ object DensitySpecBuilder {
                 }
                 StripContent.Lanes(
                     rects = rects,
-                    widthFractionOf = fraction,
+                    windowStartMillis = windowStart,
+                    windowEndMillis = windowEnd,
                     laneOutlineColor = palette.background
                 )
             }
@@ -476,10 +478,11 @@ object DensitySpecBuilder {
 
     /**
      * The cell count (from [MIN_AXIS_CELLS] to [MAX_AXIS_CELLS]) with the lowest maximum
-     * tick error — how far a tick's true fraction sits from the centre of the cell it is
-     * rounded into — ties broken toward the fewest cells by only replacing the current
-     * best on a strict improvement. The default 08:00–22:00 window lands exactly on
-     * seven cells (ticks at 0, 2, 4 and 6).
+     * tick error — how far a tick's true fraction sits from the left edge of the cell it
+     * is rounded into (`indices[i] / cells`, not the cell's centre — a label's own left
+     * edge is what actually lands at that fraction) — ties broken toward the fewest cells
+     * by only replacing the current best on a strict improvement. The default
+     * 08:00–22:00 window lands exactly on seven cells (ticks at 0, 2, 4 and 6).
      */
     private fun axisCellCount(fractions: List<Float>): Int {
         var best = MAX_AXIS_CELLS

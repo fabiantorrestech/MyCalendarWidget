@@ -34,16 +34,20 @@ sealed interface StripContent {
     ) : StripContent
 
     /**
-     * One rect per event slice. [widthFractionOf] maps an epoch-millis instant to its
-     * fraction of the window. [laneOutlineColor] strokes every rect at `depth > 1` (the
-     * background-coloured split line Tonal draws between overlapping events);
-     * [edgeColors] strokes the Detail contrast guard instead, keyed by the rect's index
-     * in [rects] rather than carried on [LaneRect] itself, which stays a pure, mode-free
-     * value from `data/density`.
+     * One rect per event slice. [windowStartMillis] and [windowEndMillis] are the window
+     * bounds a rect's `startMillis`/`endMillis` are fractioned against (see
+     * [DensityCanvas]'s lane drawing) — plain values rather than a capturing
+     * `(Long) -> Float` lambda so [Lanes], and therefore [StripSpec], stays a plain value
+     * that compares equal across identical inputs and lets `remember(spec)` actually skip
+     * work. [laneOutlineColor] strokes every rect at `depth > 1` (the background-coloured
+     * split line Tonal draws between overlapping events); [edgeColors] strokes the Detail
+     * contrast guard instead, keyed by the rect's index in [rects] rather than carried on
+     * [LaneRect] itself, which stays a pure, mode-free value from `data/density`.
      */
     data class Lanes(
         val rects: List<LaneRect>,
-        val widthFractionOf: (Long) -> Float,
+        val windowStartMillis: Long,
+        val windowEndMillis: Long,
         val laneOutlineColor: Int?,
         val edgeColors: Map<Int, Int> = emptyMap()
     ) : StripContent
@@ -289,8 +293,14 @@ object DensityCanvas {
                 val top = track.top + rect.lane * (laneHeight + gap)
                 val bottom = min(track.bottom, top + laneHeight)
 
-                val left = xOf(content.widthFractionOf(rect.startMillis), spec.widthPx)
-                var right = xOf(content.widthFractionOf(rect.endMillis), spec.widthPx)
+                val left = xOf(
+                    windowFraction(rect.startMillis, content.windowStartMillis, content.windowEndMillis),
+                    spec.widthPx
+                )
+                var right = xOf(
+                    windowFraction(rect.endMillis, content.windowStartMillis, content.windowEndMillis),
+                    spec.widthPx
+                )
                 if (rect.isEventEnd) right -= endInset
                 right = max(left + minWidth, right)
 
@@ -326,6 +336,16 @@ object DensityCanvas {
     /** Fractions land on whole pixels: `FillBounds` would otherwise blur a half pixel. */
     private fun xOf(fraction: Float, widthPx: Int): Int =
         (fraction.coerceIn(0f, 1f) * widthPx).roundToInt().coerceIn(0, widthPx)
+
+    /**
+     * [millis]'s fraction of `[windowStart, windowEnd)`, the same formula
+     * [DensitySpecBuilder.stripSpec] used to close over as `widthFractionOf` before that
+     * became a plain-value field on [StripContent.Lanes] (item 3).
+     */
+    private fun windowFraction(millis: Long, windowStart: Long, windowEnd: Long): Float {
+        val span = (windowEnd - windowStart).toFloat()
+        return if (span <= 0f) 0f else ((millis - windowStart).toFloat() / span).coerceIn(0f, 1f)
+    }
 
     /**
      * The N look-ahead day bars: [LoadBarsSpec.loads.size] equal-width track rects, each

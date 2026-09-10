@@ -249,6 +249,21 @@ class DensitySpecBuilderTest {
         assertEquals(BACKGROUND, lanes.laneOutlineColor)
     }
 
+    // --- Task 14, item 3: StripSpec must be a plain value so remember(spec) survives
+    // recomposition. Two calls with identical inputs used to differ because
+    // StripContent.Lanes carried a capturing widthFractionOf lambda (a fresh instance
+    // every call, so `==` always failed); the fix hoists windowStartMillis/windowEndMillis
+    // as plain Longs instead. -----------------------------------------------------------
+
+    @Test
+    fun tonalStripSpecIsAPlainValueEqualAcrossIdenticalCalls() {
+        val day = singleEventDay(9, 10)
+        val cfg = config.copy(densityStripMode = DensityStripMode.TONAL)
+        val first = DensitySpecBuilder.stripSpec(day, cfg, palette(), 1000, 1f, null, zone)
+        val second = DensitySpecBuilder.stripSpec(day, cfg, palette(), 1000, 1f, null, zone)
+        assertEquals(first, second)
+    }
+
     @Test
     fun detailModeProducesLanesWithNoOutline() {
         val day = singleEventDay(9, 10)
