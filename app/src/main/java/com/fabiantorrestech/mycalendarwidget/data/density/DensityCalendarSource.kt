@@ -56,13 +56,21 @@ class DensityCalendarSource(private val context: Context) {
         val selection = "${CalendarContract.Events.DELETED} != 1"
 
         val result = mutableListOf<RawInstance>()
-        val cursor = context.contentResolver.query(
-            uri,
-            projection,
-            selection,
-            null,
-            "${Instances.BEGIN} ASC"
-        ) ?: return emptyList()
+        // hasPermission() above can race a user revoking READ_CALENDAR from Settings while
+        // this query is in flight (e.g. during a periodic widget refresh); the resolver
+        // then throws SecurityException instead of returning null, so it must be caught
+        // here too for the "never see an exception" contract above to actually hold.
+        val cursor = try {
+            context.contentResolver.query(
+                uri,
+                projection,
+                selection,
+                null,
+                "${Instances.BEGIN} ASC"
+            )
+        } catch (e: SecurityException) {
+            null
+        } ?: return emptyList()
 
         cursor.use {
             val beginIdx = it.getColumnIndexOrThrow(Instances.BEGIN)
