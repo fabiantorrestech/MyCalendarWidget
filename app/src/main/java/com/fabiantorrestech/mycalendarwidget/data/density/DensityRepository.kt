@@ -25,6 +25,7 @@ class DensityRepository(context: Context) {
         nowMillis: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault()
     ): DensitySnapshot {
+        val hasPermission = source.hasPermission()
         val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
         val lookaheadDays = config.densityLookaheadDays
 
@@ -38,6 +39,8 @@ class DensityRepository(context: Context) {
         val startMillis = today.atStartOfDay(zone).toInstant().toEpochMilli()
         val endMillisExclusive = queryEndExclusive.atStartOfDay(zone).toInstant().toEpochMilli()
 
+        // queryRawInstances already returns an empty list without permission, so this call
+        // is safe unconditionally; hasPermission is still reported below for the UI.
         val raw = source.queryRawInstances(startMillis, endMillisExclusive)
 
         // Build every day in the queried range up front; buildDay filters [raw] down to
@@ -71,7 +74,7 @@ class DensityRepository(context: Context) {
         }
 
         return DensitySnapshot(
-            hasPermission = source.hasPermission(),
+            hasPermission = hasPermission,
             featured = featured,
             featuredIsToday = featuredIsToday,
             lookahead = lookahead,
