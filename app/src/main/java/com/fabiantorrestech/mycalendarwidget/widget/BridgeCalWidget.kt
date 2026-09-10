@@ -36,6 +36,7 @@ import java.time.LocalDate
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 
 class BridgeCalWidget : GlanceAppWidget() {
 
@@ -113,7 +114,7 @@ class BridgeCalWidget : GlanceAppWidget() {
                     activeProfileId = activeProfileId,
                     cycleUiStyle = cycleUiStyle,
                     densitySnapshot = densitySnapshot,
-                    use24Hour = use24Hour(context)
+                    use24Hour = remember(context) { use24Hour(context) }
                 )
             }
         }

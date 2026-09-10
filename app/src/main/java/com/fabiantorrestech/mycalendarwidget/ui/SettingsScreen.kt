@@ -393,7 +393,7 @@ fun SettingsScreen(
                     activeProfileId = activeProfileId,
                     cycleUiStyle = cycleUiStyle,
                     densitySnapshot = previewDensity,
-                    use24Hour = use24Hour(context)
+                    use24Hour = remember(context) { use24Hour(context) }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -435,71 +436,77 @@ private fun PreviewDensityContent(
     use24Hour: Boolean
 ) {
     Column(modifier = Modifier.padding(12.dp)) {
-        if (snapshot == null || !snapshot.hasPermission) {
-            Text(
-                text = "Tap to grant calendar access",
-                fontSize = (13 * config.typographyScale.detailScale).sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            return@Column
-        }
-
-        val headline = DensityCalculator.headline(
-            featured = snapshot.featured,
-            featuredIsToday = snapshot.featuredIsToday,
-            nowMillis = snapshot.nowMillis,
-            rolloverHour = config.densityRolloverHour,
-            countMode = config.densityCountMode,
-            zone = ZoneId.systemDefault(),
-            use24Hour = use24Hour,
-            locale = Locale.getDefault()
-        )
-        val countSize = if (headline.countIsSentence) 17 else 24
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (snapshot.featured.hasAllDay) {
-                Box(
-                    modifier = Modifier
-                        .size(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.onSurface)
+        if (snapshot != null) {
+            if (!snapshot.hasPermission) {
+                Text(
+                    text = stringResource(R.string.density_no_permission),
+                    fontSize = (13 * config.typographyScale.detailScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = config.previewFont(FontCategory.DETAIL)
                 )
-                Spacer(modifier = Modifier.width(5.dp))
+                return@Column
             }
-            Text(
-                text = headline.countText,
-                fontSize = (countSize * config.typographyScale.headerScale).sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+
+            val headline = DensityCalculator.headline(
+                featured = snapshot.featured,
+                featuredIsToday = snapshot.featuredIsToday,
+                nowMillis = snapshot.nowMillis,
+                rolloverHour = config.densityRolloverHour,
+                countMode = config.densityCountMode,
+                zone = ZoneId.systemDefault(),
+                use24Hour = use24Hour,
+                locale = Locale.getDefault()
             )
-            Spacer(modifier = Modifier.width(7.dp))
-            Text(
-                text = headline.qualifierText,
-                fontSize = (13 * config.typographyScale.detailScale).sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
-            if (profiles.size >= 2) {
-                PreviewInlineProfileSwitcher(
-                    profiles,
-                    activeProfileId,
-                    previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+            val countSize = if (headline.countIsSentence) 17 else 24
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (snapshot.featured.hasAllDay) {
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.onSurface)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                }
+                Text(
+                    text = headline.countText,
+                    fontSize = (countSize * config.typographyScale.headerScale).sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = config.previewFont(FontCategory.DATE_HEADER)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = headline.qualifierText,
+                    fontSize = (13 * config.typographyScale.detailScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                    fontFamily = config.previewFont(FontCategory.DETAIL)
+                )
+                if (profiles.size >= 2) {
+                    PreviewInlineProfileSwitcher(
+                        profiles,
+                        activeProfileId,
+                        previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+                    )
+                }
+            }
+
+            if (snapshot.lookahead.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = previewLookaheadSummary(snapshot.lookahead),
+                    fontSize = (11 * config.typographyScale.detailScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    fontFamily = config.previewFont(FontCategory.EVENT_TIME)
                 )
             }
-        }
-
-        if (snapshot.lookahead.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = previewLookaheadSummary(snapshot.lookahead),
-                fontSize = (11 * config.typographyScale.detailScale).sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
         }
     }
 }

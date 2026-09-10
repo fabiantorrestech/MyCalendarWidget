@@ -26,6 +26,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
+import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
@@ -36,6 +37,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.InlineProfileSwitcher
 import com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetClickActions
 import com.fabiantorrestech.mycalendarwidget.widget.floatingProfileUiStyle
+import com.fabiantorrestech.mycalendarwidget.widget.glanceFont
 import java.time.ZoneId
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
@@ -69,89 +71,94 @@ fun DensityWidgetContent(
             .cornerRadius(16.dp)
             .padding(12.dp)
     ) {
-        Column(modifier = GlanceModifier.fillMaxWidth()) {
-            if (snapshot == null || !snapshot.hasPermission) {
-                Text(
-                    text = context.getString(R.string.density_no_permission),
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp
-                    ),
-                    modifier = GlanceModifier
-                        .fillMaxWidth()
-                        .clickable(actionStartActivity(WidgetClickActions.settingsIntent(context)))
-                )
-                return@Column
-            }
-
-            val headline = DensityCalculator.headline(
-                featured = snapshot.featured,
-                featuredIsToday = snapshot.featuredIsToday,
-                nowMillis = snapshot.nowMillis,
-                rolloverHour = config.densityRolloverHour,
-                countMode = config.densityCountMode,
-                zone = ZoneId.systemDefault(),
-                use24Hour = use24Hour,
-                locale = Locale.getDefault()
-            )
-            val countSize = if (headline.countIsSentence) {
-                COUNT_SENTENCE_SIZE_SP
-            } else {
-                COUNT_SIZE_SP
-            }
-
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (snapshot.featured.hasAllDay) {
-                    Box(
+        if (snapshot != null) {
+            Column(modifier = GlanceModifier.fillMaxWidth()) {
+                if (!snapshot.hasPermission) {
+                    Text(
+                        text = context.getString(R.string.density_no_permission),
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.DETAIL)
+                        ),
                         modifier = GlanceModifier
-                            .size(4.dp)
-                            .background(GlanceTheme.colors.onSurface)
-                            .cornerRadius(2.dp)
-                    ) {}
-                    Spacer(modifier = GlanceModifier.width(5.dp))
+                            .fillMaxWidth()
+                            .clickable(actionStartActivity(WidgetClickActions.settingsIntent(context)))
+                    )
+                    return@Column
                 }
 
-                Text(
-                    text = headline.countText,
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurface,
-                        fontSize = (countSize * config.typographyScale.headerScale).sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                val headline = DensityCalculator.headline(
+                    featured = snapshot.featured,
+                    featuredIsToday = snapshot.featuredIsToday,
+                    nowMillis = snapshot.nowMillis,
+                    rolloverHour = config.densityRolloverHour,
+                    countMode = config.densityCountMode,
+                    zone = ZoneId.systemDefault(),
+                    use24Hour = use24Hour,
+                    locale = Locale.getDefault()
                 )
-
-                Spacer(modifier = GlanceModifier.width(7.dp))
-
-                // The qualifier carries the weight (rather than a bare spacer) so it gives up
-                // width to the chrome instead of pushing the calendar button off the row.
-                Text(
-                    text = headline.qualifierText,
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp
-                    ),
-                    maxLines = 1,
-                    modifier = GlanceModifier.defaultWeight()
-                )
-
-                if (profiles.size >= 2) {
-                    InlineProfileSwitcher(
-                        profiles,
-                        activeProfileId,
-                        floatingProfileUiStyle(config.widgetStyle, cycleUiStyle)
-                    )
-                    Spacer(modifier = GlanceModifier.width(4.dp))
+                val countSize = if (headline.countIsSentence) {
+                    COUNT_SENTENCE_SIZE_SP
+                } else {
+                    COUNT_SIZE_SP
                 }
 
-                OpenCalendarButton(config)
-            }
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (snapshot.featured.hasAllDay) {
+                        Box(
+                            modifier = GlanceModifier
+                                .size(4.dp)
+                                .background(GlanceTheme.colors.onSurface)
+                                .cornerRadius(2.dp)
+                        ) {}
+                        Spacer(modifier = GlanceModifier.width(5.dp))
+                    }
 
-            if (snapshot.lookahead.isNotEmpty()) {
-                Spacer(modifier = GlanceModifier.height(6.dp))
-                LookaheadSummaryRow(snapshot.lookahead, config)
+                    Text(
+                        text = headline.countText,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurface,
+                            fontSize = (countSize * config.typographyScale.headerScale).sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = config.glanceFont(FontCategory.DATE_HEADER)
+                        )
+                    )
+
+                    Spacer(modifier = GlanceModifier.width(7.dp))
+
+                    // The qualifier carries the weight (rather than a bare spacer) so it gives up
+                    // width to the chrome instead of pushing the calendar button off the row.
+                    Text(
+                        text = headline.qualifierText,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.DETAIL)
+                        ),
+                        maxLines = 1,
+                        modifier = GlanceModifier.defaultWeight()
+                    )
+
+                    if (profiles.size >= 2) {
+                        InlineProfileSwitcher(
+                            profiles,
+                            activeProfileId,
+                            floatingProfileUiStyle(config.widgetStyle, cycleUiStyle)
+                        )
+                        Spacer(modifier = GlanceModifier.width(4.dp))
+                    }
+
+                    OpenCalendarButton(config)
+                }
+
+                if (snapshot.lookahead.isNotEmpty()) {
+                    Spacer(modifier = GlanceModifier.height(6.dp))
+                    LookaheadSummaryRow(snapshot.lookahead, config)
+                }
             }
         }
     }
@@ -173,7 +180,8 @@ private fun LookaheadSummaryRow(lookahead: List<DayDensity>, config: WidgetConfi
         text = summary,
         style = TextStyle(
             color = GlanceTheme.colors.onSurfaceVariant,
-            fontSize = (LOOKAHEAD_SIZE_SP * config.typographyScale.detailScale).sp
+            fontSize = (LOOKAHEAD_SIZE_SP * config.typographyScale.detailScale).sp,
+            fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
         ),
         maxLines = 1,
         modifier = GlanceModifier.fillMaxWidth()

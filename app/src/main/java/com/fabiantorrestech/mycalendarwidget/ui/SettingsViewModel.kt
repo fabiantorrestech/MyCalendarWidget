@@ -78,7 +78,11 @@ class SettingsViewModel(
     val previewEvents: StateFlow<Map<LocalDate, List<CalendarEvent>>> =
         config.flatMapLatest { cfg ->
             flow {
-                val events = withContext(Dispatchers.IO) { calendarRepo.getEventsByDay(cfg) }
+                val events = if (cfg.widgetStyle == WidgetStyle.DENSITY) {
+                    emptyMap()
+                } else {
+                    withContext(Dispatchers.IO) { calendarRepo.getEventsByDay(cfg) }
+                }
                 emit(events)
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())

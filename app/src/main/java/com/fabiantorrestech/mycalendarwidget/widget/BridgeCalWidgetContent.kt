@@ -51,7 +51,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
 
-private fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
+internal fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
     fontConfig.resolve(category).glanceFamilyName?.let { androidx.glance.text.FontFamily(it) }
 
 private data class DayEventRenderItem(
