@@ -35,6 +35,9 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -48,6 +51,8 @@ fun PreviewCard(
     profiles: List<WidgetProfileEntry> = emptyList(),
     activeProfileId: String = "",
     cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
+    densitySnapshot: DensitySnapshot? = null,
+    use24Hour: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val rootPadding = if (config.strictGridMode) 0.dp else 12.dp
@@ -64,25 +69,38 @@ fun PreviewCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        if (floatingMode) {
-            Box(modifier = Modifier.padding(rootPadding)) {
-                Column(modifier = Modifier.padding(top = floatingContentTopInset)) {
-                    PreviewEventList(config, visibleDays, suppressFirstMonth)
+        // Mirrors the widget's own exhaustive dispatch: a new style must be given an arm here too.
+        when (config.widgetStyle) {
+            WidgetStyle.DENSITY -> PreviewDensityContent(
+                snapshot = densitySnapshot,
+                config = config,
+                profiles = profiles,
+                activeProfileId = activeProfileId,
+                cycleUiStyle = cycleUiStyle,
+                use24Hour = use24Hour
+            )
+
+            WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.GCAL_LEFT ->
+                if (floatingMode) {
+                    Box(modifier = Modifier.padding(rootPadding)) {
+                        Column(modifier = Modifier.padding(top = floatingContentTopInset)) {
+                            PreviewEventList(config, visibleDays, suppressFirstMonth)
+                        }
+                        PreviewFloatingControlsOverlay(
+                            config = config,
+                            profiles = profiles,
+                            activeProfileId = activeProfileId,
+                            cycleUiStyle = cycleUiStyle,
+                            modifier = Modifier.align(Alignment.TopStart)
+                        )
+                    }
+                } else {
+                    Column(modifier = Modifier.padding(rootPadding)) {
+                        PreviewHeader(config, profiles, activeProfileId, cycleUiStyle)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        PreviewEventList(config, visibleDays, suppressFirstMonth)
+                    }
                 }
-                PreviewFloatingControlsOverlay(
-                    config = config,
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    modifier = Modifier.align(Alignment.TopStart)
-                )
-            }
-        } else {
-            Column(modifier = Modifier.padding(rootPadding)) {
-                PreviewHeader(config, profiles, activeProfileId, cycleUiStyle)
-                Spacer(modifier = Modifier.height(6.dp))
-                PreviewEventList(config, visibleDays, suppressFirstMonth)
-            }
         }
     }
 }
@@ -105,16 +123,20 @@ private fun PreviewEventList(
                 fontFamily = config.previewFont(FontCategory.DETAIL)
             )
         }
-    } else if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
-        visibleDays.forEachIndexed { index, (date, events) ->
-            if (index == 0 && !suppressFirstMonth) PreviewMonthSectionHeader(date, config)
-            PreviewDayGroupGcalLeft(date, events, config)
-        }
     } else {
-        visibleDays.forEachIndexed { index, (date, events) ->
-            if (index == 0 && !suppressFirstMonth) PreviewMonthSectionHeader(date, config)
-            PreviewDayHeader(date, config)
-            events.take(2).forEach { event -> PreviewEventChip(event, config) }
+        when (config.widgetStyle) {
+            WidgetStyle.GCAL_LEFT -> visibleDays.forEachIndexed { index, (date, events) ->
+                if (index == 0 && !suppressFirstMonth) PreviewMonthSectionHeader(date, config)
+                PreviewDayGroupGcalLeft(date, events, config)
+            }
+
+            WidgetStyle.AGENDA, WidgetStyle.GCAL -> visibleDays.forEachIndexed { index, (date, events) ->
+                if (index == 0 && !suppressFirstMonth) PreviewMonthSectionHeader(date, config)
+                PreviewDayHeader(date, config)
+                events.take(2).forEach { event -> PreviewEventChip(event, config) }
+            }
+
+            WidgetStyle.DENSITY -> error("DENSITY must not reach PreviewEventList")
         }
     }
 }
@@ -398,6 +420,105 @@ private fun PreviewInlineProfileSwitcher(
     }
 }
 
+/**
+ * Compose approximation of [com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent]:
+ * count, qualifier and the Stage 1 look-ahead summary, reading the very same snapshot.
+ */
+@Composable
+private fun PreviewDensityContent(
+    snapshot: DensitySnapshot?,
+    config: WidgetConfig,
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    cycleUiStyle: CycleUiStyle,
+    use24Hour: Boolean
+) {
+    Column(modifier = Modifier.padding(12.dp)) {
+        if (snapshot == null || !snapshot.hasPermission) {
+            Text(
+                text = "Tap to grant calendar access",
+                fontSize = (13 * config.typographyScale.detailScale).sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            return@Column
+        }
+
+        val headline = DensityCalculator.headline(
+            featured = snapshot.featured,
+            featuredIsToday = snapshot.featuredIsToday,
+            nowMillis = snapshot.nowMillis,
+            rolloverHour = config.densityRolloverHour,
+            countMode = config.densityCountMode,
+            zone = ZoneId.systemDefault(),
+            use24Hour = use24Hour,
+            locale = Locale.getDefault()
+        )
+        val countSize = if (headline.countText in previewSentenceCounts) 17 else 24
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (snapshot.featured.hasAllDay) {
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurface)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+            }
+            Text(
+                text = headline.countText,
+                fontSize = (countSize * config.typographyScale.headerScale).sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = headline.qualifierText,
+                fontSize = (13 * config.typographyScale.detailScale).sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (profiles.size >= 2) {
+                PreviewInlineProfileSwitcher(
+                    profiles,
+                    activeProfileId,
+                    previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+                )
+            }
+        }
+
+        if (snapshot.lookahead.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = previewLookaheadSummary(snapshot.lookahead),
+                fontSize = (11 * config.typographyScale.detailScale).sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+private val previewSentenceCounts = setOf("Done today", "Nothing today", "Nothing tomorrow")
+
+private fun previewLookaheadSummary(lookahead: List<DayDensity>): String {
+    val locale = Locale.getDefault()
+    return lookahead.joinToString(separator = " · ") { day ->
+        val weekday = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+        val minutes = day.busyMinutes
+        val label = when {
+            minutes < 60 -> "${minutes}m"
+            minutes % 60 == 0 -> "${minutes / 60}h"
+            else -> "${minutes / 60}h%02d".format(minutes % 60)
+        }
+        "$weekday $label"
+    }
+}
+
 @Composable
 private fun PreviewProfilePill(
     profiles: List<WidgetProfileEntry>,
@@ -538,12 +659,11 @@ private fun PreviewProfileTabs(
 private fun previewFloatingCycleUiStyle(
     widgetStyle: WidgetStyle,
     cycleUiStyle: CycleUiStyle
-): CycleUiStyle =
-    if (cycleUiStyle == CycleUiStyle.TABS && widgetStyle != WidgetStyle.GCAL_LEFT) {
-        CycleUiStyle.DOTS
-    } else {
-        cycleUiStyle
-    }
+): CycleUiStyle = when (widgetStyle) {
+    WidgetStyle.GCAL_LEFT -> cycleUiStyle
+    WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.DENSITY ->
+        if (cycleUiStyle == CycleUiStyle.TABS) CycleUiStyle.DOTS else cycleUiStyle
+}
 
 private fun previewFloatingContentTopInset(
     config: WidgetConfig,
@@ -692,10 +812,10 @@ private fun PreviewEventChipGcalLeftItem(event: CalendarEvent, config: WidgetCon
 
 @Composable
 private fun PreviewEventChip(event: CalendarEvent, config: WidgetConfig) {
-    if (config.widgetStyle == WidgetStyle.GCAL) {
-        PreviewEventChipGcal(event, config)
-    } else {
-        PreviewEventChipAgenda(event, config)
+    when (config.widgetStyle) {
+        WidgetStyle.GCAL -> PreviewEventChipGcal(event, config)
+        WidgetStyle.AGENDA, WidgetStyle.GCAL_LEFT -> PreviewEventChipAgenda(event, config)
+        WidgetStyle.DENSITY -> error("DENSITY must not reach PreviewEventChip")
     }
 }
 

@@ -21,6 +21,9 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityRepository
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.toWidgetConfig
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetSyncScheduler
@@ -79,6 +82,24 @@ class SettingsViewModel(
                 emit(events)
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /**
+     * The density preview's counterpart to [previewEvents]. Like the widget itself, the
+     * snapshot is only loaded while the density style is selected — no other style pays for
+     * the query, and density never loads event text.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val previewDensity: StateFlow<DensitySnapshot?> =
+        config.flatMapLatest { cfg ->
+            flow {
+                val snapshot = if (cfg.widgetStyle == WidgetStyle.DENSITY) {
+                    withContext(Dispatchers.IO) { DensityRepository(appContext).load(cfg) }
+                } else {
+                    null
+                }
+                emit(snapshot)
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
     val exportState: StateFlow<ExportState> = _exportState.asStateFlow()

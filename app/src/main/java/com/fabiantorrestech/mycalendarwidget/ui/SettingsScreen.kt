@@ -64,6 +64,7 @@ import com.fabiantorrestech.mycalendarwidget.ui.sections.CalendarFilterSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ClickRoutingSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.DisplaySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ProfilesSection
+import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +79,7 @@ fun SettingsScreen(
     val calendars by viewModel.calendars.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
     val previewEvents by viewModel.previewEvents.collectAsState()
+    val previewDensity by viewModel.previewDensity.collectAsState()
     val syncSource by viewModel.syncSource.collectAsState()
     val availableWidgets by viewModel.availableWidgetsToSync.collectAsState()
     val allOtherWidgets by viewModel.allOtherWidgets.collectAsState()
@@ -389,7 +391,9 @@ fun SettingsScreen(
                     eventsByDay = previewEvents,
                     profiles = profiles,
                     activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle
+                    cycleUiStyle = cycleUiStyle,
+                    densitySnapshot = previewDensity,
+                    use24Hour = use24Hour(context)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
