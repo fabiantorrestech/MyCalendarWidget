@@ -166,6 +166,45 @@ class DensitySpecBuilderTest {
         assertTrue(spec.content is StripContent.Shape)
     }
 
+    // --- Task 10: the caret's overhang, halo and marker width in device pixels -------
+
+    @Test
+    fun stripSpecCaretGeometryAtDensityTwo() {
+        val day = singleEventDay(9, 10)
+        val spec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 2f, null, zone)
+        assertEquals(4, spec.overhangPx)
+        assertEquals(2, spec.haloPx)
+        assertEquals(4, spec.nowMarkerWidthPx)
+        assertEquals(36, spec.heightPx)
+    }
+
+    @Test
+    fun stripSpecCaretGeometryAtDensityOne() {
+        val day = singleEventDay(9, 10)
+        val spec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 1f, null, zone)
+        assertEquals(2, spec.overhangPx)
+        assertEquals(1, spec.haloPx)
+        assertEquals(2, spec.nowMarkerWidthPx)
+        assertEquals(18, spec.heightPx)
+    }
+
+    @Test
+    fun stripSpecNowFractionIsNullWhenFeaturedIsNotToday() {
+        // The caller (widget/preview) passes nowMillis = null whenever
+        // `featuredIsToday` is false; stripSpec itself must then omit nowFraction.
+        val day = singleEventDay(9, 10)
+        val spec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 1f, null, zone)
+        assertNull(spec.nowFraction)
+    }
+
+    @Test
+    fun stripSpecNowFractionIsNonNullWhenFeaturedIsTodayAndNowIsInsideTheWindow() {
+        val day = singleEventDay(9, 10)
+        val now = at(14, 30)
+        val spec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 1f, now, zone)
+        assertNotNull(spec.nowFraction)
+    }
+
     // --- Amendment A: palette luminance floor ---------------------------------------
 
     @Test
