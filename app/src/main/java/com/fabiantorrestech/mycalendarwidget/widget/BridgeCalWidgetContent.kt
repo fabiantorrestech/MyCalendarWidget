@@ -91,6 +91,19 @@ fun BridgeCalWidgetContent(
             // this dispatcher knows about both, which is what keeps the density pipeline
             // free of event content by construction (G1) — DensityWidgetContent is never
             // handed `eventsByDay` at all.
+            // Computed once here rather than separately in DensityWidgetContent and
+            // PeekOverlay: both need the identical palette (the sheet's DATED date pill
+            // must sit on the exact ground the strip's own pill tint uses), and this is
+            // the one place that already knows about both packages.
+            val isDark = (context.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val densityPalette = DensitySpecBuilder.palette(
+                config = config,
+                isDark = isDark,
+                background = GlanceTheme.colors.widgetBackground.getColor(context).toArgb(),
+                onSurface = GlanceTheme.colors.onSurface.getColor(context).toArgb(),
+                primary = GlanceTheme.colors.primary.getColor(context).toArgb()
+            )
             Box(modifier = GlanceModifier.fillMaxSize()) {
                 DensityWidgetContent(
                     snapshot = densitySnapshot,
@@ -99,17 +112,20 @@ fun BridgeCalWidgetContent(
                     profiles = profiles,
                     activeProfileId = activeProfileId,
                     cycleUiStyle = cycleUiStyle,
+                    palette = densityPalette,
                     use24Hour = use24Hour,
                     peekOpen = peekOpen,
                     // Supplied from here because `widget/density/` may not reference the
-                    // peek package; the renderer only knows "the strip runs this".
-                    stripAction = actionRunCallback<SetPeekAction>(
-                        actionParametersOf(peekOpenKey to true)
-                    )
+                    // peek package; the renderer only knows "the strip runs this". Null
+                    // while the peek is open: the sheet layered on top owns every touch,
+                    // so the strip underneath must not also carry a click target.
+                    stripAction = if (peekOpen) {
+                        null
+                    } else {
+                        actionRunCallback<SetPeekAction>(actionParametersOf(peekOpenKey to true))
+                    }
                 )
                 if (peekOpen) {
-                    val isDark = (context.resources.configuration.uiMode and
-                        Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                     PeekOverlay(
                         eventsByDay = eventsByDay,
                         config = config,
@@ -117,13 +133,7 @@ fun BridgeCalWidgetContent(
                         use24Hour = use24Hour,
                         // The same palette the ghosted strip behind the sheet was drawn
                         // from, so the DATED date pill and the strip agree on their ground.
-                        palette = DensitySpecBuilder.palette(
-                            config = config,
-                            isDark = isDark,
-                            background = GlanceTheme.colors.widgetBackground.getColor(context).toArgb(),
-                            onSurface = GlanceTheme.colors.onSurface.getColor(context).toArgb(),
-                            primary = GlanceTheme.colors.primary.getColor(context).toArgb()
-                        )
+                        palette = densityPalette
                     )
                 }
             }

@@ -2,6 +2,7 @@ package com.fabiantorrestech.mycalendarwidget.widget.peek
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,13 +79,22 @@ fun PeekOverlay(
 ) {
     val zone = ZoneId.systemDefault()
     val locale = Locale.getDefault()
-    val today = LocalDate.now(zone)
-    val upcoming = PeekList.upcoming(
-        eventsByDay = eventsByDay,
-        nowMillis = System.currentTimeMillis(),
-        today = today
-    )
-    val items = PeekList.items(upcoming, config.densityPeekFormat)
+    // "Now" and "today" are read once per pass and reused for both the cut-off filter
+    // and the day labels: reading System.currentTimeMillis()/LocalDate.now() a second
+    // time later in the same composition could straddle a clock tick and disagree with
+    // itself (an event judged "in progress" by one read and "over" by the other).
+    // remember(...) also means a recomposition that does not change any of these keys
+    // does not re-derive the list at all.
+    val (today, upcoming, items) = remember(eventsByDay, config.densityPeekFormat, use24Hour) {
+        val nowMillis = System.currentTimeMillis()
+        val today = LocalDate.now(zone)
+        val upcoming = PeekList.upcoming(
+            eventsByDay = eventsByDay,
+            nowMillis = nowMillis,
+            today = today
+        )
+        Triple(today, upcoming, PeekList.items(upcoming, config.densityPeekFormat))
+    }
 
     Box(modifier = GlanceModifier.fillMaxSize()) {
         LazyColumn(

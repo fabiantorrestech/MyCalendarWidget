@@ -1,11 +1,9 @@
 package com.fabiantorrestech.mycalendarwidget.widget.density
 
 import android.content.Context
-import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
@@ -81,6 +79,7 @@ fun DensityWidgetContent(
     profiles: List<WidgetProfileEntry>,
     activeProfileId: String,
     cycleUiStyle: CycleUiStyle,
+    palette: DensityPalette,
     use24Hour: Boolean,
     peekOpen: Boolean = false,
     stripAction: Action? = null
@@ -115,17 +114,6 @@ fun DensityWidgetContent(
 
                 val zone = ZoneId.systemDefault()
 
-                // Glance colours are ColorProviders; resolving them here keeps
-                // DensitySpecBuilder and DensityCanvas free of Glance.
-                val isDark = (context.resources.configuration.uiMode and
-                    Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                val palette = DensitySpecBuilder.palette(
-                    config = config,
-                    isDark = isDark,
-                    background = GlanceTheme.colors.widgetBackground.getColor(context).toArgb(),
-                    onSurface = GlanceTheme.colors.onSurface.getColor(context).toArgb(),
-                    primary = GlanceTheme.colors.primary.getColor(context).toArgb()
-                )
                 val density = context.resources.displayMetrics.density
                 val widthPx = ((size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt()
                 val spec = DensitySpecBuilder.stripSpec(
