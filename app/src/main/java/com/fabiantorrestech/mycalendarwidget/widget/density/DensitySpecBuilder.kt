@@ -338,6 +338,19 @@ object DensitySpecBuilder {
      * possible shift away from the user's or theme's chosen colour. If even `t = 1` (pure
      * [onSurface]) fails the floor, [onSurface] is returned — [ColorMath.lerp] already
      * returns [onSurface] exactly at `t = 1`, so this is not a separate branch.
+     *
+     * `delta(t)` is a V shape over `t` in `[0, 1]`, not a monotonic one: because
+     * `luminance(lerp(busy, onSurface, t))` moves linearly from `luminance(busy)` toward
+     * `luminance(onSurface)`, its distance from the fixed `backgroundLum` falls to zero
+     * where the interpolated colour's luminance crosses the background's and rises again
+     * past that point. A plain binary search over a V is unsound — it would converge on
+     * whichever flank it happened to land in. The early-return guard below is what makes
+     * it sound here: it only lets the search proceed when `delta(busy)` (i.e. `delta(0)`)
+     * is itself under the floor, which confines `t = 0..1` to the single rising flank
+     * that starts inside the dip and climbs to `delta(1)` — never the falling one — so
+     * the loop's `hi = mid` / `lo = mid` halving (valid only for a monotonic function) is
+     * searching a function that actually is monotonic, and finds the smallest `t` that
+     * clears the floor rather than an arbitrary one.
      */
     private fun withLuminanceFloor(busy: Int, background: Int, onSurface: Int): Int {
         val backgroundLum = ColorMath.luminance(background)

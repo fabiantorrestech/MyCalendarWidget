@@ -5,6 +5,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Pure clock and date formatting. No Android, no ambient clock: the caller always
@@ -16,13 +17,27 @@ object TimeFormat {
     private val HOUR_24 = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
     private val HOUR_12_NO_SUFFIX = DateTimeFormatter.ofPattern("h:mm", Locale.US)
 
+    /**
+     * [clock]'s 12-hour formatter, keyed by locale: `DateTimeFormatter.ofPattern` parses
+     * its pattern string on every call, and unlike [HOUR_24]/[HOUR_12_NO_SUFFIX] this one
+     * cannot be a single `private val` because it is locale-dependent. A small cache
+     * keeps a repeat call for the same (device-wide, effectively constant) locale from
+     * re-parsing the pattern every time.
+     */
+    private val hour12Formatters = ConcurrentHashMap<Locale, DateTimeFormatter>()
+
+    private fun hour12Formatter(locale: Locale): DateTimeFormatter =
+        // computeIfAbsent, not Kotlin's getOrPut: getOrPut on a ConcurrentHashMap is a
+        // plain get-then-put and can race, whereas computeIfAbsent is atomic.
+        hour12Formatters.computeIfAbsent(locale) { DateTimeFormatter.ofPattern("h:mm a", it) }
+
     /** "1:30 PM" in 12-hour mode, "13:30" in 24-hour mode. */
     fun clock(millis: Long, zone: ZoneId, use24Hour: Boolean, locale: Locale): String {
         val time = Instant.ofEpochMilli(millis).atZone(zone)
         return if (use24Hour) {
             time.format(HOUR_24)
         } else {
-            time.format(DateTimeFormatter.ofPattern("h:mm a", locale))
+            time.format(hour12Formatter(locale))
         }
     }
 

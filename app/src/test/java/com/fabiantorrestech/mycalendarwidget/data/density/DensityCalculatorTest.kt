@@ -4,6 +4,7 @@ import com.fabiantorrestech.mycalendarwidget.data.DensityCountMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -813,6 +814,11 @@ class DensityCalculatorTest {
         val ordered = DensityCalculator.laneRects(listOf(a, b, c))
         val shuffled = DensityCalculator.laneRects(listOf(c, b, a))
         assertEquals(ordered, shuffled)
+        // The ranking within each segment is by (start, id), not input order: a and b
+        // (both starting 9:00) take lanes 0 and 1 by id, and c (starting 9:30, after
+        // both are already active) is forced into lane 2 regardless of where it sat in
+        // the input list.
+        assertEquals(listOf(0, 1, 0, 1, 2), shuffled.map { it.lane })
     }
 
     @Test
@@ -841,6 +847,23 @@ class DensityCalculatorTest {
     @Test
     fun `laneRects of no events is empty`() {
         assertEquals(emptyList<LaneRect>(), DensityCalculator.laneRects(emptyList()))
+    }
+
+    @Test
+    fun `maxLanes of one collapses every overlap to lane zero at depth one`() {
+        val a = block(9, 0, 10, 0, id = 0L)
+        val b = block(9, 30, 10, 30, id = 1L)
+        val c = block(9, 45, 10, 15, id = 2L)
+        val rects = DensityCalculator.laneRects(listOf(a, b, c), maxLanes = 1)
+        assertTrue(rects.isNotEmpty())
+        assertTrue(rects.all { it.lane == 0 && it.depth == 1 })
+    }
+
+    @Test
+    fun `maxLanes of zero throws`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            DensityCalculator.laneRects(listOf(block(9, 0, 10, 0, id = 0L)), maxLanes = 0)
+        }
     }
 
     // ---------------------------------------------------------- resolveColor

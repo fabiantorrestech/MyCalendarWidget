@@ -66,7 +66,9 @@ class ConfigExporterRoundTripTest {
         densityPeekFormat = DensityPeekFormat.DATED,
         densityCountMode = DensityCountMode.FRACTION,
         densityCalendarTones = mapOf(12L to 0, 15L to 3, 99L to 4),
-        configVersion = 1
+        // WidgetConfig()'s default is 1 — use 2 here so this really is a non-default
+        // value, matching the class doc's claim that every field differs from default.
+        configVersion = 2
     )
 
     @Test

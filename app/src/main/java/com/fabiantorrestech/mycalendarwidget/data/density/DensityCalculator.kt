@@ -84,6 +84,13 @@ object DensityCalculator {
      * the offset does that day. The arithmetic runs on the local time-line and only then
      * resolves to an instant, so a DST shift moves the instants without moving the wall
      * clock. `last + 1` is the exclusive end.
+     *
+     * When [startMinute] or [endMinute] lands inside a DST spring-forward gap (a local
+     * time that never occurs, e.g. 02:30 on the day clocks jump from 02:00 to 03:00),
+     * `LocalDateTime.atZone` resolves it by pushing it forward by the length of the gap
+     * rather than throwing — the same "next valid instant" behaviour `MidnightScheduler`
+     * relies on for local midnight. This is documented behaviour, not a bug: no change
+     * in behaviour is intended here.
      */
     fun windowBounds(date: LocalDate, startMinute: Int, endMinute: Int, zone: ZoneId): LongRange {
         val midnight = date.atStartOfDay()
@@ -92,7 +99,13 @@ object DensityCalculator {
         return start until end
     }
 
-    /** The event's own colour when it overrides its calendar's, otherwise the calendar colour. */
+    /**
+     * The event's own colour when it overrides its calendar's, otherwise the calendar
+     * colour. Mirrors `CalendarRepository`'s own display/calendar colour rule
+     * (`eventColor` is set only when the provider's `DISPLAY_COLOR` differs from the
+     * calendar's colour) — the two must agree, since content-free density (G1) and the
+     * content-carrying agenda list are colouring the very same instances.
+     */
     fun resolveColor(r: RawInstance): Int =
         if (r.displayColor != r.calendarColor) r.displayColor else r.calendarColor
 
@@ -185,8 +198,13 @@ object DensityCalculator {
      * Slices [events] at every start/end boundary and assigns a lane per slice. Within a
      * segment the active events are ranked by (start, id) so the layout is stable however
      * the input is ordered; beyond [maxLanes] the extra events share the last lane.
+     *
+     * [maxLanes] must be at least 1 — `require` rather than `coerceAtLeast` here, so a
+     * caller-side bug that produces zero or a negative lane count fails loudly instead of
+     * silently rendering as if `maxLanes = 1` had been asked for.
      */
     fun laneRects(events: List<EventBlock>, maxLanes: Int = 3): List<LaneRect> {
+        require(maxLanes >= 1) { "maxLanes must be >= 1, was $maxLanes" }
         if (events.isEmpty()) return emptyList()
 
         val boundaries = sortedSetOf<Long>()
@@ -223,7 +241,18 @@ object DensityCalculator {
         return rects
     }
 
-    /** The two lines of headline text for the featured day. */
+    /**
+     * The two lines of headline text for the featured day.
+     *
+     * [rolloverHour] and [locale] are part of the caller's contract but currently
+     * unused by this function: whether the featured day has already rolled over to
+     * tomorrow is decided earlier, by [shouldRollover] (which takes its own
+     * `rolloverHour`), and the clock text this function produces is always
+     * suffix-free (see [TimeFormat.clockNoSuffix]), so there is no locale-sensitive
+     * formatting left to do here. Both parameters are kept so a future caller change —
+     * a locale-aware qualifier, say — has an obvious place to plug in without a
+     * signature change.
+     */
     fun headline(
         featured: DayDensity,
         featuredIsToday: Boolean,

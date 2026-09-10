@@ -29,6 +29,12 @@ data class EventBlock(
     val endMillis: Long,
     val calendarId: Long,
     val colorInt: Int,
+    /**
+     * The event's per-day chronological index (its position in the day's own
+     * start-then-end sort order), not a stable identity across days or renders. Used
+     * only as [DensityCalculator.laneRects]'s tiebreaker when two events share a start
+     * time, so the lane assignment is deterministic regardless of input order.
+     */
     val id: Long
 )
 

@@ -1,6 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.widget
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import java.time.Duration
 import java.time.Instant
@@ -17,6 +18,20 @@ class MidnightSchedulerTest {
 
     private fun millisAt(zone: ZoneId, year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int = 0): Long =
         ZonedDateTime.of(year, month, day, hour, minute, second, 0, zone).toInstant().toEpochMilli()
+
+    /** Same as [millisAt] but with sub-second precision, for "the last millisecond of a day" cases. */
+    private fun millisAt(
+        zone: ZoneId,
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int,
+        second: Int,
+        millisOfSecond: Int
+    ): Long =
+        ZonedDateTime.of(year, month, day, hour, minute, second, millisOfSecond * 1_000_000, zone)
+            .toInstant().toEpochMilli()
 
     @Test
     fun `spring-forward day rolls to next midnight in the post-transition offset`() {
@@ -55,7 +70,7 @@ class MidnightSchedulerTest {
 
     @Test
     fun `just before midnight rolls to the next day's midnight`() {
-        val now = millisAt(newYork, 2026, 6, 15, 23, 59, 59)
+        val now = millisAt(newYork, 2026, 6, 15, 23, 59, 59, 999)
         val expected = ZonedDateTime.of(2026, 6, 16, 0, 0, 0, 0, newYork).toInstant().toEpochMilli()
         assertEquals(expected, MidnightScheduler.nextMidnightMillis(now, newYork))
     }
@@ -78,7 +93,7 @@ class MidnightSchedulerTest {
 
         assertEquals(0, Instant.ofEpochMilli(tokyoTarget).atZone(tokyo).toLocalTime().toSecondOfDay())
         assertEquals(0, Instant.ofEpochMilli(laTarget).atZone(losAngeles).toLocalTime().toSecondOfDay())
-        assert(tokyoTarget != laTarget)
+        assertNotEquals(tokyoTarget, laTarget)
     }
 
     @Test
