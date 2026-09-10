@@ -7,6 +7,8 @@ import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
+import com.fabiantorrestech.mycalendarwidget.data.density.LaneRect
+import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -91,6 +93,11 @@ object DensitySpecBuilder {
     private const val PILL_TINT_DARK = 0.12f
     private const val PILL_TINT_LIGHT = 0.14f
 
+    /** Detail's contrast guard (brief step 3): thresholds and the edge tint toward onSurface. */
+    private const val CONTRAST_HIGH_LUMINANCE = 0.70f
+    private const val CONTRAST_LOW_LUMINANCE = 0.30f
+    private const val CONTRAST_EDGE_TINT = 0.45f
+
     /** One axis tick every four hours, as 8a / 12p / 4p / 8p on the default window. */
     private const val AXIS_STEP_MINUTES = 240
 
@@ -165,14 +172,33 @@ object DensitySpecBuilder {
                 colorInt = palette.busy
             )
 
-            // Tonal and Detail differ only in how a rect's colour is chosen, which is the
-            // next task's job; until then every lane carries the single busy accent.
-            DensityStripMode.TONAL, DensityStripMode.DETAIL -> StripContent.Lanes(
-                rects = DensityCalculator.laneRects(day.stripEvents)
-                    .map { it.copy(colorInt = palette.busy) },
-                widthFractionOf = fraction,
-                laneOutlineColor = null
-            )
+            // The calendar colour already resolved onto each rect (Task 2/3) is exactly
+            // right for Detail; only the contrast guard needs to touch it here.
+            DensityStripMode.DETAIL -> {
+                val rects = DensityCalculator.laneRects(day.stripEvents)
+                StripContent.Lanes(
+                    rects = rects,
+                    widthFractionOf = fraction,
+                    laneOutlineColor = null,
+                    edgeColors = contrastEdgeColors(rects, palette)
+                )
+            }
+
+            // One accent, five tones, bucketed per calendar; a background-coloured
+            // outline marks the split between events sharing an overlap segment.
+            DensityStripMode.TONAL -> {
+                val ramp = TonalRamp.ramp(palette.busy, palette.background)
+                val ids = enabledSortedCalendarIds(config, day)
+                val rects = DensityCalculator.laneRects(day.stripEvents).map { rect ->
+                    val tone = TonalRamp.bucket(rect.calendarId, config.densityCalendarTones, ids)
+                    rect.copy(colorInt = ramp[tone])
+                }
+                StripContent.Lanes(
+                    rects = rects,
+                    widthFractionOf = fraction,
+                    laneOutlineColor = palette.background
+                )
+            }
         }
 
         return StripSpec(
@@ -191,6 +217,37 @@ object DensitySpecBuilder {
             pxPerDp = density,
             ghost = null
         )
+    }
+
+    /**
+     * The calendar ids Tonal ranks into buckets: the user's own enabled-calendar
+     * selection when they have made one, otherwise every calendar actually present on
+     * the strip today, in id order so a freshly-seen calendar always lands after the
+     * ones already ranked.
+     */
+    private fun enabledSortedCalendarIds(config: WidgetConfig, day: DayDensity): List<Long> =
+        if (config.enabledCalendarIds.isNotEmpty()) {
+            config.enabledCalendarIds.sorted()
+        } else {
+            day.stripEvents.map { it.calendarId }.distinct().sorted()
+        }
+
+    /**
+     * Detail's contrast guard: a rect keyed to its index in [rects] gets an edge colour
+     * when its calendar colour is nearly indistinguishable from the ground — too light
+     * on a light background, too dark on a dark one.
+     */
+    private fun contrastEdgeColors(rects: List<LaneRect>, palette: DensityPalette): Map<Int, Int> {
+        val isDarkGround = ColorMath.isDark(palette.background)
+        val edgeColor = ColorMath.lerp(palette.background, palette.onSurface, CONTRAST_EDGE_TINT)
+        val edges = mutableMapOf<Int, Int>()
+        rects.forEachIndexed { index, rect ->
+            val lum = ColorMath.luminance(rect.colorInt)
+            val tooClose = (lum > CONTRAST_HIGH_LUMINANCE && !isDarkGround) ||
+                (lum < CONTRAST_LOW_LUMINANCE && isDarkGround)
+            if (tooClose) edges[index] = edgeColor
+        }
+        return edges
     }
 
     /**

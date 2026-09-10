@@ -34,13 +34,17 @@ sealed interface StripContent {
 
     /**
      * One rect per event slice. [widthFractionOf] maps an epoch-millis instant to its
-     * fraction of the window; per-mode colour resolution lands in the Tonal/Detail task,
-     * which only has to change what [LaneRect.colorInt] carries.
+     * fraction of the window. [laneOutlineColor] strokes every rect at `depth > 1` (the
+     * background-coloured split line Tonal draws between overlapping events);
+     * [edgeColors] strokes the Detail contrast guard instead, keyed by the rect's index
+     * in [rects] rather than carried on [LaneRect] itself, which stays a pure, mode-free
+     * value from `data/density`.
      */
     data class Lanes(
         val rects: List<LaneRect>,
         val widthFractionOf: (Long) -> Float,
-        val laneOutlineColor: Int?
+        val laneOutlineColor: Int?,
+        val edgeColors: Map<Int, Int> = emptyMap()
     ) : StripContent
 }
 
@@ -102,6 +106,9 @@ object DensityCanvas {
     private const val LANE_GAP_DP = 2f
     private const val LANE_MIN_WIDTH_DP = 2f
     private const val LANE_END_INSET_DP = 1f
+
+    /** Both the Tonal lane-split outline and the Detail contrast edge are 1dp (G7). */
+    private const val OUTLINE_INSET_DP = 1f
 
     /** `(0, overhang, width, overhang + track)`. */
     fun trackRect(spec: StripSpec): IntRect =
@@ -194,30 +201,50 @@ object DensityCanvas {
         val gap = (LANE_GAP_DP * unit).roundToInt()
         val minWidth = max(1, (LANE_MIN_WIDTH_DP * unit).roundToInt())
         val endInset = max(1, (LANE_END_INSET_DP * unit).roundToInt())
+        val outlineInset = max(1, (OUTLINE_INSET_DP * unit).roundToInt())
 
-        content.rects.forEach { rect ->
-            val depth = max(1, rect.depth)
-            val laneHeight = max(1, (spec.trackHeightPx - (depth - 1) * gap) / depth)
-            val top = track.top + rect.lane * (laneHeight + gap)
-            val bottom = min(track.bottom, top + laneHeight)
+        // Deeper lanes (higher `lane`) are drawn first so a shallower lane's fill and
+        // strokes always win any pixel their 1dp insets might otherwise share.
+        content.rects.withIndex()
+            .sortedByDescending { (_, rect) -> rect.lane }
+            .forEach { (index, rect) ->
+                val depth = max(1, rect.depth)
+                val laneHeight = max(1, (spec.trackHeightPx - (depth - 1) * gap) / depth)
+                val top = track.top + rect.lane * (laneHeight + gap)
+                val bottom = min(track.bottom, top + laneHeight)
 
-            val left = xOf(content.widthFractionOf(rect.startMillis), spec.widthPx)
-            var right = xOf(content.widthFractionOf(rect.endMillis), spec.widthPx)
-            if (rect.isEventEnd) right -= endInset
-            right = max(left + minWidth, right)
+                val left = xOf(content.widthFractionOf(rect.startMillis), spec.widthPx)
+                var right = xOf(content.widthFractionOf(rect.endMillis), spec.widthPx)
+                if (rect.isEventEnd) right -= endInset
+                right = max(left + minWidth, right)
 
-            paint.style = Paint.Style.FILL
-            paint.color = rect.colorInt
-            canvas.drawRect(IntRect(left, top, right, bottom).toRect(), paint)
+                val bounds = IntRect(left, top, right, bottom)
 
-            content.laneOutlineColor?.let { outline ->
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 1f
-                paint.color = outline
-                canvas.drawRect(IntRect(left, top, right, bottom).toRect(), paint)
                 paint.style = Paint.Style.FILL
+                paint.color = rect.colorInt
+                canvas.drawRect(bounds.toRect(), paint)
+
+                if (content.laneOutlineColor != null && depth > 1) {
+                    strokeInset(canvas, paint, bounds, outlineInset, content.laneOutlineColor)
+                }
+                content.edgeColors[index]?.let { edgeColor ->
+                    strokeInset(canvas, paint, bounds, outlineInset, edgeColor)
+                }
             }
-        }
+        paint.style = Paint.Style.FILL
+    }
+
+    /** Strokes [bounds] shrunk by [insetPx] on every side, in [color]. */
+    private fun strokeInset(canvas: Canvas, paint: Paint, bounds: IntRect, insetPx: Int, color: Int) {
+        val left = min(bounds.left + insetPx, bounds.right)
+        val top = min(bounds.top + insetPx, bounds.bottom)
+        val right = max(bounds.right - insetPx, left)
+        val bottom = max(bounds.bottom - insetPx, top)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = insetPx.toFloat()
+        paint.color = color
+        canvas.drawRect(IntRect(left, top, right, bottom).toRect(), paint)
+        paint.style = Paint.Style.FILL
     }
 
     /** Fractions land on whole pixels: `FillBounds` would otherwise blur a half pixel. */
