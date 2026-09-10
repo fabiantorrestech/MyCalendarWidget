@@ -17,7 +17,10 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetNameRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityRepository
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.ui.theme.DarkColors
 import com.fabiantorrestech.mycalendarwidget.ui.theme.LightColors
 import kotlinx.coroutines.CoroutineScope
@@ -65,11 +68,30 @@ class BridgeCalWidget : GlanceAppWidget() {
                 profileRepo.cycleUiStyleFlow.collect { value = it }
             }.value
 
+            // The density style is content-free: it must never load event text at all, so the
+            // branch sits above the fetch rather than inside the renderer.
+            val isDensity = config.widgetStyle == WidgetStyle.DENSITY
+
+            val densitySnapshot by produceState<DensitySnapshot?>(
+                initialValue = null,
+                key1 = config
+            ) {
+                value = if (isDensity) {
+                    withContext(Dispatchers.IO) { DensityRepository(context).load(config) }
+                } else {
+                    null
+                }
+            }
+
             val eventsByDay by produceState<Map<LocalDate, List<CalendarEvent>>>(
                 initialValue = emptyMap(),
                 key1 = config
             ) {
-                value = withContext(Dispatchers.IO) { calRepo.getEventsByDay(config) }
+                value = if (isDensity) {
+                    emptyMap()
+                } else {
+                    withContext(Dispatchers.IO) { calRepo.getEventsByDay(config) }
+                }
             }
 
             val colors = if (config.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -89,7 +111,9 @@ class BridgeCalWidget : GlanceAppWidget() {
                     glanceId = id,
                     profiles = profiles,
                     activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle
+                    cycleUiStyle = cycleUiStyle,
+                    densitySnapshot = densitySnapshot,
+                    use24Hour = use24Hour(context)
                 )
             }
         }

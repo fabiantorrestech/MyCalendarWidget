@@ -5,4 +5,5 @@
     <string name="widget_description">Agenda calendar widget with Material You theming and smart click routing</string>
     <string name="no_events">No upcoming events</string>
     <string name="permission_required">Calendar permission required to display events</string>
+    <string name="density_no_permission">Tap to grant calendar access</string>
 </resources>

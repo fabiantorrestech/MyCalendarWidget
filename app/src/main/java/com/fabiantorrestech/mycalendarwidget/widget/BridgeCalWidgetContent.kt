@@ -20,6 +20,8 @@ import com.fabiantorrestech.mycalendarwidget.data.FontMode
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
@@ -67,74 +69,92 @@ fun BridgeCalWidgetContent(
     glanceId: GlanceId,
     profiles: List<WidgetProfileEntry> = emptyList(),
     activeProfileId: String = "",
-    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL
+    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
+    densitySnapshot: DensitySnapshot? = null,
+    use24Hour: Boolean = false
 ) {
-    val rootPadding = if (config.strictGridMode) 0.dp else 8.dp
-    val rootModifier = GlanceModifier
-        .fillMaxSize()
-        .background(GlanceTheme.colors.widgetBackground)
-        .cornerRadius(16.dp)
-        .padding(rootPadding)
+    // The style dispatch is exhaustive with no `else`: a new WidgetStyle must be given an
+    // explicit arm here rather than silently rendering as the agenda list.
+    when (config.widgetStyle) {
+        WidgetStyle.DENSITY -> DensityWidgetContent(
+            snapshot = densitySnapshot,
+            config = config,
+            context = context,
+            profiles = profiles,
+            activeProfileId = activeProfileId,
+            cycleUiStyle = cycleUiStyle,
+            use24Hour = use24Hour
+        )
 
-    // Suppress the first month's inline header only when the month is already
-    // visible in the widget header (via static title or nav). When both are off,
-    // the list shows all month headers — matching Google Calendar's style.
-    val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
-    val firstDisplayedMonth = if (suppressFirstMonth) {
-        eventsByDay.keys.firstOrNull()?.let { YearMonth.of(it.year, it.month) }
-    } else null
+        WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.GCAL_LEFT -> {
+            val rootPadding = if (config.strictGridMode) 0.dp else 8.dp
+            val rootModifier = GlanceModifier
+                .fillMaxSize()
+                .background(GlanceTheme.colors.widgetBackground)
+                .cornerRadius(16.dp)
+                .padding(rootPadding)
 
-    // When neither month text nor nav controls occupy the header, the buttons float
-    // as an overlay so the list can use the full widget height.
-    val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
-    val floatingContentTopInset = floatingContentTopInset(config, profiles, cycleUiStyle)
+            // Suppress the first month's inline header only when the month is already
+            // visible in the widget header (via static title or nav). When both are off,
+            // the list shows all month headers — matching Google Calendar's style.
+            val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
+            val firstDisplayedMonth = if (suppressFirstMonth) {
+                eventsByDay.keys.firstOrNull()?.let { YearMonth.of(it.year, it.month) }
+            } else null
 
-    if (floatingMode) {
-        Box(modifier = rootModifier) {
-            if (eventsByDay.isEmpty()) {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .padding(top = floatingContentTopInset),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No upcoming events",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = (14 * config.typographyScale.detailScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
-                        )
-                    )
+            // When neither month text nor nav controls occupy the header, the buttons float
+            // as an overlay so the list can use the full widget height.
+            val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
+            val floatingContentTopInset = floatingContentTopInset(config, profiles, cycleUiStyle)
+
+            if (floatingMode) {
+                Box(modifier = rootModifier) {
+                    if (eventsByDay.isEmpty()) {
+                        Box(
+                            modifier = GlanceModifier
+                                .fillMaxSize()
+                                .padding(top = floatingContentTopInset),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No upcoming events",
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = (14 * config.typographyScale.detailScale).sp,
+                                    fontFamily = config.glanceFont(FontCategory.DETAIL)
+                                )
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = GlanceModifier
+                                .fillMaxSize()
+                                .padding(top = floatingContentTopInset)
+                        ) {
+                            EventList(eventsByDay, firstDisplayedMonth, config, context)
+                        }
+                    }
+                    FloatingControlsOverlay(config, profiles, activeProfileId, cycleUiStyle)
                 }
             } else {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .padding(top = floatingContentTopInset)
-                ) {
-                    EventList(eventsByDay, firstDisplayedMonth, config, context)
+                Column(modifier = rootModifier) {
+                    WidgetHeader(config, context, profiles, activeProfileId, cycleUiStyle)
+                    Spacer(modifier = GlanceModifier.height(4.dp))
+                    if (eventsByDay.isEmpty()) {
+                        Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "No upcoming events",
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = (14 * config.typographyScale.detailScale).sp,
+                                    fontFamily = config.glanceFont(FontCategory.DETAIL)
+                                )
+                            )
+                        }
+                    } else {
+                        EventList(eventsByDay, firstDisplayedMonth, config, context)
+                    }
                 }
-            }
-            FloatingControlsOverlay(config, profiles, activeProfileId, cycleUiStyle)
-        }
-    } else {
-        Column(modifier = rootModifier) {
-            WidgetHeader(config, context, profiles, activeProfileId, cycleUiStyle)
-            Spacer(modifier = GlanceModifier.height(4.dp))
-            if (eventsByDay.isEmpty()) {
-                Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No upcoming events",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = (14 * config.typographyScale.detailScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
-                        )
-                    )
-                }
-            } else {
-                EventList(eventsByDay, firstDisplayedMonth, config, context)
             }
         }
     }
