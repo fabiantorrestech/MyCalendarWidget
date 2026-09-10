@@ -49,16 +49,20 @@ object PeekList {
     /**
      * The config the peek queries with. The agenda list's display conveniences are all
      * wrong for a "what is coming up" sheet: [WidgetConfig.monthOffset] would follow the
-     * user's month paging away from today, [WidgetConfig.showSpanningEventsEachDay]
-     * would repeat a multi-day event on every day it covers (and each repeat carries the
-     * same `id`, so they would be deduped anyway), and
+     * user's month paging away from today, and
      * [WidgetConfig.showEmptyDays]/[WidgetConfig.alwaysShowToday] would inject days with
-     * nothing in them. Everything else — the calendar filter, the keyword filter,
-     * `daysAheadToLoad` — is exactly what the user asked for and is left alone.
+     * nothing in them. [WidgetConfig.showSpanningEventsEachDay] is forced *on* rather
+     * than off: without it a multi-day event is keyed only under its true start day, so
+     * a Mon–Fri all-day vacation viewed on Wednesday (or an overnight timed event) would
+     * either be missing from the window or show up under a day that has already passed.
+     * Turning it on keys the event on every day it covers instead, and [upcoming]'s
+     * dedupe picks the today-or-later copy. Everything else — the calendar filter, the
+     * keyword filter, `daysAheadToLoad` — is exactly what the user asked for and is left
+     * alone.
      */
     fun peekQueryConfig(config: WidgetConfig): WidgetConfig = config.copy(
         monthOffset = 0,
-        showSpanningEventsEachDay = false,
+        showSpanningEventsEachDay = true,
         showEmptyDays = false,
         alwaysShowToday = false
     )
@@ -86,9 +90,14 @@ object PeekList {
         eventsByDay.entries
             .sortedBy { it.key }
             .flatMap { (date, events) -> events.map { date to it } }
-            // The same instance can appear under two days when it spans them; the first
-            // (earliest) day wins, so a running multi-day event stays anchored where it
-            // started rather than jumping forward.
+            // The same instance can appear under every day it spans (peekQueryConfig
+            // forces showSpanningEventsEachDay on). Sorting today-or-later copies ahead
+            // of before-today copies — `sortedBy` is stable, so ascending-date order is
+            // preserved within each group — means the distinctBy below keeps the copy
+            // dated today or later (the earliest such day) instead of whichever day
+            // sorts first, which for an event that started before today would anchor it
+            // in the past.
+            .sortedBy { (date, _) -> if (date.isBefore(today)) 1 else 0 }
             .distinctBy { it.second.id }
             .filter { (date, event) ->
                 if (event.allDay) !date.isBefore(today) else event.dtEnd > nowMillis

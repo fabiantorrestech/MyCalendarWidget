@@ -153,6 +153,37 @@ class PeekListTest {
         assertEquals(listOf(5L, 20L), result.map { it.second.id })
     }
 
+    @Test
+    fun `all-day event spanning three days appears once under today, not the earliest day`() {
+        // Same instance (id 1) keyed under Mon, Tue, Wed the way
+        // showSpanningEventsEachDay = true keys a repository result; today is Wed (TODAY).
+        val spanStart = TODAY.minusDays(2).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+        val spanEnd = TODAY.plusDays(1).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+        val e = event(1L, spanStart, spanEnd, allDay = true)
+        val map = mapOf(
+            TODAY.minusDays(2) to listOf(e),
+            TODAY.minusDays(1) to listOf(e),
+            TODAY to listOf(e)
+        )
+        val result = PeekList.upcoming(map, at(0, 8), TODAY)
+        assertEquals(1, result.size)
+        assertEquals(TODAY, result[0].first)
+    }
+
+    @Test
+    fun `overnight timed event keyed under both days appears once under today`() {
+        // 22:00 yesterday to 06:00 today, keyed under both days it spans; "now" is 02:00
+        // today, so the event is still in progress.
+        val e = event(2L, at(-1, 22), at(0, 6))
+        val map = mapOf(
+            TODAY.minusDays(1) to listOf(e),
+            TODAY to listOf(e)
+        )
+        val result = PeekList.upcoming(map, at(0, 2), TODAY)
+        assertEquals(1, result.size)
+        assertEquals(TODAY, result[0].first)
+    }
+
     // ---- items() ----
 
     @Test
@@ -229,24 +260,26 @@ class PeekListTest {
     // ---- peekQueryConfig() ----
 
     @Test
-    fun `peek query config neutralises the agenda-only flags`() {
+    fun `peek query config neutralises the agenda-only flags and enables spanning`() {
         val config = WidgetConfig(
             monthOffset = 3,
-            showSpanningEventsEachDay = true,
+            showSpanningEventsEachDay = false,
             showEmptyDays = true,
             alwaysShowToday = true,
             daysAheadToLoad = 14
         )
         val peek = PeekList.peekQueryConfig(config)
         assertEquals(0, peek.monthOffset)
-        assertFalse(peek.showSpanningEventsEachDay)
+        // Spanning must be forced on so a multi-day event in progress is keyed onto
+        // today (and every other day it covers) rather than only its true start day.
+        assertTrue(peek.showSpanningEventsEachDay)
         assertFalse(peek.showEmptyDays)
         assertFalse(peek.alwaysShowToday)
         // Everything else is left exactly as the user configured it.
         assertEquals(14, peek.daysAheadToLoad)
         assertEquals(config, peek.copy(
             monthOffset = 3,
-            showSpanningEventsEachDay = true,
+            showSpanningEventsEachDay = false,
             showEmptyDays = true,
             alwaysShowToday = true
         ))
