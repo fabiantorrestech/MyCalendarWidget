@@ -28,4 +28,14 @@ object DensityConstants {
 
     /** Minimum luminance separation two adjacent tones must keep. */
     const val TONE_MIN_LUMINANCE_DELTA = 0.18f
+
+    /**
+     * Minimum luminance separation the busy accent must keep from the widget
+     * background. A pastel Material You primary can sit as close as ~0.17 to a light
+     * ground, which (a) leaves the Tonal ramp's compression cap under 0.55 — too little
+     * room for five visibly distinct tones (see [TONE_MIN_LUMINANCE_DELTA] and
+     * [TonalRamp.ramp]) — and (b) makes Shape's solid busy blocks hard to read. Enforcing
+     * 0.40 here keeps both readable without the user ever seeing a separate setting.
+     */
+    const val BUSY_MIN_LUMINANCE_DELTA = 0.40f
 }

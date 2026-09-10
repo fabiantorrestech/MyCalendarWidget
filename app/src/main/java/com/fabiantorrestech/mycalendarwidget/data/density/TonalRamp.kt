@@ -33,13 +33,16 @@ object TonalRamp {
 
     /**
      * The tone index (0..4) [calendarId] draws in. An explicit entry in [assigned] wins
-     * outright; otherwise the calendar's rank in [enabledSortedIds] (0 when it is not
+     * outright — clamped into range with [Int.coerceIn] so a corrupted or hand-edited
+     * profile (e.g. an assignment left over from a build with a larger
+     * [DensityConstants.TONE_COUNT]) can never index [TonalRamp.ramp]'s array out of
+     * bounds; otherwise the calendar's rank in [enabledSortedIds] (0 when it is not
      * present at all) picks the tone, wrapping past [DensityConstants.TONE_COUNT].
      * Ranks come from the caller's sorted id list rather than being recomputed here, so
      * adding a calendar with a higher id never reshuffles the ones already assigned.
      */
     fun bucket(calendarId: Long, assigned: Map<Long, Int>, enabledSortedIds: List<Long>): Int {
-        assigned[calendarId]?.let { return it }
+        assigned[calendarId]?.let { return it.coerceIn(0, DensityConstants.TONE_COUNT - 1) }
         val index = enabledSortedIds.indexOf(calendarId)
         val rank = if (index < 0) 0 else index
         return rank % DensityConstants.TONE_COUNT

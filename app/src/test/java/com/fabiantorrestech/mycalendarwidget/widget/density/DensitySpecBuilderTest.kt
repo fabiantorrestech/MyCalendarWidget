@@ -2,10 +2,14 @@ package com.fabiantorrestech.mycalendarwidget.widget.density
 
 import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
+import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.density.RawInstance
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -14,11 +18,25 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.Locale
+import kotlin.math.abs
 
 private const val BACKGROUND = 0xFFFFFFFF.toInt()
 private const val ON_SURFACE = 0xFF000000.toInt()
 private const val PRIMARY = 0xFF6750A4.toInt()
 private const val EVENT_COLOR = 0xFF112233.toInt()
+
+// Material-default-ish ground/onSurface used for the luminance-floor cases (amendment A),
+// matching the values named in the controller amendment.
+private const val LIGHT_BG_MD = 0xFFFFFBFE.toInt()
+private const val ON_SURFACE_MD = 0xFF1C1B1F.toInt()
+private const val PASTEL_ACCENT = 0xFFCFC8FF.toInt()
+private const val COMPLIANT_ACCENT = 0xFF7F77DD.toInt()
+
+// A dark accent on a dark ground, lightened toward a light onSurface.
+private const val DARK_BG_MD = 0xFF1C1B1F.toInt()
+private const val LIGHT_ON_SURFACE_MD = 0xFFE6E1E5.toInt()
+private const val DARK_ACCENT = 0xFF3D3A5C.toInt()
 
 /**
  * [DensitySpecBuilder] is Glance/Compose-free but not Android-free (it reads
@@ -62,6 +80,17 @@ class DensitySpecBuilderTest {
         onSurface = ON_SURFACE,
         primary = PRIMARY,
         sdkInt = sdkInt
+    )
+
+    private fun dayAt(d: LocalDate, busyMinutes: Int = 0) = DayDensity(
+        date = d,
+        eventCount = 0,
+        hasAllDay = false,
+        dayMerged = emptyList(),
+        stripMerged = emptyList(),
+        stripEvents = emptyList(),
+        busyMinutes = busyMinutes,
+        busyEnds = emptyList()
     )
 
     @Test
@@ -135,5 +164,117 @@ class DensitySpecBuilderTest {
         val cfg = config.copy(densityStripMode = DensityStripMode.SHAPE)
         val spec = DensitySpecBuilder.stripSpec(day, cfg, palette(), 1000, 1f, null, zone)
         assertTrue(spec.content is StripContent.Shape)
+    }
+
+    // --- Amendment A: palette luminance floor ---------------------------------------
+
+    @Test
+    fun pastelBusyOnLightGroundIsDarkenedToMeetTheFloor() {
+        val cfg = config.copy(densityBusyColor = PASTEL_ACCENT, dynamicColor = false)
+        val p = DensitySpecBuilder.palette(
+            config = cfg,
+            isDark = false,
+            background = LIGHT_BG_MD,
+            onSurface = ON_SURFACE_MD,
+            primary = PRIMARY,
+            sdkInt = 33
+        )
+        assertNotEquals(PASTEL_ACCENT, p.busy)
+        val delta = abs(ColorMath.luminance(p.busy) - ColorMath.luminance(LIGHT_BG_MD))
+        assertTrue(
+            "delta was $delta",
+            delta >= DensityConstants.BUSY_MIN_LUMINANCE_DELTA - 0.01f
+        )
+    }
+
+    @Test
+    fun compliantBusyOnLightGroundIsUnchanged() {
+        val cfg = config.copy(densityBusyColor = COMPLIANT_ACCENT, dynamicColor = false)
+        val p = DensitySpecBuilder.palette(
+            config = cfg,
+            isDark = false,
+            background = LIGHT_BG_MD,
+            onSurface = ON_SURFACE_MD,
+            primary = PRIMARY,
+            sdkInt = 33
+        )
+        assertEquals(COMPLIANT_ACCENT, p.busy)
+    }
+
+    @Test
+    fun darkAccentOnDarkGroundIsLightenedTowardALightOnSurface() {
+        val cfg = config.copy(densityBusyColor = DARK_ACCENT, dynamicColor = false)
+        val p = DensitySpecBuilder.palette(
+            config = cfg,
+            isDark = true,
+            background = DARK_BG_MD,
+            onSurface = LIGHT_ON_SURFACE_MD,
+            primary = PRIMARY,
+            sdkInt = 33
+        )
+        assertNotEquals(DARK_ACCENT, p.busy)
+        assertTrue(ColorMath.luminance(p.busy) > ColorMath.luminance(DARK_ACCENT))
+        val delta = abs(ColorMath.luminance(p.busy) - ColorMath.luminance(DARK_BG_MD))
+        assertTrue(
+            "delta was $delta",
+            delta >= DensityConstants.BUSY_MIN_LUMINANCE_DELTA - 0.01f
+        )
+    }
+
+    // --- Look-ahead bars: dayLabels and loadBarsSpec --------------------------------
+
+    @Test
+    fun dayLabelsUsesShortWeekdayNamesInOrder() {
+        // 2026-01-01 is a Thursday.
+        val lookahead = listOf(
+            dayAt(LocalDate.of(2026, 1, 1)),
+            dayAt(LocalDate.of(2026, 1, 2)),
+            dayAt(LocalDate.of(2026, 1, 3))
+        )
+        val snapshot = DensitySnapshot(
+            hasPermission = true,
+            featured = dayAt(date),
+            featuredIsToday = true,
+            lookahead = lookahead,
+            nowMillis = 0L
+        )
+        assertEquals(
+            listOf("Thu", "Fri", "Sat"),
+            DensitySpecBuilder.dayLabels(snapshot, Locale.US)
+        )
+    }
+
+    @Test
+    fun loadBarsSpecComputesLoadsFromBusyMinutesAndBaseline() {
+        val lookahead = listOf(
+            dayAt(date.plusDays(1), busyMinutes = 300),
+            dayAt(date.plusDays(2), busyMinutes = 400),
+            dayAt(date.plusDays(3), busyMinutes = 60)
+        )
+        val snapshot = DensitySnapshot(
+            hasPermission = true,
+            featured = dayAt(date),
+            featuredIsToday = true,
+            lookahead = lookahead,
+            nowMillis = 0L
+        )
+        val cfg = config.copy(densityLoadBaselineMinutes = 480)
+        val p = palette()
+        val spec = DensitySpecBuilder.loadBarsSpec(
+            snapshot = snapshot,
+            config = cfg,
+            palette = p,
+            widthPx = 1000,
+            density = 2f
+        )
+        assertEquals(3, spec.loads.size)
+        assertEquals(0.625f, spec.loads[0], 0.001f)
+        assertEquals(0.83333f, spec.loads[1], 0.001f)
+        assertEquals(0.125f, spec.loads[2], 0.001f)
+        assertEquals(1000, spec.widthPx)
+        assertEquals(12, spec.heightPx)
+        assertEquals(20, spec.gutterPx)
+        assertEquals(p.busy, spec.fillColor)
+        assertEquals(p.free, spec.trackColor)
     }
 }

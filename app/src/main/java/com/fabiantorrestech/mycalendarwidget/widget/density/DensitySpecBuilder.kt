@@ -7,11 +7,14 @@ import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.density.LaneRect
 import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.format.TextStyle
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -61,6 +64,21 @@ object DensityLayout {
 
     /** Gap between the strip and the hour axis. */
     const val AXIS_TOP_GAP_DP = 2f
+
+    /** G7: each look-ahead day bar is 6dp tall. */
+    const val DAY_BAR_HEIGHT_DP = 6f
+
+    /** G7: 10dp between look-ahead day bars (and their day labels above them). */
+    const val DAY_BAR_GUTTER_DP = 10f
+
+    /** Gap between the axis (or bottom chrome row) and the look-ahead divider. */
+    const val DIVIDER_TOP_GAP_DP = 7f
+
+    /** Gap between the divider and the day-label row. */
+    const val LABELS_TOP_GAP_DP = 7f
+
+    /** Gap between the day-label row and the bars bitmap. */
+    const val BARS_TOP_GAP_DP = 4f
 }
 
 /**
@@ -119,12 +137,13 @@ object DensitySpecBuilder {
         primary: Int,
         sdkInt: Int = Build.VERSION.SDK_INT
     ): DensityPalette {
-        val busy = when {
+        val rawBusy = when {
             // 0 means "unset, follow the theme"; anything else is the user's own choice.
             config.densityBusyColor != 0 -> config.densityBusyColor
             config.dynamicColor && sdkInt >= Build.VERSION_CODES.S -> primary
             else -> DensityConstants.DEFAULT_BUSY_COLOR
         }
+        val busy = withLuminanceFloor(rawBusy, background, onSurface)
         return DensityPalette(
             busy = busy,
             free = ColorMath.lerp(background, onSurface, FREE_TRACK_TINT),
@@ -217,6 +236,71 @@ object DensitySpecBuilder {
             pxPerDp = density,
             ghost = null
         )
+    }
+
+    /**
+     * The look-ahead day bars: one load fraction per day in [DensitySnapshot.lookahead],
+     * against [WidgetConfig.densityLoadBaselineMinutes]. [widthPx] is the bitmap's full
+     * width (the bars span the same width as the strip above them); height and gutter
+     * come from [DensityLayout] rather than being passed in, so every call site agrees.
+     */
+    fun loadBarsSpec(
+        snapshot: DensitySnapshot,
+        config: WidgetConfig,
+        palette: DensityPalette,
+        widthPx: Int,
+        density: Float
+    ): LoadBarsSpec {
+        val loads = snapshot.lookahead.map {
+            DensityCalculator.dayLoad(it.busyMinutes, config.densityLoadBaselineMinutes)
+        }
+        return LoadBarsSpec(
+            widthPx = max(1, widthPx),
+            heightPx = max(1, (DensityLayout.DAY_BAR_HEIGHT_DP * density).roundToInt()),
+            loads = loads,
+            gutterPx = max(0, (DensityLayout.DAY_BAR_GUTTER_DP * density).roundToInt()),
+            fillColor = palette.busy,
+            trackColor = palette.free
+        )
+    }
+
+    /**
+     * One short weekday name per [DensitySnapshot.lookahead] day ("Thu", "Fri", …), in
+     * [locale]. Pure date formatting: no calendar content, so it stays clear of G1.
+     */
+    fun dayLabels(snapshot: DensitySnapshot, locale: Locale): List<String> =
+        snapshot.lookahead.map {
+            it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+        }
+
+    /**
+     * Pushes [busy] toward [onSurface] until it keeps
+     * [DensityConstants.BUSY_MIN_LUMINANCE_DELTA] luminance away from [background], or
+     * returns it unchanged when it already does. Binary search rather than a fixed step:
+     * `lerp`'s luminance is (up to rounding) linear in `t`, so the smallest passing `t` is
+     * found to float precision in a handful of iterations, and the result is the least
+     * possible shift away from the user's or theme's chosen colour. If even `t = 1` (pure
+     * [onSurface]) fails the floor, [onSurface] is returned — [ColorMath.lerp] already
+     * returns [onSurface] exactly at `t = 1`, so this is not a separate branch.
+     */
+    private fun withLuminanceFloor(busy: Int, background: Int, onSurface: Int): Int {
+        val backgroundLum = ColorMath.luminance(background)
+        fun delta(color: Int) = abs(ColorMath.luminance(color) - backgroundLum)
+
+        if (delta(busy) >= DensityConstants.BUSY_MIN_LUMINANCE_DELTA) return busy
+
+        var lo = 0f
+        var hi = 1f
+        repeat(24) {
+            val mid = (lo + hi) / 2f
+            val candidate = ColorMath.lerp(busy, onSurface, mid)
+            if (delta(candidate) >= DensityConstants.BUSY_MIN_LUMINANCE_DELTA) {
+                hi = mid
+            } else {
+                lo = mid
+            }
+        }
+        return ColorMath.lerp(busy, onSurface, hi)
     }
 
     /**
