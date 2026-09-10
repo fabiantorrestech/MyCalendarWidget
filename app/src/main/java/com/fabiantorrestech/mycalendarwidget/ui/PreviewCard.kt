@@ -479,9 +479,9 @@ private fun PreviewDensityContent(
                 text = headline.qualifierText,
                 fontSize = (13 * config.typographyScale.detailScale).sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.weight(1f))
             if (profiles.size >= 2) {
                 PreviewInlineProfileSwitcher(
                     profiles,

@@ -127,16 +127,17 @@ fun DensityWidgetContent(
 
                 Spacer(modifier = GlanceModifier.width(7.dp))
 
+                // The qualifier carries the weight (rather than a bare spacer) so it gives up
+                // width to the chrome instead of pushing the calendar button off the row.
                 Text(
                     text = headline.qualifierText,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
                         fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp
                     ),
-                    maxLines = 1
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight()
                 )
-
-                Spacer(modifier = GlanceModifier.defaultWeight())
 
                 if (profiles.size >= 2) {
                     InlineProfileSwitcher(
