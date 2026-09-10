@@ -22,3 +22,5 @@ local.properties
 /docs
 /handoffContext/
 /implementation-files/
+# Superpowers SDD scratch (ledger, briefs, review packages)
+.superpowers/
