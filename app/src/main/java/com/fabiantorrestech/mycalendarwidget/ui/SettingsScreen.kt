@@ -62,6 +62,7 @@ import com.fabiantorrestech.mycalendarwidget.ui.sections.AdvancedSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.AppearanceSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.CalendarFilterSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ClickRoutingSection
+import com.fabiantorrestech.mycalendarwidget.ui.sections.DensitySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.DisplaySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ProfilesSection
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
@@ -443,6 +444,15 @@ fun SettingsScreen(
             item {
                 DisplaySection(
                     config = config,
+                    onConfigChange = viewModel::updateConfig
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
+                DensitySection(
+                    config = config,
+                    calendars = calendars,
                     onConfigChange = viewModel::updateConfig
                 )
                 Spacer(modifier = Modifier.height(16.dp))
