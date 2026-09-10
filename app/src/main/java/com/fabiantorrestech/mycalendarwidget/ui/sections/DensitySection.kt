@@ -105,10 +105,13 @@ fun DensitySection(
         valueLabel = { "$it:00" },
         onValueChangeFinished = { hour ->
             val newStartMinutes = hour * 60
-            // Keep the window at least an hour wide: pushing the start up past
-            // (end - 60) drags the end along with it, capped at midnight.
-            val newEndMinutes = if (config.densityWindowEndMinutes <= newStartMinutes + 60) {
-                (newStartMinutes + 60).coerceAtMost(1440)
+            // Invariant: end - start >= 60 (a one-hour window is the shortest allowed).
+            // Pushing the start up past (end - 60) drags the end along with it. Start's
+            // own range (0..12) tops out at 720, so newStartMinutes + 60 never exceeds
+            // 780 — well inside end's valid range (780..1440) — a coerceAtMost(1440)
+            // guard would be dead code here and is deliberately omitted.
+            val newEndMinutes = if (config.densityWindowEndMinutes < newStartMinutes + 60) {
+                newStartMinutes + 60
             } else {
                 config.densityWindowEndMinutes
             }
@@ -127,10 +130,13 @@ fun DensitySection(
         valueLabel = { "$it:00" },
         onValueChangeFinished = { hour ->
             val newEndMinutes = hour * 60
-            // Symmetric guard: pulling the end down below (start + 60) drags the
-            // start down with it, floored at midnight.
+            // Symmetric guard: pulling the end down below (start + 60) drags the start
+            // down with it. End's own range (13..24) bottoms out at 780, so
+            // newEndMinutes - 60 never drops below 720 — well inside start's valid range
+            // (0..720) — a coerceAtLeast(0) guard would be dead code here and is
+            // deliberately omitted.
             val newStartMinutes = if (config.densityWindowStartMinutes > newEndMinutes - 60) {
-                (newEndMinutes - 60).coerceAtLeast(0)
+                newEndMinutes - 60
             } else {
                 config.densityWindowStartMinutes
             }
@@ -240,7 +246,16 @@ private fun TonalCalendarTones(
         )
     }
     val ramp = remember(palette) { TonalRamp.ramp(palette.busy, palette.background) }
-    val enabledSortedIds = (config.enabledCalendarIds.ifEmpty { calendars.map { it.id }.toSet() }).sorted()
+    // Matches the widget's own fallback (DensitySpecBuilder.enabledSortedCalendarIds,
+    // fed from DensityCalendarSource.queryVisibleCalendarIds): when the user hasn't set
+    // an explicit calendar filter, rank over the provider's VISIBLE=1 calendars rather
+    // than every calendar CalendarRepository.getCalendars() returns (that list
+    // deliberately omits the VISIBLE filter so a hidden calendar can still be toggled
+    // back on here) — otherwise this ring can point at a different swatch than the one
+    // the widget actually paints for a calendar with no events today.
+    val enabledSortedIds = config.enabledCalendarIds.ifEmpty {
+        calendars.filter { it.visible }.map { it.id }.toSet()
+    }.sorted()
 
     calendars.forEach { calendar ->
         val assignedTone = config.densityCalendarTones[calendar.id]

@@ -178,6 +178,26 @@ object DensitySpecBuilder {
     private const val MIN_AXIS_CELLS = 4
     private const val MAX_AXIS_CELLS = 10
 
+    /** G7: the shipped default window (08:00-22:00), used when [effectiveWindowMinutes]
+     * finds the configured bounds degenerate. */
+    private const val DEFAULT_WINDOW_START_MINUTES = 480
+    private const val DEFAULT_WINDOW_END_MINUTES = 1320
+
+    /**
+     * The window bounds actually used for one render. [WidgetConfig.densityWindowStartMinutes]
+     * and [WidgetConfig.densityWindowEndMinutes] are guarded in Settings (`DensitySection`)
+     * to always keep `end - start >= 60`, but a hand-edited or otherwise corrupted imported
+     * profile JSON could still carry a degenerate pair (end <= start); rather than divide by
+     * a zero or negative span below, that render falls back to the shipped default window.
+     * The stored config itself is left untouched — this is a render-time fallback only.
+     */
+    private fun effectiveWindowMinutes(config: WidgetConfig): Pair<Int, Int> =
+        if (config.densityWindowEndMinutes <= config.densityWindowStartMinutes) {
+            DEFAULT_WINDOW_START_MINUTES to DEFAULT_WINDOW_END_MINUTES
+        } else {
+            config.densityWindowStartMinutes to config.densityWindowEndMinutes
+        }
+
     /**
      * [background], [onSurface] and [primary] are the theme colours the caller has
      * already resolved — `GlanceTheme.colors.X.getColor(context).toArgb()` in the widget,
@@ -216,7 +236,10 @@ object DensitySpecBuilder {
 
     /**
      * [nowMillis] must be null unless [day] is actually today — the caret is the "you are
-     * here" marker and has no meaning on tomorrow's strip.
+     * here" marker and has no meaning on tomorrow's strip. [visibleCalendarIds] is the
+     * Tonal rank fallback's source list (see [enabledSortedCalendarIds]); it defaults to
+     * empty so existing callers/tests that don't care about Tonal rank stability don't
+     * need updating.
      */
     fun stripSpec(
         day: DayDensity,
@@ -225,12 +248,14 @@ object DensitySpecBuilder {
         widthPx: Int,
         density: Float,
         nowMillis: Long?,
-        zone: ZoneId
+        zone: ZoneId,
+        visibleCalendarIds: List<Long> = emptyList()
     ): StripSpec {
+        val (windowStartMinutes, windowEndMinutes) = effectiveWindowMinutes(config)
         val window = DensityCalculator.windowBounds(
             day.date,
-            config.densityWindowStartMinutes,
-            config.densityWindowEndMinutes,
+            windowStartMinutes,
+            windowEndMinutes,
             zone
         )
         val windowStart = window.first
@@ -263,7 +288,7 @@ object DensitySpecBuilder {
             // outline marks the split between events sharing an overlap segment.
             DensityStripMode.TONAL -> {
                 val ramp = TonalRamp.ramp(palette.busy, palette.background)
-                val ids = enabledSortedCalendarIds(config, day)
+                val ids = enabledSortedCalendarIds(config, day, visibleCalendarIds)
                 val rects = DensityCalculator.laneRects(day.stripEvents).map { rect ->
                     val tone = TonalRamp.bucket(rect.calendarId, config.densityCalendarTones, ids)
                     rect.copy(colorInt = ramp[tone])
@@ -374,13 +399,23 @@ object DensitySpecBuilder {
 
     /**
      * The calendar ids Tonal ranks into buckets: the user's own enabled-calendar
-     * selection when they have made one, otherwise every calendar actually present on
-     * the strip today, in id order so a freshly-seen calendar always lands after the
-     * ones already ranked.
+     * selection when they have made one; otherwise [visibleCalendarIds] (the provider's
+     * own visible-calendar set, queried once per snapshot by
+     * `DensityCalendarSource.queryVisibleCalendarIds` — the same rule Settings'
+     * `DensitySection` ranks over), which keeps a calendar's rank stable from one day to
+     * the next; otherwise (permission missing, so [visibleCalendarIds] comes back empty)
+     * every calendar actually present on the strip today, in id order, so a freshly-seen
+     * calendar still ranks somewhere rather than crashing.
      */
-    private fun enabledSortedCalendarIds(config: WidgetConfig, day: DayDensity): List<Long> =
+    private fun enabledSortedCalendarIds(
+        config: WidgetConfig,
+        day: DayDensity,
+        visibleCalendarIds: List<Long>
+    ): List<Long> =
         if (config.enabledCalendarIds.isNotEmpty()) {
             config.enabledCalendarIds.sorted()
+        } else if (visibleCalendarIds.isNotEmpty()) {
+            visibleCalendarIds
         } else {
             day.stripEvents.map { it.calendarId }.distinct().sorted()
         }
@@ -414,19 +449,15 @@ object DensitySpecBuilder {
         zone: ZoneId,
         use24Hour: Boolean
     ): AxisSpec {
-        val window = DensityCalculator.windowBounds(
-            date,
-            config.densityWindowStartMinutes,
-            config.densityWindowEndMinutes,
-            zone
-        )
+        val (windowStartMinutes, windowEndMinutes) = effectiveWindowMinutes(config)
+        val window = DensityCalculator.windowBounds(date, windowStartMinutes, windowEndMinutes, zone)
         val windowStart = window.first
         val span = (window.last + 1 - windowStart).toFloat()
         if (span <= 0f) return AxisSpec(1, listOf(null))
 
         val ticks = ArrayList<Pair<Float, String>>()
-        var minute = config.densityWindowStartMinutes
-        while (minute < config.densityWindowEndMinutes) {
+        var minute = windowStartMinutes
+        while (minute < windowEndMinutes) {
             val at = date.atStartOfDay().plusMinutes(minute.toLong()).atZone(zone)
             val fraction = (at.toInstant().toEpochMilli() - windowStart) / span
             if (fraction in 0f..1f) ticks.add(fraction to hourLabel(at, use24Hour))

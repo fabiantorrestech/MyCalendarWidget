@@ -8,6 +8,7 @@ import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.density.RawInstance
+import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -73,6 +74,28 @@ class DensitySpecBuilderTest {
         zone = zone
     )
 
+    /** One raw instance per (calendarId, startHour..endHour) pair, all on [date]. */
+    private fun multiCalendarDay(vararg events: Pair<Long, IntRange>) = DensityCalculator.buildDay(
+        date = date,
+        raw = events.map { (calendarId, hours) ->
+            RawInstance(
+                begin = at(hours.first),
+                end = at(hours.last),
+                allDay = false,
+                calendarId = calendarId,
+                selfAttendeeStatus = 0,
+                status = 1,
+                availability = 0,
+                displayColor = EVENT_COLOR,
+                calendarColor = EVENT_COLOR
+            )
+        },
+        enabledCalendarIds = emptySet(),
+        windowStartMinutes = config.densityWindowStartMinutes,
+        windowEndMinutes = config.densityWindowEndMinutes,
+        zone = zone
+    )
+
     private fun palette(cfg: WidgetConfig = config, sdkInt: Int = 33) = DensitySpecBuilder.palette(
         config = cfg,
         isDark = false,
@@ -104,6 +127,83 @@ class DensitySpecBuilderTest {
         assertNull(axis.labels[1])
         assertNull(axis.labels[3])
         assertNull(axis.labels[5])
+    }
+
+    // --- Fix round 1, finding 1: degenerate window (end <= start) falls back to default --
+
+    @Test
+    fun axisSpecFallsBackToDefaultWindowWhenConfiguredWindowIsDegenerate() {
+        // A hand-edited or corrupted imported profile could still carry end <= start even
+        // though Settings itself now guards end - start >= 60; axisSpec must not divide by
+        // a zero/negative span, and instead render exactly as the shipped default window
+        // (config's own densityWindowStartMinutes/EndMinutes are already 480/1320).
+        val degenerate = config.copy(densityWindowStartMinutes = 1320, densityWindowEndMinutes = 480)
+        val axis = DensitySpecBuilder.axisSpec(date, degenerate, zone, use24Hour = false)
+        val defaultAxis = DensitySpecBuilder.axisSpec(date, config, zone, use24Hour = false)
+        assertEquals(defaultAxis.cellCount, axis.cellCount)
+        assertEquals(defaultAxis.labels, axis.labels)
+    }
+
+    @Test
+    fun stripSpecFallsBackToDefaultWindowWhenConfiguredWindowIsDegenerate() {
+        val day = singleEventDay(9, 10)
+        val degenerate = config.copy(densityWindowStartMinutes = 1320, densityWindowEndMinutes = 480)
+        val spec = DensitySpecBuilder.stripSpec(day, degenerate, palette(), 1000, 1f, null, zone)
+        val defaultSpec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 1f, null, zone)
+        val shape = spec.content as StripContent.Shape
+        val defaultShape = defaultSpec.content as StripContent.Shape
+        assertEquals(defaultShape.blocks, shape.blocks)
+    }
+
+    // --- Fix round 1, finding 2: Tonal's "no explicit filter" rank uses visible calendars,
+    // not just the calendars with an event today ------------------------------------------
+
+    @Test
+    fun tonalRankFallsBackToVisibleCalendarIdsNotJustTodaysCalendars() {
+        // Calendar 5 sits between 3 and 9 by id but has no event today; the old per-day
+        // fallback (day.stripEvents' distinct calendar ids) would only ever see [3, 9] and
+        // rank 9 at index 1. The visible-calendar fallback must rank over the full
+        // [3, 5, 9] list instead, so 9 lands at index 2 (bucket 2), matching what Settings
+        // shows when it ranks over the same visible-calendar set.
+        val day = multiCalendarDay(3L to 9..10, 9L to 11..12)
+        val cfg = config.copy(densityStripMode = DensityStripMode.TONAL)
+        val spec = DensitySpecBuilder.stripSpec(
+            day = day,
+            config = cfg,
+            palette = palette(),
+            widthPx = 1000,
+            density = 1f,
+            nowMillis = null,
+            zone = zone,
+            visibleCalendarIds = listOf(3L, 5L, 9L)
+        )
+        val lanes = spec.content as StripContent.Lanes
+        val rectForCalendar9 = lanes.rects.first { it.calendarId == 9L }
+        val ramp = TonalRamp.ramp(palette().busy, palette().background)
+        assertEquals(ramp[2], rectForCalendar9.colorInt)
+    }
+
+    @Test
+    fun tonalRankExplicitEnabledCalendarIdsStillWinsOverVisibleFallback() {
+        val day = multiCalendarDay(3L to 9..10, 9L to 11..12)
+        val cfg = config.copy(
+            densityStripMode = DensityStripMode.TONAL,
+            enabledCalendarIds = setOf(9L, 3L) // sorted -> [3, 9]; 9 ranks at index 1
+        )
+        val spec = DensitySpecBuilder.stripSpec(
+            day = day,
+            config = cfg,
+            palette = palette(),
+            widthPx = 1000,
+            density = 1f,
+            nowMillis = null,
+            zone = zone,
+            visibleCalendarIds = listOf(3L, 5L, 9L) // ignored: enabledCalendarIds is explicit
+        )
+        val lanes = spec.content as StripContent.Lanes
+        val rectForCalendar9 = lanes.rects.first { it.calendarId == 9L }
+        val ramp = TonalRamp.ramp(palette().busy, palette().background)
+        assertEquals(ramp[1], rectForCalendar9.colorInt)
     }
 
     @Test
