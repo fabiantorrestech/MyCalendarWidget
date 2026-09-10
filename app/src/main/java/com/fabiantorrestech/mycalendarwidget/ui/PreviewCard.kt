@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -564,7 +565,7 @@ private fun PreviewDensityContent(
             Spacer(modifier = Modifier.height(4.dp))
 
             Image(
-                bitmap = DensityCanvas.renderStrip(spec).asImageBitmap(),
+                bitmap = remember(spec) { DensityCanvas.renderStrip(spec).asImageBitmap() },
                 contentDescription = null,
                 contentScale = ContentScale.FillBounds,
                 modifier = Modifier.fillMaxWidth().height(14.dp)
