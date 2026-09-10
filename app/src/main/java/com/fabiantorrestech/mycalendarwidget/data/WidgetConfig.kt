@@ -68,7 +68,14 @@ data class CalendarInfo(
     val displayName: String,
     val accountName: String,
     val color: Int,
-    val enabled: Boolean
+    val enabled: Boolean,
+    /**
+     * `Calendars.VISIBLE` from the provider — whether the user has this calendar checked
+     * on in their calendar app. Used to keep the density Tonal rank fallback (Settings)
+     * aligned with the widget's own fallback ([DensitySpecBuilder]'s `visibleCalendarIds`),
+     * which is scoped to the same provider flag.
+     */
+    val visible: Boolean = true
 )
 
 data class TypographyScale(

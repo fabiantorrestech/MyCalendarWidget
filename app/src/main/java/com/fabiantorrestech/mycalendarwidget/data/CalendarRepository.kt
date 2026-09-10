@@ -133,10 +133,16 @@ class CalendarRepository(private val context: Context) {
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
             CalendarContract.Calendars.ACCOUNT_NAME,
-            CalendarContract.Calendars.CALENDAR_COLOR
+            CalendarContract.Calendars.CALENDAR_COLOR,
+            CalendarContract.Calendars.VISIBLE
         )
 
         val calendars = mutableListOf<CalendarInfo>()
+        // No VISIBLE selection here on purpose: this list drives the calendar-filter
+        // toggle row, which must still show (and let the user re-enable) a calendar the
+        // user has hidden in their calendar app. `visible` is carried through instead so
+        // callers that need the provider's own "visible" set (the density Tonal rank
+        // fallback) can filter for themselves — see DensitySection's enabledSortedIds.
         val cursor = context.contentResolver.query(
             CalendarContract.Calendars.CONTENT_URI,
             projection, null, null, "${CalendarContract.Calendars.CALENDAR_DISPLAY_NAME} ASC"
@@ -147,6 +153,7 @@ class CalendarRepository(private val context: Context) {
             val nameIdx = it.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
             val accountIdx = it.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME)
             val colorIdx = it.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_COLOR)
+            val visibleIdx = it.getColumnIndexOrThrow(CalendarContract.Calendars.VISIBLE)
 
             while (it.moveToNext()) {
                 calendars.add(CalendarInfo(
@@ -154,7 +161,8 @@ class CalendarRepository(private val context: Context) {
                     displayName = it.getString(nameIdx) ?: "Unknown",
                     accountName = it.getString(accountIdx) ?: "",
                     color = it.getInt(colorIdx),
-                    enabled = true
+                    enabled = true,
+                    visible = it.getInt(visibleIdx) == 1
                 ))
             }
         }

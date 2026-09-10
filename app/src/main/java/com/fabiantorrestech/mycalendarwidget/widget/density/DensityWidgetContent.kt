@@ -124,7 +124,8 @@ fun DensityWidgetContent(
                     density = density,
                     // The caret means "you are here": only today's strip may carry one.
                     nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
-                    zone = zone
+                    zone = zone,
+                    visibleCalendarIds = snapshot.visibleCalendarIds
                 ).copy(
                     ghost = if (peekOpen) GhostSpec(palette.background) else null
                 )

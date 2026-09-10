@@ -76,7 +76,15 @@ data class DensitySnapshot(
     val featuredIsToday: Boolean,
     /** The N days *after* the featured day. */
     val lookahead: List<DayDensity>,
-    val nowMillis: Long
+    val nowMillis: Long,
+    /**
+     * Ids of the calendars the provider marks visible, sorted ascending — the Tonal
+     * strip's rank fallback when the user hasn't set an explicit calendar filter (see
+     * `DensityCalendarSource.queryVisibleCalendarIds`). Defaults to empty so existing
+     * snapshot construction (tests, other call sites) doesn't need updating; an empty list
+     * here just means the tone-rank fallback falls further back to the per-day list.
+     */
+    val visibleCalendarIds: List<Long> = emptyList()
 )
 
 /** The two lines of text above the strip. */

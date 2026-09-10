@@ -78,7 +78,8 @@ class DensityRepository(context: Context) {
             featured = featured,
             featuredIsToday = featuredIsToday,
             lookahead = lookahead,
-            nowMillis = nowMillis
+            nowMillis = nowMillis,
+            visibleCalendarIds = source.queryVisibleCalendarIds()
         )
     }
 }

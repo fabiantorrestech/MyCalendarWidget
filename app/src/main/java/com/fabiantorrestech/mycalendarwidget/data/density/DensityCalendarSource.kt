@@ -11,13 +11,14 @@ import androidx.core.content.ContextCompat
 /**
  * The only file in the density feature that touches [android.content.ContentResolver].
  *
- * G1 contract: this class is content-free by construction. Its projection is exactly ten
- * columns — begin/end/all-day/calendar id/self-attendee-status/status/availability and
- * three colour columns — and physically cannot carry an event's own words, notes, place or
- * participants, because those columns are never requested. Nothing downstream of
- * [RawInstance] (in this package or the widget's density package) may import the app's
- * other, text-bearing calendar model, or add a text column here; doing so would break the
- * guarantee this class exists to provide.
+ * G1 contract: this class is content-free by construction. [queryRawInstances]'s
+ * projection is exactly ten columns — begin/end/all-day/calendar id/self-attendee-status/
+ * status/availability and three colour columns — and [queryVisibleCalendarIds]'s is a
+ * single id column; neither can carry an event's own words, notes, place or participants,
+ * because those columns are never requested. Nothing downstream of [RawInstance] (in this
+ * package or the widget's density package) may import the app's other, text-bearing
+ * calendar model, or add a text column here; doing so would break the guarantee this class
+ * exists to provide.
  */
 class DensityCalendarSource(private val context: Context) {
 
@@ -25,6 +26,45 @@ class DensityCalendarSource(private val context: Context) {
     fun hasPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) ==
             PackageManager.PERMISSION_GRANTED
+
+    /**
+     * The ids of calendars the provider currently marks `VISIBLE` (the same set the user
+     * sees checked on in their calendar app), sorted ascending. Used as the Tonal strip's
+     * "no explicit calendar filter" rank fallback ([DensitySpecBuilder]'s
+     * `enabledSortedCalendarIds`) so that fallback ranks the same calendars, in the same
+     * order, regardless of which day is being rendered — a per-day "who actually has an
+     * event today" fallback would rank a calendar's tone differently from one day to the
+     * next and disagree with what Settings shows the user. Empty when permission is
+     * missing, the cursor comes back null, or the query throws (mirrors
+     * [queryRawInstances]'s "never see an exception" contract).
+     */
+    fun queryVisibleCalendarIds(): List<Long> {
+        if (!hasPermission()) return emptyList()
+
+        val projection = arrayOf(CalendarContract.Calendars._ID)
+        val selection = "${CalendarContract.Calendars.VISIBLE} = 1"
+
+        val cursor = try {
+            context.contentResolver.query(
+                CalendarContract.Calendars.CONTENT_URI,
+                projection,
+                selection,
+                null,
+                null
+            )
+        } catch (e: SecurityException) {
+            null
+        } ?: return emptyList()
+
+        val ids = mutableListOf<Long>()
+        cursor.use {
+            val idIdx = it.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
+            while (it.moveToNext()) {
+                ids.add(it.getLong(idIdx))
+            }
+        }
+        return ids.sorted()
+    }
 
     /**
      * Raw, content-free instances overlapping `[startMillis, endMillisExclusive)`. Returns

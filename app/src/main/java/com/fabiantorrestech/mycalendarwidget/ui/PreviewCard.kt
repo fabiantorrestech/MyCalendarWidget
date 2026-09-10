@@ -511,7 +511,8 @@ private fun PreviewDensityContent(
                 widthPx = ((widthDp.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt(),
                 density = density,
                 nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
-                zone = zone
+                zone = zone,
+                visibleCalendarIds = snapshot.visibleCalendarIds
             )
 
             Row(
