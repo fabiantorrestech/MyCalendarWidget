@@ -1,7 +1,11 @@
 package com.fabiantorrestech.mycalendarwidget.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,9 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fabiantorrestech.mycalendarwidget.R
@@ -32,14 +41,15 @@ import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
-import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
-import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
+import com.fabiantorrestech.mycalendarwidget.widget.density.AxisSpec
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -73,14 +83,21 @@ fun PreviewCard(
     ) {
         // Mirrors the widget's own exhaustive dispatch: a new style must be given an arm here too.
         when (config.widgetStyle) {
-            WidgetStyle.DENSITY -> PreviewDensityContent(
-                snapshot = densitySnapshot,
-                config = config,
-                profiles = profiles,
-                activeProfileId = activeProfileId,
-                cycleUiStyle = cycleUiStyle,
-                use24Hour = use24Hour
-            )
+            // The density style lays itself out against the widget's own breakpoints, so
+            // the card has to hand it a measured size the way LocalSize does on the launcher.
+            WidgetStyle.DENSITY -> BoxWithConstraints {
+                PreviewDensityContent(
+                    snapshot = densitySnapshot,
+                    config = config,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    use24Hour = use24Hour,
+                    widthDp = maxWidth,
+                    // Unconstrained in a scrolling settings page; assume a two-row widget.
+                    heightDp = if (maxHeight.value.isFinite()) maxHeight else PREVIEW_DENSITY_HEIGHT
+                )
+            }
 
             WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.GCAL_LEFT ->
                 if (floatingMode) {
@@ -422,9 +439,23 @@ private fun PreviewInlineProfileSwitcher(
     }
 }
 
+/** Widget-side breakpoints, mirrored so the preview never shows text the widget hides. */
+private val PREVIEW_COMPACT_HEIGHT = 160.dp
+private val PREVIEW_NARROW_WIDTH = 300.dp
+
+/** What the card assumes when the settings page gives it no height of its own. */
+private val PREVIEW_DENSITY_HEIGHT = 200.dp
+
+private const val PREVIEW_PADDING_DP = 12f
+
 /**
  * Compose approximation of [com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent]:
- * count, qualifier and the Stage 1 look-ahead summary, reading the very same snapshot.
+ * count, qualifier, the strip and the hour axis, reading the very same snapshot. The strip
+ * bitmap comes from [DensityCanvas] via a [DensitySpecBuilder] spec, so the preview and the
+ * widget are the same drawing rather than two drawings that agree today.
+ *
+ * [widthDp] and [heightDp] stand in for the widget's `LocalSize`, and the three chrome
+ * branches below are the same three the widget picks between.
  */
 @Composable
 private fun PreviewDensityContent(
@@ -433,9 +464,14 @@ private fun PreviewDensityContent(
     profiles: List<WidgetProfileEntry>,
     activeProfileId: String,
     cycleUiStyle: CycleUiStyle,
-    use24Hour: Boolean
+    use24Hour: Boolean,
+    widthDp: Dp,
+    heightDp: Dp
 ) {
-    Column(modifier = Modifier.padding(12.dp)) {
+    val compact = heightDp < PREVIEW_COMPACT_HEIGHT
+    val narrow = widthDp < PREVIEW_NARROW_WIDTH
+
+    Column(modifier = Modifier.padding(PREVIEW_PADDING_DP.dp)) {
         if (snapshot != null) {
             if (!snapshot.hasPermission) {
                 Text(
@@ -447,17 +483,38 @@ private fun PreviewDensityContent(
                 return@Column
             }
 
+            val zone = ZoneId.systemDefault()
             val headline = DensityCalculator.headline(
                 featured = snapshot.featured,
                 featuredIsToday = snapshot.featuredIsToday,
                 nowMillis = snapshot.nowMillis,
                 rolloverHour = config.densityRolloverHour,
                 countMode = config.densityCountMode,
-                zone = ZoneId.systemDefault(),
+                zone = zone,
                 use24Hour = use24Hour,
                 locale = Locale.getDefault()
             )
             val countSize = if (headline.countIsSentence) 17 else 24
+
+            // The widget resolves these off GlanceTheme; here they come off the card's own
+            // Material scheme, and the spec builder stays free of both.
+            val palette = DensitySpecBuilder.palette(
+                config = config,
+                isDark = isSystemInDarkTheme(),
+                background = MaterialTheme.colorScheme.surface.toArgb(),
+                onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
+                primary = MaterialTheme.colorScheme.primary.toArgb()
+            )
+            val density = LocalDensity.current.density
+            val spec = DensitySpecBuilder.stripSpec(
+                day = snapshot.featured,
+                config = config,
+                palette = palette,
+                widthPx = ((widthDp.value - 2 * PREVIEW_PADDING_DP) * density).toInt(),
+                density = density,
+                nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
+                zone = zone
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -488,19 +545,73 @@ private fun PreviewDensityContent(
                     modifier = Modifier.weight(1f),
                     fontFamily = config.previewFont(FontCategory.DETAIL)
                 )
-                if (profiles.size >= 2) {
-                    PreviewInlineProfileSwitcher(
-                        profiles,
-                        activeProfileId,
-                        previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
-                    )
+                if (!narrow) {
+                    if (profiles.size >= 2) {
+                        PreviewInlineProfileSwitcher(
+                            profiles,
+                            activeProfileId,
+                            previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    PreviewOpenCalendarButton()
+                } else if (compact) {
+                    PreviewOpenCalendarButton()
                 }
             }
 
-            if (snapshot.lookahead.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Image(
+                bitmap = DensityCanvas.renderStrip(spec).asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxWidth().height(14.dp)
+            )
+
+            if (!compact) {
+                Spacer(modifier = Modifier.height(2.dp))
+                PreviewDensityAxisRow(
+                    axis = DensitySpecBuilder.axisSpec(
+                        snapshot.featured.date,
+                        config,
+                        zone,
+                        use24Hour
+                    ),
+                    config = config
+                )
+            }
+
+            if (narrow && !compact) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (profiles.size >= 2) {
+                        PreviewInlineProfileSwitcher(
+                            profiles,
+                            activeProfileId,
+                            previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    PreviewOpenCalendarButton()
+                }
+            }
+        }
+    }
+}
+
+/** Equal-width cells with a label in each tick's cell — the layout the widget builds. */
+@Composable
+private fun PreviewDensityAxisRow(axis: AxisSpec, config: WidgetConfig) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        axis.labels.forEach { label ->
+            Box(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = previewLookaheadSummary(snapshot.lookahead),
+                    text = label.orEmpty(),
                     fontSize = (11 * config.typographyScale.detailScale).sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -511,11 +622,23 @@ private fun PreviewDensityContent(
     }
 }
 
-private fun previewLookaheadSummary(lookahead: List<DayDensity>): String {
-    val locale = Locale.getDefault()
-    return lookahead.joinToString(separator = " · ") { day ->
-        val weekday = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
-        "$weekday ${TimeFormat.durationLabel(day.busyMinutes)}"
+/** The widget's [com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton], inert. */
+@Composable
+private fun PreviewOpenCalendarButton() {
+    Box(
+        modifier = Modifier
+            .width(56.dp)
+            .height(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_calendar_open),
+            contentDescription = "Open calendar",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
