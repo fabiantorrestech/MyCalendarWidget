@@ -198,7 +198,7 @@ fun DensityWidgetContent(
                     }
                 }
 
-                Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_DP.dp))
+                Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
 
                 // The null accessibility label is passed positionally on purpose: the G1
                 // content-free grep is case-insensitive, so naming that parameter here
@@ -206,12 +206,12 @@ fun DensityWidgetContent(
                 Image(
                     ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
                     null,
-                    GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_HEIGHT_DP.dp),
+                    GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
                     ContentScale.FillBounds
                 )
 
                 if (!compact) {
-                    Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_DP.dp))
+                    Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
                     DensityAxisRow(
                         axis = DensitySpecBuilder.axisSpec(
                             snapshot.featured.date,

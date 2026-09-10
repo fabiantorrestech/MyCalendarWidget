@@ -558,17 +558,17 @@ private fun PreviewDensityContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(DensityLayout.STRIP_TOP_GAP_DP.dp))
+            Spacer(modifier = Modifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
 
             Image(
                 bitmap = remember(spec) { DensityCanvas.renderStrip(spec).asImageBitmap() },
                 contentDescription = null,
                 contentScale = ContentScale.FillBounds,
-                modifier = Modifier.fillMaxWidth().height(DensityLayout.STRIP_HEIGHT_DP.dp)
+                modifier = Modifier.fillMaxWidth().height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp)
             )
 
             if (!compact) {
-                Spacer(modifier = Modifier.height(DensityLayout.AXIS_TOP_GAP_DP.dp))
+                Spacer(modifier = Modifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
                 PreviewDensityAxisRow(
                     axis = DensitySpecBuilder.axisSpec(
                         snapshot.featured.date,

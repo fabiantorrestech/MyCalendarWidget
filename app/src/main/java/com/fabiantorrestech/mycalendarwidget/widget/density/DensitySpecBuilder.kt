@@ -65,6 +65,36 @@ object DensityLayout {
     /** Gap between the strip and the hour axis. */
     const val AXIS_TOP_GAP_DP = 2f
 
+    /** G7: the caret breaks out 2dp above and below the track. */
+    const val CARET_OVERHANG_DP = 2f
+
+    /** G7: the background-coloured halo either side of the caret. */
+    const val CARET_HALO_DP = 1f
+
+    /** G7: the caret itself is 2dp wide. */
+    const val NOW_MARKER_WIDTH_DP = 2f
+
+    /**
+     * The strip bitmap's full height once the caret's overhang is included — the track
+     * stays [STRIP_HEIGHT_DP], but the bitmap (and the `Image` that hosts it) must be
+     * tall enough for the caret to break out top and bottom without being clipped.
+     */
+    const val STRIP_IMAGE_HEIGHT_DP = STRIP_HEIGHT_DP + 2 * CARET_OVERHANG_DP
+
+    /**
+     * [STRIP_TOP_GAP_DP] less the caret's overhang, so growing the strip's `Image` to
+     * [STRIP_IMAGE_HEIGHT_DP] (which eats into the gap above it) leaves the 14dp track
+     * itself exactly where it was before the caret turned on.
+     */
+    const val STRIP_TOP_GAP_WITH_CARET_DP = STRIP_TOP_GAP_DP - CARET_OVERHANG_DP
+
+    /**
+     * [AXIS_TOP_GAP_DP] less the caret's overhang, for the same reason as
+     * [STRIP_TOP_GAP_WITH_CARET_DP] but on the strip's bottom edge, so the axis labels
+     * below it do not move either.
+     */
+    const val AXIS_TOP_GAP_WITH_CARET_DP = AXIS_TOP_GAP_DP - CARET_OVERHANG_DP
+
     /** G7: each look-ahead day bar is 6dp tall. */
     const val DAY_BAR_HEIGHT_DP = 6f
 
@@ -102,9 +132,6 @@ data class AxisSpec(val cellCount: Int, val labels: List<String?>)
  * Glance, and that would defeat the point of this file.
  */
 object DensitySpecBuilder {
-
-    /** G7: now-marker 2dp; the track height itself comes from [DensityLayout.STRIP_HEIGHT_DP]. */
-    private const val NOW_MARKER_DP = 2f
 
     /** G9: the free track is 12% of the primary text colour blended onto the ground. */
     private const val FREE_TRACK_TINT = 0.12f
@@ -223,15 +250,15 @@ object DensitySpecBuilder {
         return StripSpec(
             widthPx = max(1, widthPx),
             trackHeightPx = max(1, (DensityLayout.STRIP_HEIGHT_DP * density).roundToInt()),
-            overhangPx = 0,
-            haloPx = 0,
+            overhangPx = max(1, (DensityLayout.CARET_OVERHANG_DP * density).roundToInt()),
+            haloPx = max(1, (DensityLayout.CARET_HALO_DP * density).roundToInt()),
             content = content,
             nowFraction = nowMillis?.let {
                 DensityCalculator.nowFraction(it, windowStart, windowEnd)
             },
             freeColor = palette.free,
             nowColor = palette.now,
-            nowMarkerWidthPx = max(1, (NOW_MARKER_DP * density).roundToInt()),
+            nowMarkerWidthPx = max(1, (DensityLayout.NOW_MARKER_WIDTH_DP * density).roundToInt()),
             backgroundColor = palette.background,
             pxPerDp = density,
             ghost = null
