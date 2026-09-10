@@ -69,6 +69,43 @@ fun StepSliderRow(
 }
 
 @Composable
+fun IntSliderRow(
+    label: String,
+    savedValue: Int,
+    range: IntRange,
+    valueLabel: (Int) -> String = { it.toString() },
+    onValueChangeFinished: (Int) -> Unit
+) {
+    var localValue by remember(savedValue) { mutableFloatStateOf(savedValue.toFloat()) }
+
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = valueLabel(localValue.roundToInt()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Slider(
+            value = localValue,
+            onValueChange = { localValue = it },
+            onValueChangeFinished = { onValueChangeFinished(localValue.roundToInt()) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = range.last - range.first - 1,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
 fun ToggleRow(
     label: String,
     description: String? = null,
