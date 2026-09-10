@@ -107,4 +107,64 @@ class DensityCanvasGeometryTest {
         assertEquals(4, low.left)
         assertEquals(596, high.right)
     }
+
+    // --- Look-ahead bars geometry ----------------------------------------------------
+
+    private fun loadBarsSpec(
+        loads: List<Float>,
+        widthPx: Int = 100,
+        heightPx: Int = 6,
+        gutterPx: Int = 10
+    ) = LoadBarsSpec(
+        widthPx = widthPx,
+        heightPx = heightPx,
+        loads = loads,
+        gutterPx = gutterPx,
+        fillColor = 0,
+        trackColor = 0
+    )
+
+    @Test
+    fun loadBarTrackRectsAreEqualWidthColumnsSeparatedByTheGutter() {
+        val rects = DensityCanvas.loadBarTrackRects(loadBarsSpec(listOf(0f, 0.5f, 1f)))
+        assertEquals(3, rects.size)
+        // colW = (100 - 10*2) / 3 = 26 (integer division).
+        assertEquals(IntRect(0, 0, 26, 6), rects[0])
+        assertEquals(IntRect(36, 0, 62, 6), rects[1])
+        assertEquals(IntRect(72, 0, 98, 6), rects[2])
+    }
+
+    @Test
+    fun loadBarFillRectsStartAtTheColumnsLeftEdgeAndScaleWithLoad() {
+        val spec = loadBarsSpec(listOf(0f, 0.5f, 1f))
+        val tracks = DensityCanvas.loadBarTrackRects(spec)
+        val fills = DensityCanvas.loadBarFillRects(spec)
+        assertEquals(3, fills.size)
+        assertEquals(0, fills[0].width)
+        assertEquals(13, fills[1].width) // round(0.5 * 26)
+        assertEquals(26, fills[2].width)
+        fills.forEachIndexed { i, fill ->
+            assertEquals(tracks[i].left, fill.left)
+            assertEquals(tracks[i].top, fill.top)
+            assertEquals(tracks[i].bottom, fill.bottom)
+        }
+    }
+
+    @Test
+    fun loadBarRectsAreEmptyWithNoLoadsOrNoWidth() {
+        assertTrue(DensityCanvas.loadBarTrackRects(loadBarsSpec(emptyList())).isEmpty())
+        assertTrue(DensityCanvas.loadBarFillRects(loadBarsSpec(emptyList())).isEmpty())
+        assertTrue(
+            DensityCanvas.loadBarTrackRects(loadBarsSpec(listOf(0.5f), widthPx = 0)).isEmpty()
+        )
+    }
+
+    @Test
+    fun loadBarFillClampsLoadOutsideZeroToOne() {
+        val spec = loadBarsSpec(listOf(-1f, 2f))
+        val fills = DensityCanvas.loadBarFillRects(spec)
+        assertEquals(0, fills[0].width)
+        val tracks = DensityCanvas.loadBarTrackRects(spec)
+        assertEquals(tracks[1].width, fills[1].width)
+    }
 }

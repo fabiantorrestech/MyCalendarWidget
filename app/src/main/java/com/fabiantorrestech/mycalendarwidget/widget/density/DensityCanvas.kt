@@ -251,6 +251,78 @@ object DensityCanvas {
     private fun xOf(fraction: Float, widthPx: Int): Int =
         (fraction.coerceIn(0f, 1f) * widthPx).roundToInt().coerceIn(0, widthPx)
 
+    /**
+     * The N look-ahead day bars: [LoadBarsSpec.loads.size] equal-width track rects, each
+     * a [LoadBarsSpec.trackColor] column filled from its left edge by a
+     * [LoadBarsSpec.fillColor] rect [width][IntRect.width] `round(load * columnWidth)`
+     * wide. A transparent 1×1 bitmap stands in for "nothing to draw" (no lookahead days,
+     * or a zero/negative width) rather than a crashing `Bitmap.createBitmap(0, …)`.
+     */
+    fun renderLoadBars(spec: LoadBarsSpec): Bitmap {
+        val scaled = withinBudget(spec)
+        if (scaled.loads.isEmpty() || scaled.widthPx <= 0) {
+            return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        }
+        val bitmap = Bitmap.createBitmap(
+            max(1, scaled.widthPx),
+            max(1, scaled.heightPx),
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply {
+            isAntiAlias = false
+            style = Paint.Style.FILL
+        }
+
+        paint.color = scaled.trackColor
+        loadBarTrackRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
+
+        paint.color = scaled.fillColor
+        loadBarFillRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
+
+        return bitmap
+    }
+
+    /**
+     * [LoadBarsSpec.loads.size] equal-width columns spanning the bitmap, [gutterPx]
+     * apart — pure integer arithmetic (no [Bitmap]) so it can be unit-tested directly,
+     * the same split [renderStrip] uses for [trackRect] and [markerRects]. Empty when
+     * there are no loads or no width to divide.
+     */
+    fun loadBarTrackRects(spec: LoadBarsSpec): List<IntRect> {
+        val n = spec.loads.size
+        if (n <= 0 || spec.widthPx <= 0) return emptyList()
+        val colW = (spec.widthPx - spec.gutterPx * (n - 1)) / n
+        return (0 until n).map { i ->
+            val left = i * (colW + spec.gutterPx)
+            IntRect(left, 0, left + colW, spec.heightPx)
+        }
+    }
+
+    /**
+     * One fill rect per [loadBarTrackRects] column: same bounds, but clipped from the
+     * left to `round(load * columnWidth)` — a load of 0 draws nothing, 1 fills the whole
+     * column. [LoadBarsSpec.loads] outside `0f..1f` are clamped rather than over/under
+     * filling the column.
+     */
+    fun loadBarFillRects(spec: LoadBarsSpec): List<IntRect> =
+        loadBarTrackRects(spec).zip(spec.loads).map { (track, load) ->
+            val fillWidth = (load.coerceIn(0f, 1f) * track.width).roundToInt()
+            IntRect(track.left, track.top, track.left + fillWidth, track.bottom)
+        }
+
+    /** The load-bars analogue of [withinBudget]: scales width/height/gutter together. */
+    private fun withinBudget(spec: LoadBarsSpec): LoadBarsSpec {
+        val bytes = spec.widthPx.toFloat() * spec.heightPx.toFloat() * 4f
+        if (bytes <= MAX_BITMAP_BYTES || bytes <= 0f) return spec
+        val scale = min(1f, sqrt(MAX_BITMAP_BYTES / bytes))
+        return spec.copy(
+            widthPx = max(1, (spec.widthPx * scale).toInt()),
+            heightPx = max(1, (spec.heightPx * scale).toInt()),
+            gutterPx = (spec.gutterPx * scale).toInt()
+        )
+    }
+
     /** Scales every dimension by the same factor when the bitmap would be too large. */
     private fun withinBudget(spec: StripSpec): StripSpec {
         val bytes = spec.widthPx.toFloat() * spec.heightPx.toFloat() * 4f
