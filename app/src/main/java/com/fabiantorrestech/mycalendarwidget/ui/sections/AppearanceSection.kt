@@ -40,40 +40,44 @@ fun AppearanceSection(
     onConfigChange: (WidgetConfig) -> Unit
 ) {
     SectionHeader(title = "Appearance")
+    val visible = VisibleSettings.forStyle(config.widgetStyle)
 
-    ToggleRow(
-        label = "Month navigation",
-        description = "Arrows or chips to jump between months",
-        checked = config.headerNavEnabled,
-        onCheckedChange = { onConfigChange(config.copy(headerNavEnabled = it)) }
-    )
-
-    if (config.headerNavEnabled) {
-        val navStyles = listOf(
-            HeaderNavStyle.ARROWS to "Arrows",
-            HeaderNavStyle.CHIPS to "Month Chips"
+    // The month header and its navigation only exist in the agenda styles.
+    if (visible.monthChrome) {
+        ToggleRow(
+            label = "Month navigation",
+            description = "Arrows or chips to jump between months",
+            checked = config.headerNavEnabled,
+            onCheckedChange = { onConfigChange(config.copy(headerNavEnabled = it)) }
         )
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-            navStyles.forEachIndexed { index, (style, label) ->
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = navStyles.size),
-                    selected = config.headerNavStyle == style,
-                    onClick = { onConfigChange(config.copy(headerNavStyle = style)) }
-                ) {
-                    Text(label)
+
+        if (config.headerNavEnabled) {
+            val navStyles = listOf(
+                HeaderNavStyle.ARROWS to "Arrows",
+                HeaderNavStyle.CHIPS to "Month Chips"
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                navStyles.forEachIndexed { index, (style, label) ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = navStyles.size),
+                        selected = config.headerNavStyle == style,
+                        onClick = { onConfigChange(config.copy(headerNavStyle = style)) }
+                    ) {
+                        Text(label)
+                    }
                 }
             }
         }
+
+        ToggleRow(
+            label = "Show month in header",
+            description = "Off = month only appears as list section headers (Google Calendar style)",
+            checked = config.showMonthInHeader,
+            onCheckedChange = { onConfigChange(config.copy(showMonthInHeader = it)) }
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
     }
-
-    ToggleRow(
-        label = "Show month in header",
-        description = "Off = month only appears as list section headers (Google Calendar style)",
-        checked = config.showMonthInHeader,
-        onCheckedChange = { onConfigChange(config.copy(showMonthInHeader = it)) }
-    )
-
-    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
     ToggleRow(
         label = "Material You dynamic color",
@@ -100,11 +104,13 @@ fun AppearanceSection(
         savedValue = config.typographyScale.subheaderScale,
         onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(subheaderScale = it))) }
     )
-    ScaleSlider(
-        label = "Date Headers",
-        savedValue = config.typographyScale.dateHeaderScale,
-        onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(dateHeaderScale = it))) }
-    )
+    if (visible.dateHeaderScale) {
+        ScaleSlider(
+            label = "Date Headers",
+            savedValue = config.typographyScale.dateHeaderScale,
+            onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(dateHeaderScale = it))) }
+        )
+    }
     ScaleSlider(
         label = "Event Time",
         savedValue = config.typographyScale.eventTimeScale,
@@ -149,8 +155,10 @@ fun AppearanceSection(
             )
         }
         FontMode.PER_CATEGORY -> {
-            FontDropdown("Month Header", config.fontConfig.monthHeaderFont) {
-                onConfigChange(config.copy(fontConfig = config.fontConfig.copy(monthHeaderFont = it)))
+            if (visible.monthHeaderFont) {
+                FontDropdown("Month Header", config.fontConfig.monthHeaderFont) {
+                    onConfigChange(config.copy(fontConfig = config.fontConfig.copy(monthHeaderFont = it)))
+                }
             }
             FontDropdown("Weekday Headers", config.fontConfig.weekdayHeaderFont) {
                 onConfigChange(config.copy(fontConfig = config.fontConfig.copy(weekdayHeaderFont = it)))

@@ -38,7 +38,6 @@ import com.fabiantorrestech.mycalendarwidget.data.DensityCountMode
 import com.fabiantorrestech.mycalendarwidget.data.DensityPeekFormat
 import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
-import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
@@ -67,7 +66,7 @@ fun DensitySection(
     calendars: List<CalendarInfo>,
     onConfigChange: (WidgetConfig) -> Unit
 ) {
-    if (config.widgetStyle != WidgetStyle.DENSITY) return
+    if (!VisibleSettings.forStyle(config.widgetStyle).densitySection) return
 
     SectionHeader(title = "Density")
 

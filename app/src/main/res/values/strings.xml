@@ -11,4 +11,5 @@
     <string name="peek_tomorrow">Tomorrow</string>
     <string name="peek_all_day">All day</string>
     <string name="peek_empty">Nothing coming up</string>
+    <string name="advanced_density_sync_note">Density refreshes every 5 minutes and at midnight.</string>
 </resources>

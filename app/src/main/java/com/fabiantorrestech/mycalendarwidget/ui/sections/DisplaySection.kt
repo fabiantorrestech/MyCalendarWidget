@@ -28,6 +28,7 @@ fun DisplaySection(
     onConfigChange: (WidgetConfig) -> Unit
 ) {
     SectionHeader(title = "Display")
+    val visible = VisibleSettings.forStyle(config.widgetStyle)
 
     Text(
         text = "Widget Style",
@@ -71,9 +72,10 @@ fun DisplaySection(
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-    // The density style renders no event text at all, so the controls that describe that
-    // text have nothing to act on and are hidden rather than left inert.
-    if (config.widgetStyle != WidgetStyle.DENSITY) {
+    // Which groups a style shows is decided once, in VisibleSettings: the density style
+    // renders no event text and no agenda list, so those controls are hidden rather than
+    // left inert.
+    if (visible.agendaText) {
         IntSliderRow(
             label = "Max title lines",
             savedValue = config.maxTitleLines,
@@ -107,7 +109,7 @@ fun DisplaySection(
     // agenda/detail lines it also feeds are hidden above for Density), so it gets its own
     // label and a one-line description there instead of sharing "Days to look ahead"
     // with the density section's separate look-ahead-bars range.
-    if (config.widgetStyle == WidgetStyle.DENSITY) {
+    if (visible.peekHorizon) {
         IntSliderRow(
             label = "Peek horizon (days)",
             description = "How far ahead the peek list reaches",
@@ -123,19 +125,21 @@ fun DisplaySection(
             onValueChangeFinished = { onConfigChange(config.copy(daysAheadToLoad = it)) }
         )
     }
-    ToggleRow(
-        label = "Show empty days",
-        description = "Include days with no events in the list",
-        checked = config.showEmptyDays,
-        onCheckedChange = { onConfigChange(config.copy(showEmptyDays = it)) }
-    )
-    ToggleRow(
-        label = "Always show today",
-        description = "Pin today in the list even when you have no events",
-        checked = config.alwaysShowToday,
-        onCheckedChange = { onConfigChange(config.copy(alwaysShowToday = it)) }
-    )
-    if (config.widgetStyle != WidgetStyle.DENSITY) {
+    if (visible.listBehaviour) {
+        ToggleRow(
+            label = "Show empty days",
+            description = "Include days with no events in the list",
+            checked = config.showEmptyDays,
+            onCheckedChange = { onConfigChange(config.copy(showEmptyDays = it)) }
+        )
+        ToggleRow(
+            label = "Always show today",
+            description = "Pin today in the list even when you have no events",
+            checked = config.alwaysShowToday,
+            onCheckedChange = { onConfigChange(config.copy(alwaysShowToday = it)) }
+        )
+    }
+    if (visible.agendaText) {
         ToggleRow(
             label = "Show multi-day events on every day they span",
             description = "Duplicate spanning events onto each covered day in the visible window",
@@ -151,16 +155,18 @@ fun DisplaySection(
         checked = config.showQuickAddFab,
         onCheckedChange = { onConfigChange(config.copy(showQuickAddFab = it)) }
     )
-    ToggleRow(
-        label = "Show refresh button",
-        description = "Manually force the widget to re-fetch calendar data",
-        checked = config.showRefreshButton,
-        onCheckedChange = { onConfigChange(config.copy(showRefreshButton = it)) }
-    )
-    ToggleRow(
-        label = "Strict Grid Mode",
-        description = "Remove widget padding for flush edge-to-edge placement",
-        checked = config.strictGridMode,
-        onCheckedChange = { onConfigChange(config.copy(strictGridMode = it)) }
-    )
+    if (visible.listBehaviour) {
+        ToggleRow(
+            label = "Show refresh button",
+            description = "Manually force the widget to re-fetch calendar data",
+            checked = config.showRefreshButton,
+            onCheckedChange = { onConfigChange(config.copy(showRefreshButton = it)) }
+        )
+        ToggleRow(
+            label = "Strict Grid Mode",
+            description = "Remove widget padding for flush edge-to-edge placement",
+            checked = config.strictGridMode,
+            onCheckedChange = { onConfigChange(config.copy(strictGridMode = it)) }
+        )
+    }
 }
