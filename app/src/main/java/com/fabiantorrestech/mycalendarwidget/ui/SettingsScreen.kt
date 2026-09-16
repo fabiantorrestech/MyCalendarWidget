@@ -156,35 +156,6 @@ fun SettingsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        if (showAddProfileDialog) {
-            AlertDialog(
-                onDismissRequest = { showAddProfileDialog = false; newProfileName = "" },
-                title = { Text("New profile") },
-                text = {
-                    OutlinedTextField(
-                        value = newProfileName,
-                        onValueChange = { newProfileName = it },
-                        label = { Text("Profile name") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            if (newProfileName.isNotBlank()) {
-                                viewModel.addProfile(newProfileName.trim())
-                                showAddProfileDialog = false
-                                newProfileName = ""
-                            }
-                        }
-                    ) { Text("Create") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showAddProfileDialog = false; newProfileName = "" }) { Text("Cancel") }
-                }
-            )
-        }
-
         if (showSyncDialog) {
             SyncDialog(
                 syncSource = syncSource,
@@ -333,50 +304,6 @@ fun SettingsScreen(
                     onMoveUp = { viewModel.moveProfileUp(it) },
                     onMoveDown = { viewModel.moveProfileDown(it) },
                     onCycleStyleChange = { viewModel.setCycleUiStyle(it) }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            item {
-                Text(
-                    text = "Active profile",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(end = 4.dp)
-                ) {
-                    items(
-                        items = profiles,
-                        key = { it.id }
-                    ) { profile ->
-                        FilterChip(
-                            selected = profile.id == activeProfileId,
-                            onClick = { viewModel.setActiveProfile(profile.id) },
-                            label = { Text(profile.name) }
-                        )
-                    }
-                    item {
-                        SuggestionChip(
-                            onClick = { showAddProfileDialog = true },
-                            label = { Text("+ Add") }
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            item {
-                ProfilesSection(
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    onRename = viewModel::renameProfile,
-                    onDelete = viewModel::deleteProfile,
-                    onMoveUp = viewModel::moveProfileUp,
-                    onMoveDown = viewModel::moveProfileDown,
-                    onCycleStyleChange = viewModel::setCycleUiStyle
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
