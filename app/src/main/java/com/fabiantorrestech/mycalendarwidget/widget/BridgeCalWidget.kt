@@ -39,6 +39,13 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.currentState
+import android.util.SizeF
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.core.os.BundleCompat
+import androidx.glance.LocalSize
+import androidx.glance.appwidget.LocalAppWidgetOptions
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
 
@@ -131,19 +138,54 @@ class BridgeCalWidget : GlanceAppWidget() {
                 ColorProviders(light = LightColors, dark = DarkColors)
             }
 
-            GlanceTheme(colors = colors) {
-                BridgeCalWidgetContent(
-                    eventsByDay = eventsByDay,
-                    config = config,
-                    context = context,
-                    glanceId = id,
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    densitySnapshot = densitySnapshot,
-                    use24Hour = remember(context) { use24Hour(context) },
-                    peekOpen = peekOpen
-                )
+            // A launcher that never reports a size (see HostSize) leaves Glance composing
+            // for the provider minimum, 180x40dp, however big the launcher actually draws
+            // the widget. Read the same options bundle Glance's own size pass reads (it is
+            // refreshed on onAppWidgetOptionsChanged) and, when it is empty, shadow
+            // LocalSize with an assumed full-width size so the density layout is not cut
+            // down to its compact form. Only the density content reads LocalSize, so the
+            // other styles are untouched; the RemoteViews size map still comes from
+            // Glance's own SizeBox, not from this local.
+            val options = LocalAppWidgetOptions.current
+            val sizesCount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                BundleCompat.getParcelableArrayList(
+                    options, AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java
+                )?.size ?: 0
+            } else {
+                0
+            }
+            val hostReportsSize = HostSize.reportsSize(
+                sizesCount = sizesCount,
+                minWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0),
+                maxWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0),
+                minHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0),
+                maxHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+            )
+            val assumedSize = DpSize(
+                HostSize.assumedWidthDp(context.resources.configuration.screenWidthDp.toFloat()).dp,
+                HostSize.ASSUMED_HEIGHT_DP.dp
+            )
+
+            val themed: @androidx.compose.runtime.Composable () -> Unit = {
+                GlanceTheme(colors = colors) {
+                    BridgeCalWidgetContent(
+                        eventsByDay = eventsByDay,
+                        config = config,
+                        context = context,
+                        glanceId = id,
+                        profiles = profiles,
+                        activeProfileId = activeProfileId,
+                        cycleUiStyle = cycleUiStyle,
+                        densitySnapshot = densitySnapshot,
+                        use24Hour = remember(context) { use24Hour(context) },
+                        peekOpen = peekOpen
+                    )
+                }
+            }
+            if (hostReportsSize) {
+                themed()
+            } else {
+                CompositionLocalProvider(LocalSize provides assumedSize) { themed() }
             }
         }
     }
