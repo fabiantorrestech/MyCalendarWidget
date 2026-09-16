@@ -41,6 +41,8 @@ import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.widget.InlineProfileSwitcher
 import com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton
+import com.fabiantorrestech.mycalendarwidget.widget.QuickAddButton
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout.ChromePlacement
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetClickActions
 import com.fabiantorrestech.mycalendarwidget.widget.floatingProfileUiStyle
 import com.fabiantorrestech.mycalendarwidget.widget.glanceFont
@@ -85,8 +87,12 @@ fun DensityWidgetContent(
     stripAction: Action? = null
 ) {
     val size = LocalSize.current
-    val compact = size.height < DensityLayout.COMPACT_HEIGHT_DP.dp
-    val narrow = size.width < DensityLayout.NARROW_WIDTH_DP.dp
+    val compact = DensityLayout.isCompact(size.height.value)
+    val placement = DensityLayout.chromePlacement(
+        widthDp = size.width.value,
+        heightDp = size.height.value,
+        showQuickAdd = config.showQuickAddFab
+    )
 
     Box(
         modifier = GlanceModifier
@@ -199,20 +205,13 @@ fun DensityWidgetContent(
                         modifier = GlanceModifier.defaultWeight()
                     )
 
-                    // Wide enough: everything stays inline. Narrow and short: only the
-                    // calendar button fits. Narrow and tall: the chrome gets its own row.
-                    if (!narrow) {
-                        if (profiles.size >= 2) {
-                            InlineProfileSwitcher(
-                                profiles,
-                                activeProfileId,
-                                floatingProfileUiStyle(config.widgetStyle, cycleUiStyle)
-                            )
-                            Spacer(modifier = GlanceModifier.width(4.dp))
-                        }
-                        OpenCalendarButton(config)
-                    } else if (compact) {
-                        OpenCalendarButton(config)
+                    // Wide enough: everything stays inline. Narrow and short: one button
+                    // fits. Narrow and tall: the chrome gets its own row below the body.
+                    when (placement) {
+                        ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> DensityChrome(
+                            placement, config, profiles, activeProfileId, cycleUiStyle
+                        )
+                        ChromePlacement.BOTTOM_ROW -> {}
                     }
                 }
 
@@ -264,24 +263,54 @@ fun DensityWidgetContent(
                     }
                 }
 
-                if (narrow && !compact) {
+                if (placement == ChromePlacement.BOTTOM_ROW) {
                     Spacer(modifier = GlanceModifier.height(4.dp))
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (profiles.size >= 2) {
-                            InlineProfileSwitcher(
-                                profiles,
-                                activeProfileId,
-                                floatingProfileUiStyle(config.widgetStyle, cycleUiStyle)
-                            )
-                            Spacer(modifier = GlanceModifier.width(4.dp))
-                        }
-                        OpenCalendarButton(config)
+                        DensityChrome(placement, config, profiles, activeProfileId, cycleUiStyle)
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The chrome as one [Row] child, so the headline row stays well under Glance's ten-child
+ * cap however many pieces are on. Inline and bottom-row placements draw the full set in
+ * the other styles' order (switcher, calendar, quick-add rightmost); the compact single
+ * slot draws the quick-add button when it is enabled and the calendar button otherwise.
+ */
+@Composable
+private fun DensityChrome(
+    placement: ChromePlacement,
+    config: WidgetConfig,
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    cycleUiStyle: CycleUiStyle
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when (placement) {
+            ChromePlacement.INLINE, ChromePlacement.BOTTOM_ROW -> {
+                if (profiles.size >= 2) {
+                    InlineProfileSwitcher(
+                        profiles,
+                        activeProfileId,
+                        floatingProfileUiStyle(config.widgetStyle, cycleUiStyle)
+                    )
+                    Spacer(modifier = GlanceModifier.width(4.dp))
+                }
+                OpenCalendarButton(config)
+                if (config.showQuickAddFab) {
+                    Spacer(modifier = GlanceModifier.width(4.dp))
+                    QuickAddButton()
+                }
+            }
+            ChromePlacement.COMPACT_SINGLE -> {
+                if (config.showQuickAddFab) QuickAddButton() else OpenCalendarButton(config)
             }
         }
     }

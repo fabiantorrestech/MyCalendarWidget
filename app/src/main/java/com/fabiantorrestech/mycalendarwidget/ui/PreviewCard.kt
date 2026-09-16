@@ -52,6 +52,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.density.AxisSpec
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout.ChromePlacement
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityPalette
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import java.time.LocalDate
@@ -466,8 +467,12 @@ private fun PreviewDensityContent(
     widthDp: Dp,
     heightDp: Dp
 ) {
-    val compact = heightDp < DensityLayout.COMPACT_HEIGHT_DP.dp
-    val narrow = widthDp < DensityLayout.NARROW_WIDTH_DP.dp
+    val compact = DensityLayout.isCompact(heightDp.value)
+    val placement = DensityLayout.chromePlacement(
+        widthDp = widthDp.value,
+        heightDp = heightDp.value,
+        showQuickAdd = config.showQuickAddFab
+    )
 
     Column(modifier = Modifier.padding(DensityLayout.WIDGET_PADDING_DP.dp)) {
         if (snapshot != null) {
@@ -544,18 +549,11 @@ private fun PreviewDensityContent(
                     modifier = Modifier.weight(1f),
                     fontFamily = config.previewFont(FontCategory.DETAIL)
                 )
-                if (!narrow) {
-                    if (profiles.size >= 2) {
-                        PreviewInlineProfileSwitcher(
-                            profiles,
-                            activeProfileId,
-                            previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    PreviewOpenCalendarButton()
-                } else if (compact) {
-                    PreviewOpenCalendarButton()
+                when (placement) {
+                    ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> PreviewDensityChrome(
+                        placement, config, profiles, activeProfileId, cycleUiStyle
+                    )
+                    ChromePlacement.BOTTOM_ROW -> {}
                 }
             }
 
@@ -591,22 +589,14 @@ private fun PreviewDensityContent(
                 )
             }
 
-            if (narrow && !compact) {
+            if (placement == ChromePlacement.BOTTOM_ROW) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (profiles.size >= 2) {
-                        PreviewInlineProfileSwitcher(
-                            profiles,
-                            activeProfileId,
-                            previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    PreviewOpenCalendarButton()
+                    PreviewDensityChrome(placement, config, profiles, activeProfileId, cycleUiStyle)
                 }
             }
         }
@@ -691,6 +681,60 @@ private fun PreviewDensityLookaheadBars(
         contentScale = ContentScale.FillBounds,
         modifier = Modifier.fillMaxWidth().height(DensityLayout.DAY_BAR_HEIGHT_DP.dp)
     )
+}
+
+/** The widget's `DensityChrome`: the same three placements, the same button order. */
+@Composable
+private fun PreviewDensityChrome(
+    placement: ChromePlacement,
+    config: WidgetConfig,
+    profiles: List<WidgetProfileEntry>,
+    activeProfileId: String,
+    cycleUiStyle: CycleUiStyle
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when (placement) {
+            ChromePlacement.INLINE, ChromePlacement.BOTTOM_ROW -> {
+                if (profiles.size >= 2) {
+                    PreviewInlineProfileSwitcher(
+                        profiles,
+                        activeProfileId,
+                        previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                PreviewOpenCalendarButton()
+                if (config.showQuickAddFab) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    PreviewQuickAddButton(config)
+                }
+            }
+            ChromePlacement.COMPACT_SINGLE -> {
+                if (config.showQuickAddFab) PreviewQuickAddButton(config) else PreviewOpenCalendarButton()
+            }
+        }
+    }
+}
+
+/** The widget's [com.fabiantorrestech.mycalendarwidget.widget.QuickAddButton], inert. */
+@Composable
+private fun PreviewQuickAddButton(config: WidgetConfig) {
+    Box(
+        modifier = Modifier
+            .width(56.dp)
+            .height(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "+",
+            fontSize = (18 * config.typographyScale.headerScale).sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+        )
+    }
 }
 
 /** The widget's [com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton], inert. */

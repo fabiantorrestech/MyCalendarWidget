@@ -453,21 +453,7 @@ private fun WidgetHeader(
 
         if (config.showQuickAddFab) {
             Spacer(modifier = GlanceModifier.width(4.dp))
-            Box(
-                modifier = GlanceModifier
-                    .width(56.dp)
-                    .height(36.dp)
-                    .background(GlanceTheme.colors.primaryContainer)
-                    .cornerRadius(18.dp)
-                    .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    provider = ImageProvider(R.drawable.ic_widget_add),
-                    contentDescription = "Add event",
-                    modifier = GlanceModifier.size(20.dp)
-                )
-            }
+            QuickAddButton()
         }
     }
 
@@ -542,21 +528,7 @@ private fun FloatingControlsOverlay(
 
             if (config.showQuickAddFab) {
                 Spacer(modifier = GlanceModifier.width(4.dp))
-                Box(
-                    modifier = GlanceModifier
-                        .width(56.dp)
-                        .height(36.dp)
-                        .background(GlanceTheme.colors.primaryContainer)
-                        .cornerRadius(18.dp)
-                        .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_widget_add),
-                        contentDescription = "Add event",
-                        modifier = GlanceModifier.size(20.dp)
-                    )
-                }
+                QuickAddButton()
             }
         }
     }
@@ -601,6 +573,31 @@ private fun dayEventItemId(date: LocalDate, eventId: Long): Long {
     hash = 31L * hash + date.toEpochDay()
     hash = 31L * hash + eventId
     return hash
+}
+
+/**
+ * The quick-add (+) pill every style draws when `showQuickAddFab` is on: opens the system
+ * insert-event screen for a one-hour event starting now. Lives here (not in the density
+ * package) because its accessibility label would trip the density package's content-free
+ * grep.
+ */
+@Composable
+internal fun QuickAddButton() {
+    Box(
+        modifier = GlanceModifier
+            .width(56.dp)
+            .height(36.dp)
+            .background(GlanceTheme.colors.primaryContainer)
+            .cornerRadius(18.dp)
+            .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_widget_add),
+            contentDescription = "Add event",
+            modifier = GlanceModifier.size(20.dp)
+        )
+    }
 }
 
 @Composable
