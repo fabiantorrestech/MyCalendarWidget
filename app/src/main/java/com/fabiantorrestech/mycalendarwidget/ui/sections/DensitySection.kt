@@ -99,6 +99,7 @@ fun DensitySection(
 
     IntSliderRow(
         label = "Day window starts",
+        description = "Grows on days with earlier or later events",
         savedValue = startHour,
         range = 0..12,
         valueLabel = { "$it:00" },
@@ -124,6 +125,7 @@ fun DensitySection(
     )
     IntSliderRow(
         label = "Day window ends",
+        description = "Grows on days with earlier or later events",
         savedValue = endHour,
         range = 13..24,
         valueLabel = { "$it:00" },
