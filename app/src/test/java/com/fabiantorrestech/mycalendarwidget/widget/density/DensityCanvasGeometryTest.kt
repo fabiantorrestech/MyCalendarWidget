@@ -20,7 +20,9 @@ class DensityCanvasGeometryTest {
     private fun spec(
         nowFraction: Float?,
         overhangPx: Int = 8,
-        haloPx: Int = 4
+        haloPx: Int = 4,
+        cutAtStart: Boolean = false,
+        cutAtEnd: Boolean = false
     ) = StripSpec(
         widthPx = 600,
         trackHeightPx = 56,
@@ -32,8 +34,51 @@ class DensityCanvasGeometryTest {
         nowColor = 0,
         nowMarkerWidthPx = 8,
         backgroundColor = 0,
-        pxPerDp = 4f
+        pxPerDp = 4f,
+        cutAtStart = cutAtStart,
+        cutAtEnd = cutAtEnd
     )
+
+    // --- midnight cut chevrons (5dp tall -> 21 odd rows, 1dp stroke, 2dp inside the edge; 4 px/dp) ---
+
+    @Test
+    fun noChevronWithoutACut() {
+        assertTrue(DensityCanvas.cutChevronRects(spec(null), atEnd = true).isEmpty())
+        assertTrue(DensityCanvas.cutChevronRects(spec(null), atEnd = false).isEmpty())
+    }
+
+    @Test
+    fun endChevronSitsInsideTheRightEdge() {
+        val rects = DensityCanvas.cutChevronRects(spec(null, cutAtEnd = true), atEnd = true)
+        assertTrue(rects.isNotEmpty())
+        // The tip touches the inset line (600 - 8); nothing crosses it.
+        assertEquals(592, rects.maxOf { it.right })
+        assertTrue(rects.all { it.right <= 592 && it.width == 4 })
+        // Top and bottom rows sit furthest from the edge: half the height back.
+        assertEquals(592 - 4 - 10, rects.first().left)
+        assertEquals(592 - 4 - 10, rects.last().left)
+    }
+
+    @Test
+    fun startChevronMirrorsTheEndOne() {
+        val end = DensityCanvas.cutChevronRects(spec(null, cutAtEnd = true), atEnd = true)
+        val start = DensityCanvas.cutChevronRects(spec(null, cutAtStart = true), atEnd = false)
+        assertEquals(end.size, start.size)
+        end.zip(start).forEach { (e, s) ->
+            assertEquals(600 - e.right, s.left)
+            assertEquals(e.top, s.top)
+        }
+    }
+
+    @Test
+    fun chevronStaysWithinTheTrackHeight() {
+        val track = DensityCanvas.trackRect(spec(null))
+        val rects = DensityCanvas.cutChevronRects(spec(null, cutAtEnd = true), atEnd = true)
+        assertEquals(21, rects.size)
+        assertTrue(rects.all { it.top >= track.top && it.bottom <= track.bottom && it.height == 1 })
+        // Centred on the track: as much free track above as below (to within a pixel).
+        assertTrue(abs((rects.first().top - track.top) - (track.bottom - rects.last().bottom)) <= 1)
+    }
 
     @Test
     fun heightDerivesFromTrackAndOverhang() {

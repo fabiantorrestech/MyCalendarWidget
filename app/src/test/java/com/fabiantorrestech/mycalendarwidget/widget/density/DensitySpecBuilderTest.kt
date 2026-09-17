@@ -10,6 +10,7 @@ import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.density.RawInstance
 import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -118,7 +119,7 @@ class DensitySpecBuilderTest {
 
     @Test
     fun defaultWindowHasSevenAxisCellsWithTicksAtEvenCells() {
-        val axis = DensitySpecBuilder.axisSpec(date, config, zone, use24Hour = false)
+        val axis = DensitySpecBuilder.axisSpec(dayAt(date), zone, use24Hour = false)
         assertEquals(7, axis.cellCount)
         assertNotNull(axis.labels[0])
         assertNotNull(axis.labels[2])
@@ -132,27 +133,58 @@ class DensitySpecBuilderTest {
     // --- Fix round 1, finding 1: degenerate window (end <= start) falls back to default --
 
     @Test
-    fun axisSpecFallsBackToDefaultWindowWhenConfiguredWindowIsDegenerate() {
-        // A hand-edited or corrupted imported profile could still carry end <= start even
-        // though Settings itself now guards end - start >= 60; axisSpec must not divide by
-        // a zero/negative span, and instead render exactly as the shipped default window
-        // (config's own densityWindowStartMinutes/EndMinutes are already 480/1320).
-        val degenerate = config.copy(densityWindowStartMinutes = 1320, densityWindowEndMinutes = 480)
-        val axis = DensitySpecBuilder.axisSpec(date, degenerate, zone, use24Hour = false)
-        val defaultAxis = DensitySpecBuilder.axisSpec(date, config, zone, use24Hour = false)
+    fun axisSpecFallsBackToDefaultWindowWhenTheDaysWindowIsDegenerate() {
+        // The window now travels on the day itself; a hand-built day (or a corrupted
+        // one) could still carry end <= start, and axisSpec must not divide by a
+        // zero/negative span but render exactly as the shipped default window.
+        val degenerate = dayAt(date).copy(windowStartMinutes = 1320, windowEndMinutes = 480)
+        val axis = DensitySpecBuilder.axisSpec(degenerate, zone, use24Hour = false)
+        val defaultAxis = DensitySpecBuilder.axisSpec(dayAt(date), zone, use24Hour = false)
         assertEquals(defaultAxis.cellCount, axis.cellCount)
         assertEquals(defaultAxis.labels, axis.labels)
     }
 
     @Test
-    fun stripSpecFallsBackToDefaultWindowWhenConfiguredWindowIsDegenerate() {
+    fun axisTicksStartAtTheDaysOwnWindow() {
+        // A day whose window grew to 06:00 ticks 6a, 10a, 2p, 6p instead of 8a, 12p, 4p,
+        // 8p (a tick never lands on the window end, same as today).
+        val early = dayAt(date).copy(windowStartMinutes = 360, windowEndMinutes = 1320)
+        val axis = DensitySpecBuilder.axisSpec(early, zone, use24Hour = false)
+        assertEquals("6a", axis.labels.first { it != null })
+        assertEquals(listOf("6a", "10a", "2p", "6p"), axis.labels.filterNotNull())
+    }
+
+    @Test
+    fun stripSpecFallsBackToDefaultWindowWhenTheDaysWindowIsDegenerate() {
         val day = singleEventDay(9, 10)
-        val degenerate = config.copy(densityWindowStartMinutes = 1320, densityWindowEndMinutes = 480)
-        val spec = DensitySpecBuilder.stripSpec(day, degenerate, palette(), 1000, 1f, null, zone)
+        val degenerate = day.copy(windowStartMinutes = 1320, windowEndMinutes = 480)
+        val spec = DensitySpecBuilder.stripSpec(degenerate, config, palette(), 1000, 1f, null, zone)
         val defaultSpec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 1f, null, zone)
         val shape = spec.content as StripContent.Shape
         val defaultShape = defaultSpec.content as StripContent.Shape
         assertEquals(defaultShape.blocks, shape.blocks)
+    }
+
+    @Test
+    fun stripSpecSpansTheDaysOwnWindow() {
+        // The same 09:00-10:00 event on a day whose window grew to 06:00 sits further
+        // right (3h of 16h) than on the default window (1h of 14h).
+        val day = singleEventDay(9, 10)
+        val early = day.copy(windowStartMinutes = 360)
+        val block = (DensitySpecBuilder.stripSpec(early, config, palette(), 1000, 1f, null, zone).content as StripContent.Shape).blocks.single()
+        assertEquals(3f / 16f, block.start, 0.001f)
+        assertEquals(4f / 16f, block.endInclusive, 0.001f)
+    }
+
+    @Test
+    fun stripSpecCarriesTheDaysCutFlags() {
+        val cut = singleEventDay(9, 10).copy(cutAtStart = true, cutAtEnd = true)
+        val spec = DensitySpecBuilder.stripSpec(cut, config, palette(), 1000, 1f, null, zone)
+        assertTrue(spec.cutAtStart)
+        assertTrue(spec.cutAtEnd)
+        val plain = DensitySpecBuilder.stripSpec(singleEventDay(9, 10), config, palette(), 1000, 1f, null, zone)
+        assertFalse(plain.cutAtStart)
+        assertFalse(plain.cutAtEnd)
     }
 
     // --- Fix round 1, finding 2: Tonal's "no explicit filter" rank uses visible calendars,

@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.LaneRect
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -85,7 +86,11 @@ data class StripSpec(
     val backgroundColor: Int,
     /** Device pixels per dp, for lane metrics that are specified in dp (G7). */
     val pxPerDp: Float,
-    val ghost: GhostSpec? = null
+    val ghost: GhostSpec? = null,
+    /** A busy block runs in from the previous day: draw the opening chevron. */
+    val cutAtStart: Boolean = false,
+    /** A busy block runs on into the next day: draw the closing chevron. */
+    val cutAtEnd: Boolean = false
 ) {
     val heightPx: Int get() = trackHeightPx + 2 * overhangPx
 }
@@ -146,6 +151,33 @@ object DensityCanvas {
     }
 
     /**
+     * The midnight cut marker as stair-stepped 1px-tall rows: a "greater-than" chevron
+     * whose tip touches [DensityLayout.CUT_CHEVRON_INSET_DP] inside the right edge (or a
+     * mirrored one inside the left edge when [atEnd] is false), [DensityLayout.CUT_CHEVRON_DP]
+     * tall, [DensityLayout.CUT_CHEVRON_STROKE_DP] thick, centred on the track. Rows rather
+     * than a `Path` so it draws without anti-aliasing like everything else here; empty
+     * when the spec carries no cut on that side.
+     */
+    fun cutChevronRects(spec: StripSpec, atEnd: Boolean): List<IntRect> {
+        if (if (atEnd) !spec.cutAtEnd else !spec.cutAtStart) return emptyList()
+        val track = trackRect(spec)
+        // An odd number of rows, so there is exactly one tip row and the two arms mirror
+        // each other pixel for pixel.
+        val half = ((DensityLayout.CUT_CHEVRON_DP * spec.pxPerDp).roundToInt() / 2)
+            .coerceIn(0, max(0, (track.height - 1) / 2))
+        val height = 2 * half + 1
+        val stroke = max(1, (DensityLayout.CUT_CHEVRON_STROKE_DP * spec.pxPerDp).roundToInt())
+        val inset = (DensityLayout.CUT_CHEVRON_INSET_DP * spec.pxPerDp).roundToInt()
+        val top = track.top + (track.height - height) / 2
+        return (0 until height).map { row ->
+            // 0 on the middle row (the tip), `half` on the outermost rows.
+            val back = abs(row - half)
+            val left = if (atEnd) spec.widthPx - inset - stroke - back else inset + back
+            IntRect(left, top + row, left + stroke, top + row + 1)
+        }
+    }
+
+    /**
      * The strip as a transparent-backed ARGB bitmap: free track, then the busy content
      * clipped to the track, then the now-marker on top. Oversized specs are scaled down
      * uniformly so the result stays inside [MAX_BITMAP_BYTES].
@@ -194,6 +226,12 @@ object DensityCanvas {
             is StripContent.Lanes -> drawLanes(canvas, paint, scaled, track, content)
         }
         canvas.restoreToCount(saved)
+
+        // Where a block was cut at midnight, a background-coloured chevron just inside
+        // that edge says "continues"; drawn after the content so it sits on the block.
+        paint.color = scaled.backgroundColor
+        cutChevronRects(scaled, atEnd = false).forEach { canvas.drawRect(it.toRect(), paint) }
+        cutChevronRects(scaled, atEnd = true).forEach { canvas.drawRect(it.toRect(), paint) }
 
         markerRects(scaled)?.let { (halo, caret) ->
             paint.color = scaled.backgroundColor

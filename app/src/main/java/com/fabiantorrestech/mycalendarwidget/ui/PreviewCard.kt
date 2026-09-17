@@ -589,8 +589,7 @@ private fun PreviewDensityContent(
                 Spacer(modifier = Modifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
                 PreviewDensityAxisRow(
                     axis = DensitySpecBuilder.axisSpec(
-                        snapshot.featured.date,
-                        config,
+                        snapshot.featured,
                         zone,
                         use24Hour
                     ),

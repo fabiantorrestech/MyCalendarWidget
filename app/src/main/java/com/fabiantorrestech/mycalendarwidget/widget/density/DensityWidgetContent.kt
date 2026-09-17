@@ -271,8 +271,7 @@ fun DensityWidgetContent(
                         Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
                         DensityAxisRow(
                             axis = DensitySpecBuilder.axisSpec(
-                                snapshot.featured.date,
-                                config,
+                                snapshot.featured,
                                 zone,
                                 use24Hour
                             ),

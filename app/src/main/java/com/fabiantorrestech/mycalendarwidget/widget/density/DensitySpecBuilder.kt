@@ -123,6 +123,15 @@ object DensityLayout {
     /** G7: the caret itself is 2dp wide. */
     const val NOW_MARKER_WIDTH_DP = 2f
 
+    /** Height of the chevron marking a block cut at midnight. */
+    const val CUT_CHEVRON_DP = 5f
+
+    /** Stroke of that chevron. */
+    const val CUT_CHEVRON_STROKE_DP = 1f
+
+    /** How far inside the strip edge the chevron's tip sits. */
+    const val CUT_CHEVRON_INSET_DP = 2f
+
     /**
      * The strip bitmap's full height once the caret's overhang is included — the track
      * stays [STRIP_HEIGHT_DP], but the bitmap (and the `Image` that hosts it) must be
@@ -248,7 +257,7 @@ object DensitySpecBuilder {
     private const val MAX_AXIS_CELLS = 10
 
     /** G7: the shipped default window (08:00-22:00), used when [effectiveWindowMinutes]
-     * finds the configured bounds degenerate. */
+     * finds a day's bounds degenerate. */
     private const val DEFAULT_WINDOW_START_MINUTES = 480
     private const val DEFAULT_WINDOW_END_MINUTES = 1320
 
@@ -260,11 +269,11 @@ object DensitySpecBuilder {
      * a zero or negative span below, that render falls back to the shipped default window.
      * The stored config itself is left untouched — this is a render-time fallback only.
      */
-    private fun effectiveWindowMinutes(config: WidgetConfig): Pair<Int, Int> =
-        if (config.densityWindowEndMinutes <= config.densityWindowStartMinutes) {
+    private fun effectiveWindowMinutes(day: DayDensity): Pair<Int, Int> =
+        if (day.windowEndMinutes <= day.windowStartMinutes) {
             DEFAULT_WINDOW_START_MINUTES to DEFAULT_WINDOW_END_MINUTES
         } else {
-            config.densityWindowStartMinutes to config.densityWindowEndMinutes
+            day.windowStartMinutes to day.windowEndMinutes
         }
 
     /**
@@ -320,7 +329,9 @@ object DensitySpecBuilder {
         zone: ZoneId,
         visibleCalendarIds: List<Long> = emptyList()
     ): StripSpec {
-        val (windowStartMinutes, windowEndMinutes) = effectiveWindowMinutes(config)
+        // The window is the day's own (DayDensity.windowStartMinutes/EndMinutes): the
+        // configured one grown to fit the day, so the strip and the axis agree by construction.
+        val (windowStartMinutes, windowEndMinutes) = effectiveWindowMinutes(day)
         val window = DensityCalculator.windowBounds(
             day.date,
             windowStartMinutes,
@@ -330,7 +341,7 @@ object DensitySpecBuilder {
         val windowStart = window.first
         val windowEnd = window.last + 1
         val span = (windowEnd - windowStart).toFloat()
-        // Fractions are of the window, never of the day: 08:00 is the left edge.
+        // Fractions are of the window, never of the day: its start is the left edge.
         val fraction: (Long) -> Float = { millis ->
             if (span <= 0f) 0f else ((millis - windowStart).toFloat() / span).coerceIn(0f, 1f)
         }
@@ -386,7 +397,9 @@ object DensitySpecBuilder {
             nowMarkerWidthPx = max(1, (DensityLayout.NOW_MARKER_WIDTH_DP * density).roundToInt()),
             backgroundColor = palette.background,
             pxPerDp = density,
-            ghost = null
+            ghost = null,
+            cutAtStart = day.cutAtStart,
+            cutAtEnd = day.cutAtEnd
         )
     }
 
@@ -520,12 +533,12 @@ object DensitySpecBuilder {
      * strip uses, so on a DST day the labels move with the blocks.
      */
     fun axisSpec(
-        date: LocalDate,
-        config: WidgetConfig,
+        day: DayDensity,
         zone: ZoneId,
         use24Hour: Boolean
     ): AxisSpec {
-        val (windowStartMinutes, windowEndMinutes) = effectiveWindowMinutes(config)
+        val date = day.date
+        val (windowStartMinutes, windowEndMinutes) = effectiveWindowMinutes(day)
         val window = DensityCalculator.windowBounds(date, windowStartMinutes, windowEndMinutes, zone)
         val windowStart = window.first
         val span = (window.last + 1 - windowStart).toFloat()
