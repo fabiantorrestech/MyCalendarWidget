@@ -120,8 +120,14 @@ class BridgeCalWidget : GlanceAppWidget() {
                 key1 = config,
                 key2 = peekOpen
             ) {
+                // produceState keeps its previous value across key changes (the state is
+                // remembered without keys; only the effect restarts), so every density run
+                // clears it first: the peek then reads null ("Loading") until this run's
+                // query answers, whether it was opened, refreshed, or reconfigured. The
+                // agenda styles keep their last list while they reload, as before.
+                if (isDensity) value = null
                 value = if (!loadEvents) {
-                    emptyMap()
+                    null // density with the peek closed: nothing is read, nothing to show
                 } else {
                     withContext(Dispatchers.IO) {
                         calRepo.getEventsByDay(
