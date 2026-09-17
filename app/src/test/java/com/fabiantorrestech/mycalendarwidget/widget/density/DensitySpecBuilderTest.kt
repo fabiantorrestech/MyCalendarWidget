@@ -396,7 +396,7 @@ class DensitySpecBuilderTest {
     @Test
     fun dayLabelsUseWeekdayAndShortDateInOrder() {
         assertEquals(
-            listOf("Thu 1/1", "Fri 1/2", "Sat 1/3"),
+            listOf("Thu (1/1)", "Fri (1/2)", "Sat (1/3)"),
             DensitySpecBuilder.dayLabels(threeDaySnapshot(), Locale.US, columnWidthDp = 120f)
         )
     }
@@ -412,7 +412,7 @@ class DensitySpecBuilderTest {
     @Test
     fun dayLabelsKeepTheWeekdayAtTheThreshold() {
         assertEquals(
-            listOf("Thu 1/1", "Fri 1/2", "Sat 1/3"),
+            listOf("Thu (1/1)", "Fri (1/2)", "Sat (1/3)"),
             DensitySpecBuilder.dayLabels(
                 threeDaySnapshot(), Locale.US, columnWidthDp = DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP
             )
@@ -424,6 +424,7 @@ class DensitySpecBuilderTest {
         assertEquals((387f - 2 * DensityLayout.DAY_BAR_GUTTER_DP) / 3, DensityLayout.dayColumnWidthDp(387f, 3), 0.001f)
         assertEquals((387f - 6 * DensityLayout.DAY_BAR_GUTTER_DP) / 7, DensityLayout.dayColumnWidthDp(387f, 7), 0.001f)
         assertTrue(DensityLayout.dayColumnWidthDp(387f, 7) < DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP)
+        assertTrue(DensityLayout.dayColumnWidthDp(387f, 5) >= DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP)
         assertEquals(387f, DensityLayout.dayColumnWidthDp(387f, 0), 0f)
     }
 

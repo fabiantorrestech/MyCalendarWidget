@@ -151,11 +151,11 @@ object DensityLayout {
     const val DAY_BAR_GUTTER_DP = 10f
 
     /**
-     * A day label keeps its weekday ("Thu 9/18") only when its column is at least this
-     * wide; narrower columns (seven bars on a phone-width widget) show the date alone,
-     * since an 11sp "Thu 9/18" needs about 48dp.
+     * A day label keeps its weekday ("Thu (9/18)") only when its column is at least this
+     * wide; narrower columns (six or seven bars on a phone-width widget) show the date
+     * alone, since an 11sp "Thu (9/18)" needs about 56dp.
      */
-    const val DAY_LABEL_WITH_WEEKDAY_MIN_DP = 52f
+    const val DAY_LABEL_WITH_WEEKDAY_MIN_DP = 62f
 
     /**
      * The width of one look-ahead column: the content width less the gutters between
@@ -412,7 +412,7 @@ object DensitySpecBuilder {
 
     /**
      * One label per [DensitySnapshot.lookahead] day: the short weekday and date
-     * ("Thu 1/1", "Fri 1/2", …) when a column of [columnWidthDp] can hold it (see
+     * ("Thu (1/1)", "Fri (1/2)", …) when a column of [columnWidthDp] can hold it (see
      * [DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP]), else the date alone ("1/1"), in
      * [locale]. Pure date formatting: no calendar content, so it stays clear of G1.
      */
@@ -420,7 +420,7 @@ object DensitySpecBuilder {
         val withWeekday = columnWidthDp >= DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP
         return snapshot.lookahead.map {
             val date = TimeFormat.shortDate(it.date, locale)
-            if (withWeekday) it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " " + date else date
+            if (withWeekday) it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " ($date)" else date
         }
     }
 

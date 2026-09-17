@@ -646,7 +646,7 @@ class DensityCalculatorTest {
     @Test
     fun `headline carries the featured day as weekday and short date`() {
         val headline = headlineFor(standardDay(), t(10, 0), DensityCountMode.LEFT, featuredIsToday = true)
-        assertEquals("Sun 8/16", headline.dateText)
+        assertEquals("Sun (8/16)", headline.dateText)
     }
 
     @Test
@@ -660,19 +660,7 @@ class DensityCalculatorTest {
             zone = zone
         )
         val headline = headlineFor(next, t(19, 30), DensityCountMode.LEFT, featuredIsToday = false)
-        assertEquals("Mon 8/17", headline.dateText)
-    }
-
-    @Test
-    fun `secondLine joins date and qualifier with a middle dot`() {
-        val headline = DensityHeadline("2 left", "next in 25m", dateText = "Sun 8/16")
-        assertEquals("Sun 8/16 · next in 25m", headline.secondLine())
-    }
-
-    @Test
-    fun `secondLine is just the date when the qualifier is empty`() {
-        val headline = DensityHeadline("Done today", "", countIsSentence = true, dateText = "Sun 8/16")
-        assertEquals("Sun 8/16", headline.secondLine())
+        assertEquals("Mon (8/17)", headline.dateText)
     }
 
     // -------------------------------------------------------- remainingCount

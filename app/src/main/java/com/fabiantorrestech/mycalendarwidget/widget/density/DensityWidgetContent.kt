@@ -53,6 +53,9 @@ import java.util.Locale
 private const val COUNT_SIZE_SP = 24
 private const val COUNT_SENTENCE_SIZE_SP = 17
 private const val QUALIFIER_SIZE_SP = 13
+
+/** Between the date and the qualifier on the second line. */
+internal const val SECOND_LINE_SEPARATOR = " \u00b7 "
 private const val AXIS_SIZE_SP = 11
 private const val DAY_LABEL_SIZE_SP = 11
 
@@ -207,21 +210,37 @@ fun DensityWidgetContent(
                     }
                 }
 
-                // The second line ("Wed 9/17 \u00b7 next in 25m": the featured day, then the
+                // The second line ("Wed (9/17) \u00b7 next in 25m": the featured day, then the
                 // qualifier when there is one) sits under the count, full width, so the
-                // chrome never squeezes it to an ellipsis.
-                val secondLine = headline.secondLine()
-                if (secondLine.isNotBlank()) {
+                // chrome never squeezes it to an ellipsis. Two Texts rather than one
+                // because Glance cannot mix weights in a string, and only today's date
+                // is bold: after the rollover, tomorrow's date stays regular.
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = secondLine,
+                        text = headline.dateText,
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurfaceVariant,
                             fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                            fontWeight = if (snapshot.featuredIsToday) FontWeight.Bold else FontWeight.Normal,
                             fontFamily = config.glanceFont(FontCategory.DETAIL)
                         ),
-                        maxLines = 1,
-                        modifier = GlanceModifier.fillMaxWidth()
+                        maxLines = 1
                     )
+                    if (headline.qualifierText.isNotBlank()) {
+                        Text(
+                            text = SECOND_LINE_SEPARATOR + headline.qualifierText,
+                            style = TextStyle(
+                                color = GlanceTheme.colors.onSurfaceVariant,
+                                fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                                fontFamily = config.glanceFont(FontCategory.DETAIL)
+                            ),
+                            maxLines = 1,
+                            modifier = GlanceModifier.defaultWeight()
+                        )
+                    }
                 }
 
                 // The whole body below the headline and above the chrome row is the peek

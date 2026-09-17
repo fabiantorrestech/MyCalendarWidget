@@ -52,6 +52,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.density.AxisSpec
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout
+import com.fabiantorrestech.mycalendarwidget.widget.density.SECOND_LINE_SEPARATOR
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout.ChromePlacement
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityPalette
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
@@ -551,16 +552,28 @@ private fun PreviewDensityContent(
                 }
             }
 
-            val secondLine = headline.secondLine()
-            if (secondLine.isNotBlank()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = secondLine,
+                    text = headline.dateText,
                     fontSize = (13 * config.typographyScale.detailScale).sp,
+                    fontWeight = if (snapshot.featuredIsToday) FontWeight.Bold else FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
                     fontFamily = config.previewFont(FontCategory.DETAIL)
                 )
+                if (headline.qualifierText.isNotBlank()) {
+                    Text(
+                        text = SECOND_LINE_SEPARATOR + headline.qualifierText,
+                        fontSize = (13 * config.typographyScale.detailScale).sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                        fontFamily = config.previewFont(FontCategory.DETAIL)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))

@@ -263,7 +263,7 @@ object DensityCalculator {
         locale: Locale
     ): DensityHeadline {
         val dateText = featured.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) +
-            " " + TimeFormat.shortDate(featured.date, locale)
+            " (" + TimeFormat.shortDate(featured.date, locale) + ")"
 
         if (!featuredIsToday) {
             if (featured.eventCount == 0) {
