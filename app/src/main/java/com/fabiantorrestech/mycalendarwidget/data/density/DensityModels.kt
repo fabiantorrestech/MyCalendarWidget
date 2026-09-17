@@ -97,5 +97,11 @@ data class DensityHeadline(
     val countText: String,
     val qualifierText: String,
     /** True when [countText] reads as a sentence ("Done today") rather than a number. */
-    val countIsSentence: Boolean = false
-)
+    val countIsSentence: Boolean = false,
+    /** The featured day as weekday and short date ("Sun 8/16"): the day the count is about. */
+    val dateText: String = ""
+) {
+    /** The second line: the date, then the qualifier when there is one, dot-separated. */
+    fun secondLine(): String =
+        listOf(dateText, qualifierText).filter { it.isNotBlank() }.joinToString(" \u00b7 ")
+}

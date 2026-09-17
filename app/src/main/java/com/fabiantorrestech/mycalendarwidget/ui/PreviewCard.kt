@@ -551,9 +551,10 @@ private fun PreviewDensityContent(
                 }
             }
 
-            if (headline.qualifierText.isNotBlank()) {
+            val secondLine = headline.secondLine()
+            if (secondLine.isNotBlank()) {
                 Text(
-                    text = headline.qualifierText,
+                    text = secondLine,
                     fontSize = (13 * config.typographyScale.detailScale).sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

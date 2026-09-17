@@ -5,6 +5,7 @@ import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.TextStyle
 import java.util.Locale
 
 /**
@@ -242,16 +243,14 @@ object DensityCalculator {
     }
 
     /**
-     * The two lines of headline text for the featured day.
+     * The two lines of headline text for the featured day. [locale] names the featured
+     * day's weekday and short date ([DensityHeadline.dateText]); the clock text stays
+     * suffix-free (see [TimeFormat.clockNoSuffix]).
      *
-     * [rolloverHour] and [locale] are part of the caller's contract but currently
-     * unused by this function: whether the featured day has already rolled over to
-     * tomorrow is decided earlier, by [shouldRollover] (which takes its own
-     * `rolloverHour`), and the clock text this function produces is always
-     * suffix-free (see [TimeFormat.clockNoSuffix]), so there is no locale-sensitive
-     * formatting left to do here. Both parameters are kept so a future caller change —
-     * a locale-aware qualifier, say — has an obvious place to plug in without a
-     * signature change.
+     * [rolloverHour] is part of the caller's contract but unused here: whether the
+     * featured day has already rolled over to tomorrow is decided earlier, by
+     * [shouldRollover] (which takes its own `rolloverHour`). It is kept so a future
+     * caller change has an obvious place to plug in without a signature change.
      */
     fun headline(
         featured: DayDensity,
@@ -263,9 +262,12 @@ object DensityCalculator {
         use24Hour: Boolean,
         locale: Locale
     ): DensityHeadline {
+        val dateText = featured.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) +
+            " " + TimeFormat.shortDate(featured.date, locale)
+
         if (!featuredIsToday) {
             if (featured.eventCount == 0) {
-                return DensityHeadline("Nothing tomorrow", "", countIsSentence = true)
+                return DensityHeadline("Nothing tomorrow", "", countIsSentence = true, dateText = dateText)
             }
             val first = featured.dayMerged.firstOrNull()
             val qualifier = if (first == null) {
@@ -273,10 +275,12 @@ object DensityCalculator {
             } else {
                 "first at " + TimeFormat.clockNoSuffix(first.startMillis, zone, use24Hour)
             }
-            return DensityHeadline("${featured.eventCount} tomorrow", qualifier)
+            return DensityHeadline("${featured.eventCount} tomorrow", qualifier, dateText = dateText)
         }
 
-        if (featured.eventCount == 0) return DensityHeadline("Nothing today", "", countIsSentence = true)
+        if (featured.eventCount == 0) {
+            return DensityHeadline("Nothing today", "", countIsSentence = true, dateText = dateText)
+        }
 
         val total = featured.eventCount
         val remaining = remainingCount(featured, nowMillis)
@@ -285,19 +289,19 @@ object DensityCalculator {
         return when (countMode) {
             DensityCountMode.LEFT ->
                 if (remaining == 0) {
-                    DensityHeadline("Done today", "", countIsSentence = true)
+                    DensityHeadline("Done today", "", countIsSentence = true, dateText = dateText)
                 } else {
-                    DensityHeadline("$remaining left", qualifier)
+                    DensityHeadline("$remaining left", qualifier, dateText = dateText)
                 }
 
             DensityCountMode.FRACTION ->
                 if (remaining == 0) {
-                    DensityHeadline("0/$total", "done today")
+                    DensityHeadline("0/$total", "done today", dateText = dateText)
                 } else {
-                    DensityHeadline("$remaining/$total left", qualifier)
+                    DensityHeadline("$remaining/$total left", qualifier, dateText = dateText)
                 }
 
-            DensityCountMode.TOTAL -> DensityHeadline("$total today", qualifier)
+            DensityCountMode.TOTAL -> DensityHeadline("$total today", qualifier, dateText = dateText)
         }
     }
 

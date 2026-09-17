@@ -207,12 +207,13 @@ fun DensityWidgetContent(
                     }
                 }
 
-                // The qualifier ("first at 9:40am", "next in 25m") gets a line of its own
-                // under the count, full width, so the chrome never squeezes it to an
-                // ellipsis. Sentence headlines with nothing to add skip the line.
-                if (headline.qualifierText.isNotBlank()) {
+                // The second line ("Wed 9/17 \u00b7 next in 25m": the featured day, then the
+                // qualifier when there is one) sits under the count, full width, so the
+                // chrome never squeezes it to an ellipsis.
+                val secondLine = headline.secondLine()
+                if (secondLine.isNotBlank()) {
                     Text(
-                        text = headline.qualifierText,
+                        text = secondLine,
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurfaceVariant,
                             fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
