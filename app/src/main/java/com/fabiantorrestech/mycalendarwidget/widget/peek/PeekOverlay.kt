@@ -21,6 +21,7 @@ import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
+import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
@@ -58,7 +59,10 @@ private const val TITLE_SIZE_SP = 13
  * It is a flat [LazyColumn] over [PeekList.items] rather than nested containers, for two
  * reasons. Glance truncates a `Column`/`Row` past ten direct children without erroring,
  * so a per-day `Column` of rows would silently lose events on a busy day; and a flat list
- * with stable ids lets the launcher recycle rows and scroll properly.
+ * with stable ids lets the launcher recycle rows and scroll properly. The "Upcoming ×"
+ * bar is a fixed sibling *above* the list, not its first row, so the close control stays
+ * reachable however far the list is scrolled; the list fills whatever height is left
+ * under it.
  *
  * Every close path funnels through the same [SetPeekAction]: the top bar (the whole row,
  * not just the ×) and, in `GROUPED`, every date header. The sheet's root `Box` is
@@ -96,14 +100,15 @@ fun PeekOverlay(
     }
 
     Box(modifier = GlanceModifier.fillMaxSize()) {
-        LazyColumn(
+        Column(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .padding(DensityLayout.WIDGET_PADDING_DP.dp)
         ) {
+            TopBar(context)
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
             items(items, itemId = { it.itemId }) { item ->
                 when (item.kind) {
-                    PeekItemKind.TOP_BAR -> TopBar(context)
                     PeekItemKind.HEADER -> DateHeader(item.date, today, config, context, locale)
                     PeekItemKind.SEPARATOR -> DaySeparator()
                     PeekItemKind.EVENT -> EventRow(
@@ -132,6 +137,7 @@ fun PeekOverlay(
                             .height(DensityLayout.PEEK_ROW_DP.dp)
                     )
                 }
+            }
             }
         }
     }
@@ -183,13 +189,12 @@ private fun TopBar(context: Context) {
  */
 @Composable
 private fun DateHeader(
-    date: LocalDate?,
+    date: LocalDate,
     today: LocalDate,
     config: WidgetConfig,
     context: Context,
     locale: Locale
 ) {
-    if (date == null) return
     val label = PeekLabels.dateHeader(
         date = date,
         today = today,

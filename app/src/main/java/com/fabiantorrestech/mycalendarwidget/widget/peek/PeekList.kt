@@ -5,19 +5,19 @@ import com.fabiantorrestech.mycalendarwidget.data.DensityPeekFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import java.time.LocalDate
 
-/** The four row shapes the peek sheet draws. */
-enum class PeekItemKind { TOP_BAR, HEADER, SEPARATOR, EVENT }
+/** The three row shapes the peek sheet's list draws (the top bar sits above the list). */
+enum class PeekItemKind { HEADER, SEPARATOR, EVENT }
 
 /**
- * One flattened row. [date] is null only on [PeekItemKind.TOP_BAR]; [event] is set only
- * on [PeekItemKind.EVENT]. Flattening headers, separators and events into one list is
- * what lets the sheet be a single `LazyColumn` with stable `itemId`s rather than nested
- * containers Glance would truncate at ten children.
+ * One flattened row. [event] is set only on [PeekItemKind.EVENT]. Flattening headers,
+ * separators and events into one list is what lets the sheet be a single `LazyColumn`
+ * with stable `itemId`s rather than nested containers Glance would truncate at ten
+ * children.
  */
 data class PeekItem(
     val kind: PeekItemKind,
     val itemId: Long,
-    val date: LocalDate?,
+    val date: LocalDate,
     val event: CalendarEvent?
 )
 
@@ -37,13 +37,11 @@ object PeekList {
      * Glance reserves every item id at or below `Long.MIN_VALUE / 2` for the ids it
      * generates itself and throws `IllegalArgumentException` on anything lower ("You may
      * not specify item ids less than -4611686018427387904 in a Glance"), so the obvious
-     * `Long.MIN_VALUE` sentinel is not available. These two sit immediately above that
-     * floor instead: far enough from any real id — a negated epoch day is within a few
-     * million of zero, an `Instances._ID` is positive — that a collision is impossible.
+     * `Long.MIN_VALUE` sentinel is not available. The fixed ids sit immediately above
+     * that floor instead: far enough from any real id — a negated epoch day is within a
+     * few million of zero, an `Instances._ID` is positive — that a collision is
+     * impossible. (`+ 1` was the top bar's id before it moved above the list.)
      */
-    const val TOP_BAR_ITEM_ID = Long.MIN_VALUE / 2 + 1
-
-    /** The "nothing coming up" row; see [TOP_BAR_ITEM_ID]. */
     const val EMPTY_ITEM_ID = Long.MIN_VALUE / 2 + 2
 
     /**
@@ -117,15 +115,14 @@ object PeekList {
      * (where every row already carries its own date pill, so a header would be noise).
      *
      * Item ids must be unique across the whole list, so the id spaces are kept apart by
-     * sign: [TOP_BAR_ITEM_ID] for the top bar, negated epoch days for day markers, and
-     * the event's own (positive) `Instances._ID` for event rows.
+     * sign: negated epoch days for day markers and the event's own (positive)
+     * `Instances._ID` for event rows.
      */
     fun items(
         upcoming: List<Pair<LocalDate, CalendarEvent>>,
         format: DensityPeekFormat
     ): List<PeekItem> {
         val items = ArrayList<PeekItem>(upcoming.size + 8)
-        items.add(PeekItem(PeekItemKind.TOP_BAR, TOP_BAR_ITEM_ID, null, null))
 
         var lastDate: LocalDate? = null
         upcoming.forEach { (date, event) ->

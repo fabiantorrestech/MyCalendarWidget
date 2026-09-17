@@ -187,10 +187,9 @@ class PeekListTest {
     // ---- items() ----
 
     @Test
-    fun `grouped starts with a top bar and has one header per day change`() {
+    fun `grouped starts with a header and has one header per day change`() {
         val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.GROUPED)
-        assertEquals(PeekItemKind.TOP_BAR, items.first().kind)
-        assertEquals(PeekList.TOP_BAR_ITEM_ID, items.first().itemId)
+        assertEquals(PeekItemKind.HEADER, items.first().kind)
         assertEquals(
             listOf(TODAY, TODAY.plusDays(1)),
             items.filter { it.kind == PeekItemKind.HEADER }.map { it.date }
@@ -209,14 +208,14 @@ class PeekListTest {
     @Test
     fun `dated separates days but never before the first day`() {
         val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.DATED)
-        assertEquals(PeekItemKind.TOP_BAR, items.first().kind)
+        assertEquals(PeekItemKind.EVENT, items.first().kind)
         assertTrue(items.none { it.kind == PeekItemKind.HEADER })
         val separators = items.filter { it.kind == PeekItemKind.SEPARATOR }
         assertEquals(1, separators.size)
         assertEquals(TODAY.plusDays(1), separators[0].date)
         assertEquals(-TODAY.plusDays(1).toEpochDay(), separators[0].itemId)
         // The separator sits between the last of day one and the first of day two.
-        assertEquals(PeekItemKind.SEPARATOR, items[3].kind)
+        assertEquals(PeekItemKind.SEPARATOR, items[2].kind)
     }
 
     @Test
@@ -243,17 +242,13 @@ class PeekListTest {
     fun `fixed item ids clear Glance's reserved range`() {
         // Glance throws on any item id at or below Long.MIN_VALUE / 2.
         val floor = Long.MIN_VALUE / 2
-        assertTrue(PeekList.TOP_BAR_ITEM_ID > floor)
         assertTrue(PeekList.EMPTY_ITEM_ID > floor)
-        assertTrue(PeekList.TOP_BAR_ITEM_ID != PeekList.EMPTY_ITEM_ID)
     }
 
     @Test
-    fun `empty upcoming still yields just the top bar`() {
+    fun `empty upcoming yields no items`() {
         DensityPeekFormat.entries.forEach { format ->
-            val items = PeekList.items(emptyList(), format)
-            assertEquals(1, items.size)
-            assertEquals(PeekItemKind.TOP_BAR, items[0].kind)
+            assertTrue(PeekList.items(emptyList(), format).isEmpty())
         }
     }
 
