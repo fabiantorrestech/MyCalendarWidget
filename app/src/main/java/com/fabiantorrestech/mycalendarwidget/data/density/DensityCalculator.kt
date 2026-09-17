@@ -23,6 +23,9 @@ object DensityCalculator {
     /** Longest gap still described in minutes rather than as a clock time. */
     private const val QUALIFIER_MINUTES_THRESHOLD = 90
 
+    /** Minutes in a local day; the upper bound of a strip window. */
+    const val MINUTES_PER_DAY = 1440
+
     /**
      * True when an instance should be drawn as busy time. An empty [enabledCalendarIds]
      * means every calendar is enabled — the convention the rest of the app already uses.
@@ -101,6 +104,42 @@ object DensityCalculator {
     }
 
     /**
+     * [millis] as wall-clock minutes since [date]'s local midnight — the inverse of
+     * [windowBounds]: 03:30 is minute 210 on a spring-forward day too, whatever the
+     * offset did. Anything at or past the next midnight reads as [MINUTES_PER_DAY].
+     */
+    fun localMinuteOfDay(millis: Long, date: LocalDate, zone: ZoneId): Int {
+        val local = Instant.ofEpochMilli(millis).atZone(zone).toLocalDateTime()
+        if (!local.toLocalDate().isEqual(date)) {
+            return if (local.toLocalDate().isAfter(date)) MINUTES_PER_DAY else 0
+        }
+        return local.hour * 60 + local.minute
+    }
+
+    /**
+     * The window a day's strip is drawn with: the configured window grown, never shrunk,
+     * to the whole hours that cover every interval in [dayMerged] (the earliest start
+     * floored, the latest end ceiled), and never past the day itself. [dayMerged] is
+     * already day-clipped, so an instance that crosses midnight pushes this day's end to
+     * 24:00 and the next day's start to 00:00 — each day shows its own portion. With no
+     * intervals the configured window stands.
+     */
+    fun effectiveWindow(
+        dayMerged: List<BusyInterval>,
+        date: LocalDate,
+        zone: ZoneId,
+        configStartMinutes: Int,
+        configEndMinutes: Int
+    ): IntRange {
+        if (dayMerged.isEmpty()) return configStartMinutes..configEndMinutes
+        val earliest = localMinuteOfDay(dayMerged.minOf { it.startMillis }, date, zone)
+        val latest = localMinuteOfDay(dayMerged.maxOf { it.endMillis }, date, zone)
+        val start = minOf(configStartMinutes, earliest / 60 * 60).coerceIn(0, MINUTES_PER_DAY)
+        val end = maxOf(configEndMinutes, (latest + 59) / 60 * 60).coerceIn(0, MINUTES_PER_DAY)
+        return start..end
+    }
+
+    /**
      * The event's own colour when it overrides its calendar's, otherwise the calendar
      * colour. Mirrors `CalendarRepository`'s own display/calendar colour rule
      * (`eventColor` is set only when the provider's `DISPLAY_COLOR` differs from the
@@ -150,7 +189,10 @@ object DensityCalculator {
         )
         val busyMinutes = dayMerged.sumOf { it.durationMinutes }
 
-        val windowRange = windowBounds(date, windowStartMinutes, windowEndMinutes, zone)
+        // The strip is clipped to the day's own window, which grows to fit the day (see
+        // effectiveWindow), so no busy time on the day is ever off the strip.
+        val effective = effectiveWindow(dayMerged, date, zone, windowStartMinutes, windowEndMinutes)
+        val windowRange = windowBounds(date, effective.first, effective.last, zone)
         val windowStart = windowRange.first
         val windowEnd = windowRange.last + 1
 
@@ -173,7 +215,11 @@ object DensityCalculator {
             stripMerged = clampTo(dayMerged, windowStart, windowEnd),
             stripEvents = stripEvents,
             busyMinutes = busyMinutes,
-            busyEnds = busy.map { it.end }
+            busyEnds = busy.map { it.end },
+            windowStartMinutes = effective.first,
+            windowEndMinutes = effective.last,
+            cutAtStart = busy.any { it.begin < dayStart && it.end > dayStart },
+            cutAtEnd = busy.any { it.end > dayEnd && it.begin < dayEnd }
         )
     }
 
@@ -187,12 +233,15 @@ object DensityCalculator {
     fun remainingCount(day: DayDensity, nowMillis: Long): Int =
         day.busyEnds.count { it > nowMillis }
 
-    /** Where "now" sits inside the window as 0f..1f, or null when it is outside. */
+    /**
+     * Where "now" sits inside the window as 0f..1f. Outside the window it pins to the
+     * nearer edge (0f before, 1f after) rather than disappearing: an early riser still
+     * gets a "you are here", sitting on the edge until the day's window begins.
+     */
     fun nowFraction(nowMillis: Long, windowStart: Long, windowEnd: Long): Float? {
-        if (nowMillis < windowStart || nowMillis > windowEnd) return null
         val span = windowEnd - windowStart
         if (span <= 0L) return 0f
-        return (nowMillis - windowStart).toFloat() / span.toFloat()
+        return ((nowMillis - windowStart).toFloat() / span.toFloat()).coerceIn(0f, 1f)
     }
 
     /**

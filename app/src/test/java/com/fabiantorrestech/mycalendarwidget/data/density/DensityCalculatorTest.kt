@@ -368,7 +368,7 @@ class DensityCalculatorTest {
     // ---------------------------------------------------------------- window
 
     @Test
-    fun `an event before the window is absent from the strip but still counted`() {
+    fun `an early event grows the window to its hour and is on the strip`() {
         val result = DensityCalculator.buildDay(
             date = day,
             raw = listOf(raw(t(7, 0), t(7, 45)), raw(t(9, 0), t(10, 0))),
@@ -378,27 +378,64 @@ class DensityCalculatorTest {
             zone = zone
         )
         assertEquals(2, result.eventCount)
-        assertEquals(listOf(interval(9, 0, 10, 0)), result.stripMerged)
-        assertEquals(listOf(t(9, 0)), result.stripEvents.map { it.startMillis })
+        assertEquals(420, result.windowStartMinutes)
+        assertEquals(1320, result.windowEndMinutes)
+        assertEquals(listOf(interval(7, 0, 7, 45), interval(9, 0, 10, 0)), result.stripMerged)
+        assertEquals(listOf(t(7, 0), t(9, 0)), result.stripEvents.map { it.startMillis })
     }
 
     @Test
-    fun `an event after the window is absent from the strip but still counted`() {
+    fun `an ordinary day keeps the configured window`() {
         val result = DensityCalculator.buildDay(
             date = day,
-            raw = listOf(raw(t(9, 0), t(10, 0)), raw(t(22, 30), t(23, 0))),
+            raw = listOf(raw(t(9, 0), t(10, 0))),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertEquals(480, result.windowStartMinutes)
+        assertEquals(1320, result.windowEndMinutes)
+        assertFalse(result.cutAtStart)
+        assertFalse(result.cutAtEnd)
+    }
+
+    @Test
+    fun `a midnight-spanning event is cut at the day end and continues on the next day`() {
+        val raw = listOf(raw(t(23, 0), at(tomorrow, 3, 0)))
+        val today = DensityCalculator.buildDay(day, raw, emptySet(), 480, 1320, zone)
+        assertEquals(1440, today.windowEndMinutes)
+        assertTrue(today.cutAtEnd)
+        assertFalse(today.cutAtStart)
+        assertEquals(listOf(BusyInterval(t(23, 0), at(tomorrow, 0, 0))), today.stripMerged)
+
+        val next = DensityCalculator.buildDay(tomorrow, raw, emptySet(), 480, 1320, zone)
+        assertEquals(0, next.windowStartMinutes)
+        assertEquals(1320, next.windowEndMinutes)
+        assertTrue(next.cutAtStart)
+        assertFalse(next.cutAtEnd)
+        assertEquals(listOf(BusyInterval(at(tomorrow, 0, 0), at(tomorrow, 3, 0))), next.stripMerged)
+    }
+
+    @Test
+    fun `a late event grows the window to its hour and is on the strip`() {
+        val result = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(9, 0), t(10, 0)), raw(t(22, 30), t(23, 15))),
             enabledCalendarIds = emptySet(),
             windowStartMinutes = 480,
             windowEndMinutes = 1320,
             zone = zone
         )
         assertEquals(2, result.eventCount)
-        assertEquals(listOf(interval(9, 0, 10, 0)), result.stripMerged)
-        assertEquals(listOf(t(9, 0)), result.stripEvents.map { it.startMillis })
+        assertEquals(480, result.windowStartMinutes)
+        assertEquals(1440, result.windowEndMinutes)
+        assertEquals(listOf(interval(9, 0, 10, 0), interval(22, 30, 23, 15)), result.stripMerged)
+        assertEquals(listOf(t(9, 0), t(22, 30)), result.stripEvents.map { it.startMillis })
     }
 
     @Test
-    fun `an event straddling the window start is clamped to the window start`() {
+    fun `an event straddling the window start floors the window to its hour`() {
         val result = DensityCalculator.buildDay(
             date = day,
             raw = listOf(raw(t(7, 30), t(8, 30))),
@@ -407,12 +444,13 @@ class DensityCalculatorTest {
             windowEndMinutes = 1320,
             zone = zone
         )
-        assertEquals(listOf(interval(8, 0, 8, 30)), result.stripMerged)
-        assertEquals(listOf(t(8, 0) to t(8, 30)), result.stripEvents.map { it.startMillis to it.endMillis })
+        assertEquals(420, result.windowStartMinutes)
+        assertEquals(listOf(interval(7, 30, 8, 30)), result.stripMerged)
+        assertEquals(listOf(t(7, 30) to t(8, 30)), result.stripEvents.map { it.startMillis to it.endMillis })
     }
 
     @Test
-    fun `an event straddling the window end is clamped to the window end`() {
+    fun `an event straddling the window end ceils the window to its hour`() {
         val result = DensityCalculator.buildDay(
             date = day,
             raw = listOf(raw(t(21, 30), t(22, 30))),
@@ -421,12 +459,13 @@ class DensityCalculatorTest {
             windowEndMinutes = 1320,
             zone = zone
         )
-        assertEquals(listOf(interval(21, 30, 22, 0)), result.stripMerged)
-        assertEquals(listOf(t(21, 30) to t(22, 0)), result.stripEvents.map { it.startMillis to it.endMillis })
+        assertEquals(1380, result.windowEndMinutes)
+        assertEquals(listOf(interval(21, 30, 22, 30)), result.stripMerged)
+        assertEquals(listOf(t(21, 30) to t(22, 30)), result.stripEvents.map { it.startMillis to it.endMillis })
     }
 
     @Test
-    fun `an out-of-window event still contributes to busyMinutes`() {
+    fun `an early event contributes to busyMinutes and the strip alike`() {
         val result = DensityCalculator.buildDay(
             date = day,
             raw = listOf(raw(t(7, 0), t(7, 45))),
@@ -436,8 +475,7 @@ class DensityCalculatorTest {
             zone = zone
         )
         assertEquals(45, result.busyMinutes)
-        assertTrue(result.stripMerged.isEmpty())
-        assertTrue(result.stripEvents.isEmpty())
+        assertEquals(listOf(interval(7, 0, 7, 45)), result.stripMerged)
     }
 
     // ------------------------------------------------------------------ load
@@ -687,13 +725,20 @@ class DensityCalculatorTest {
     // ----------------------------------------------------------- nowFraction
 
     @Test
-    fun `nowFraction is null before the window`() {
-        assertNull(DensityCalculator.nowFraction(t(7, 0), t(8, 0), t(22, 0)))
+    fun `nowFraction pins to zero before the window`() {
+        assertEquals(0f, DensityCalculator.nowFraction(t(7, 0), t(8, 0), t(22, 0))!!, 0.0001f)
     }
 
     @Test
-    fun `nowFraction is null after the window`() {
-        assertNull(DensityCalculator.nowFraction(t(23, 0), t(8, 0), t(22, 0)))
+    fun `nowFraction pins to one after the window`() {
+        assertEquals(1f, DensityCalculator.nowFraction(t(23, 0), t(8, 0), t(22, 0))!!, 0.0001f)
+    }
+
+    @Test
+    fun `localMinuteOfDay is wall-clock on the spring-forward day`() {
+        val dst = LocalDate.of(2026, 3, 8)
+        assertEquals(210, DensityCalculator.localMinuteOfDay(at(dst, 3, 30), dst, zone))
+        assertEquals(1440, DensityCalculator.localMinuteOfDay(at(dst.plusDays(1), 0, 0), dst, zone))
     }
 
     @Test

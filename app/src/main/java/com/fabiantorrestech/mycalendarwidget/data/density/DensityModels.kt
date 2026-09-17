@@ -70,7 +70,19 @@ data class DayDensity(
     /** Sum of the [dayMerged] durations. */
     val busyMinutes: Int,
     /** Unclamped end of every busy event on this day, for "left today" counting. */
-    val busyEnds: List<Long>
+    val busyEnds: List<Long>,
+    /**
+     * The strip window this day is drawn with, in local minutes: the configured window
+     * grown (never shrunk) to the whole hours that cover every busy interval of the day,
+     * and never past the day itself (0..1440). See [DensityCalculator.effectiveWindow].
+     * Defaults are the configured defaults, for hand-built days in tests.
+     */
+    val windowStartMinutes: Int = 480,
+    val windowEndMinutes: Int = 1320,
+    /** A busy instance began before this day and is still running at its midnight. */
+    val cutAtStart: Boolean = false,
+    /** A busy instance runs on past this day's end into the next day. */
+    val cutAtEnd: Boolean = false
 )
 
 /** One rendered snapshot: the featured day plus the lookahead strip. */
