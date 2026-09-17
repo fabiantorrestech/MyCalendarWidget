@@ -267,6 +267,7 @@ fun DensityWidgetContent(
                             config = config,
                             palette = palette,
                             widthPx = widthPx,
+                            contentWidthDp = size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP,
                             density = density
                         )
                     }
@@ -350,6 +351,7 @@ private fun DensityLookaheadBars(
     config: WidgetConfig,
     palette: DensityPalette,
     widthPx: Int,
+    contentWidthDp: Float,
     density: Float
 ) {
     Column(modifier = GlanceModifier.fillMaxWidth()) {
@@ -362,7 +364,11 @@ private fun DensityLookaheadBars(
         ) {}
         Spacer(modifier = GlanceModifier.height(DensityLayout.LABELS_TOP_GAP_DP.dp))
 
-        val labels = DensitySpecBuilder.dayLabels(snapshot, Locale.getDefault())
+        val labels = DensitySpecBuilder.dayLabels(
+            snapshot,
+            Locale.getDefault(),
+            columnWidthDp = DensityLayout.dayColumnWidthDp(contentWidthDp, snapshot.lookahead.size)
+        )
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             // The gutter is a start-padding on each box after the first rather than a
             // sibling Spacer: a Spacer per gap makes this Row's child count 2n-1, which

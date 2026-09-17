@@ -377,25 +377,54 @@ class DensitySpecBuilderTest {
 
     // --- Look-ahead bars: dayLabels and loadBarsSpec --------------------------------
 
-    @Test
-    fun dayLabelsUsesShortWeekdayNamesInOrder() {
+    private fun threeDaySnapshot(): DensitySnapshot {
         // 2026-01-01 is a Thursday.
         val lookahead = listOf(
             dayAt(LocalDate.of(2026, 1, 1)),
             dayAt(LocalDate.of(2026, 1, 2)),
             dayAt(LocalDate.of(2026, 1, 3))
         )
-        val snapshot = DensitySnapshot(
+        return DensitySnapshot(
             hasPermission = true,
             featured = dayAt(date),
             featuredIsToday = true,
             lookahead = lookahead,
             nowMillis = 0L
         )
+    }
+
+    @Test
+    fun dayLabelsUseWeekdayAndShortDateInOrder() {
         assertEquals(
-            listOf("Thu", "Fri", "Sat"),
-            DensitySpecBuilder.dayLabels(snapshot, Locale.US)
+            listOf("Thu 1/1", "Fri 1/2", "Sat 1/3"),
+            DensitySpecBuilder.dayLabels(threeDaySnapshot(), Locale.US, columnWidthDp = 120f)
         )
+    }
+
+    @Test
+    fun dayLabelsDropTheWeekdayWhenColumnsAreNarrow() {
+        assertEquals(
+            listOf("1/1", "1/2", "1/3"),
+            DensitySpecBuilder.dayLabels(threeDaySnapshot(), Locale.US, columnWidthDp = 47f)
+        )
+    }
+
+    @Test
+    fun dayLabelsKeepTheWeekdayAtTheThreshold() {
+        assertEquals(
+            listOf("Thu 1/1", "Fri 1/2", "Sat 1/3"),
+            DensitySpecBuilder.dayLabels(
+                threeDaySnapshot(), Locale.US, columnWidthDp = DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP
+            )
+        )
+    }
+
+    @Test
+    fun dayColumnWidthDividesContentMinusGutters() {
+        assertEquals((387f - 2 * DensityLayout.DAY_BAR_GUTTER_DP) / 3, DensityLayout.dayColumnWidthDp(387f, 3), 0.001f)
+        assertEquals((387f - 6 * DensityLayout.DAY_BAR_GUTTER_DP) / 7, DensityLayout.dayColumnWidthDp(387f, 7), 0.001f)
+        assertTrue(DensityLayout.dayColumnWidthDp(387f, 7) < DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP)
+        assertEquals(387f, DensityLayout.dayColumnWidthDp(387f, 0), 0f)
     }
 
     @Test

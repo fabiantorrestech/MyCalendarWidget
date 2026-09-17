@@ -591,6 +591,7 @@ private fun PreviewDensityContent(
                     config = config,
                     palette = palette,
                     widthPx = ((widthDp.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt(),
+                    contentWidthDp = widthDp.value - 2 * DensityLayout.WIDGET_PADDING_DP,
                     density = density
                 )
             }
@@ -638,6 +639,7 @@ private fun PreviewDensityLookaheadBars(
     config: WidgetConfig,
     palette: DensityPalette,
     widthPx: Int,
+    contentWidthDp: Float,
     density: Float
 ) {
     Spacer(modifier = Modifier.height(DensityLayout.DIVIDER_TOP_GAP_DP.dp))
@@ -649,7 +651,11 @@ private fun PreviewDensityLookaheadBars(
     )
     Spacer(modifier = Modifier.height(DensityLayout.LABELS_TOP_GAP_DP.dp))
 
-    val labels = DensitySpecBuilder.dayLabels(snapshot, Locale.getDefault())
+    val labels = DensitySpecBuilder.dayLabels(
+        snapshot,
+        Locale.getDefault(),
+        columnWidthDp = DensityLayout.dayColumnWidthDp(contentWidthDp, snapshot.lookahead.size)
+    )
     Row(modifier = Modifier.fillMaxWidth()) {
         // Mirrors the widget: gutter as start-padding on each box after the first
         // (rather than a sibling Spacer) so the two stay structurally identical, even

@@ -2,6 +2,7 @@ package com.fabiantorrestech.mycalendarwidget.widget.density
 
 import android.os.Build
 import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
+import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
@@ -148,6 +149,20 @@ object DensityLayout {
 
     /** G7: 10dp between look-ahead day bars (and their day labels above them). */
     const val DAY_BAR_GUTTER_DP = 10f
+
+    /**
+     * A day label keeps its weekday ("Thu 9/18") only when its column is at least this
+     * wide; narrower columns (seven bars on a phone-width widget) show the date alone,
+     * since an 11sp "Thu 9/18" needs about 48dp.
+     */
+    const val DAY_LABEL_WITH_WEEKDAY_MIN_DP = 52f
+
+    /**
+     * The width of one look-ahead column: the content width less the gutters between
+     * [days] bars, shared equally — the same split [DensityCanvas] draws the bars with.
+     */
+    fun dayColumnWidthDp(contentWidthDp: Float, days: Int): Float =
+        if (days <= 0) contentWidthDp else (contentWidthDp - DAY_BAR_GUTTER_DP * (days - 1)) / days
 
     /** Gap between the axis (or bottom chrome row) and the look-ahead divider. */
     const val DIVIDER_TOP_GAP_DP = 7f
@@ -396,13 +411,18 @@ object DensitySpecBuilder {
     }
 
     /**
-     * One short weekday name per [DensitySnapshot.lookahead] day ("Thu", "Fri", …), in
+     * One label per [DensitySnapshot.lookahead] day: the short weekday and date
+     * ("Thu 1/1", "Fri 1/2", …) when a column of [columnWidthDp] can hold it (see
+     * [DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP]), else the date alone ("1/1"), in
      * [locale]. Pure date formatting: no calendar content, so it stays clear of G1.
      */
-    fun dayLabels(snapshot: DensitySnapshot, locale: Locale): List<String> =
-        snapshot.lookahead.map {
-            it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+    fun dayLabels(snapshot: DensitySnapshot, locale: Locale, columnWidthDp: Float): List<String> {
+        val withWeekday = columnWidthDp >= DensityLayout.DAY_LABEL_WITH_WEEKDAY_MIN_DP
+        return snapshot.lookahead.map {
+            val date = TimeFormat.shortDate(it.date, locale)
+            if (withWeekday) it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " " + date else date
         }
+    }
 
     /**
      * Pushes [busy] toward [onSurface] until it keeps
