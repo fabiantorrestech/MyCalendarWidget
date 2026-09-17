@@ -50,7 +50,7 @@ class HostSizeTest {
     @Test
     fun assumedHostSizeIsInlineWithOrWithoutQuickAdd() {
         val width = HostSize.assumedWidthDp(411f)
-        assertEquals(ChromePlacement.INLINE, DensityLayout.chromePlacement(width, HostSize.ASSUMED_HEIGHT_DP, showQuickAdd = true))
-        assertEquals(ChromePlacement.INLINE, DensityLayout.chromePlacement(width, HostSize.ASSUMED_HEIGHT_DP, showQuickAdd = false))
+        assertEquals(ChromePlacement.INLINE, DensityLayout.chromePlacement(width, HostSize.ASSUMED_HEIGHT_DP, showQuickAdd = true, showRefresh = true))
+        assertEquals(ChromePlacement.INLINE, DensityLayout.chromePlacement(width, HostSize.ASSUMED_HEIGHT_DP, showQuickAdd = false, showRefresh = false))
     }
 }

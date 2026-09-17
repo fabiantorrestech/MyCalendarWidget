@@ -42,6 +42,7 @@ import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.widget.InlineProfileSwitcher
 import com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton
 import com.fabiantorrestech.mycalendarwidget.widget.QuickAddButton
+import com.fabiantorrestech.mycalendarwidget.widget.RefreshButton
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout.ChromePlacement
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetClickActions
 import com.fabiantorrestech.mycalendarwidget.widget.floatingProfileUiStyle
@@ -91,7 +92,8 @@ fun DensityWidgetContent(
     val placement = DensityLayout.chromePlacement(
         widthDp = size.width.value,
         heightDp = size.height.value,
-        showQuickAdd = config.showQuickAddFab
+        showQuickAdd = config.showQuickAddFab,
+        showRefresh = config.showRefreshButton
     )
 
     Box(
@@ -281,8 +283,9 @@ fun DensityWidgetContent(
 /**
  * The chrome as one [Row] child, so the headline row stays well under Glance's ten-child
  * cap however many pieces are on. Inline and bottom-row placements draw the full set in
- * the other styles' order (switcher, calendar, quick-add rightmost); the compact single
- * slot draws the quick-add button when it is enabled and the calendar button otherwise.
+ * the other styles' order (refresh leftmost, switcher, calendar, quick-add rightmost);
+ * the compact single slot draws the quick-add button when it is enabled and the calendar
+ * button otherwise.
  */
 @Composable
 private fun DensityChrome(
@@ -295,6 +298,10 @@ private fun DensityChrome(
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (placement) {
             ChromePlacement.INLINE, ChromePlacement.BOTTOM_ROW -> {
+                if (config.showRefreshButton) {
+                    RefreshButton(config)
+                    Spacer(modifier = GlanceModifier.width(4.dp))
+                }
                 if (profiles.size >= 2) {
                     InlineProfileSwitcher(
                         profiles,

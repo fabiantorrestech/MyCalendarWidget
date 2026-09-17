@@ -155,13 +155,13 @@ fun DisplaySection(
         checked = config.showQuickAddFab,
         onCheckedChange = { onConfigChange(config.copy(showQuickAddFab = it)) }
     )
+    ToggleRow(
+        label = "Show refresh button",
+        description = "Manually force the widget to re-fetch calendar data",
+        checked = config.showRefreshButton,
+        onCheckedChange = { onConfigChange(config.copy(showRefreshButton = it)) }
+    )
     if (visible.listBehaviour) {
-        ToggleRow(
-            label = "Show refresh button",
-            description = "Manually force the widget to re-fetch calendar data",
-            checked = config.showRefreshButton,
-            onCheckedChange = { onConfigChange(config.copy(showRefreshButton = it)) }
-        )
         ToggleRow(
             label = "Strict Grid Mode",
             description = "Remove widget padding for flush edge-to-edge placement",

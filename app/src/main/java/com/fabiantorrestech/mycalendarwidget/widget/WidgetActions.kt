@@ -22,12 +22,23 @@ class UpdateMonthOffsetAction : ActionCallback {
     }
 }
 
+/**
+ * Forces a re-read of the calendar. The widget composes from the profile repository's
+ * active config (not the legacy per-widget store), and its data loads are keyed on that
+ * config, so the nonce has to change in the active profile for anything to reload; the
+ * legacy store is bumped too so an export still carries the same value.
+ */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
-        val repo = WidgetConfigRepository(context, appWidgetId)
-        val current = repo.configFlow.first()
-        repo.updateConfig(current.copy(refreshNonce = current.refreshNonce + 1))
+        val legacy = WidgetConfigRepository(context, appWidgetId)
+        val legacyCurrent = legacy.configFlow.first()
+        legacy.updateConfig(legacyCurrent.copy(refreshNonce = legacyCurrent.refreshNonce + 1))
+
+        val profiles = WidgetProfileRepository(context, appWidgetId)
+        val activeId = profiles.ensureActiveProfileId(legacyCurrent)
+        val active = profiles.activeConfigFlow.first()
+        profiles.updateProfileConfig(activeId, active.copy(refreshNonce = active.refreshNonce + 1))
         BridgeCalWidget().update(context, glanceId)
     }
 }

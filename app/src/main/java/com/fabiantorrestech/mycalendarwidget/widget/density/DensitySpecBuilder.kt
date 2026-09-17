@@ -58,6 +58,9 @@ object DensityLayout {
     /** One more 56dp chrome button plus its 4dp gap. */
     const val QUICK_ADD_EXTRA_WIDTH_DP = 60f
 
+    /** The 28dp refresh circle plus its 4dp gap. */
+    const val REFRESH_EXTRA_WIDTH_DP = 32f
+
     /** Where the chrome (profile switcher, calendar button, quick-add button) is drawn. */
     enum class ChromePlacement {
         /** Wide enough: the chrome sits in the headline row after the qualifier. */
@@ -72,8 +75,10 @@ object DensityLayout {
     fun isCompact(heightDp: Float): Boolean = heightDp < COMPACT_HEIGHT_DP
 
     /** The width below which the chrome no longer fits in the headline row. */
-    fun narrowBreakpointDp(showQuickAdd: Boolean): Float =
-        NARROW_WIDTH_DP + if (showQuickAdd) QUICK_ADD_EXTRA_WIDTH_DP else 0f
+    fun narrowBreakpointDp(showQuickAdd: Boolean, showRefresh: Boolean): Float =
+        NARROW_WIDTH_DP +
+            (if (showQuickAdd) QUICK_ADD_EXTRA_WIDTH_DP else 0f) +
+            (if (showRefresh) REFRESH_EXTRA_WIDTH_DP else 0f)
 
     /**
      * The chrome placement for a widget of the given size. Deliberately ignores whether a
@@ -81,8 +86,13 @@ object DensityLayout {
      * has: the breakpoints are sized for the fullest chrome so the layout does not jump
      * when a profile is added.
      */
-    fun chromePlacement(widthDp: Float, heightDp: Float, showQuickAdd: Boolean): ChromePlacement {
-        val narrow = widthDp < narrowBreakpointDp(showQuickAdd)
+    fun chromePlacement(
+        widthDp: Float,
+        heightDp: Float,
+        showQuickAdd: Boolean,
+        showRefresh: Boolean
+    ): ChromePlacement {
+        val narrow = widthDp < narrowBreakpointDp(showQuickAdd, showRefresh)
         return when {
             !narrow -> ChromePlacement.INLINE
             isCompact(heightDp) -> ChromePlacement.COMPACT_SINGLE

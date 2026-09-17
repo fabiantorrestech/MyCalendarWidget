@@ -8,8 +8,8 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
  * left inert: the density style renders no event text, no month chrome and no agenda
  * list, its refresh cadence is fixed at five minutes, and the Advanced layout presets
  * only write text-line fields it ignores. Everything not listed here (style picker,
- * Material You, the font scales and fonts the style reads, quick-add toggle, click
- * routing, calendars, profiles, backup) is shown for every style.
+ * Material You, the font scales and fonts the style reads, quick-add and refresh
+ * toggles, click routing, calendars, profiles, backup) is shown for every style.
  */
 data class VisibleSettings(
     /** Max title/detail lines, location, description, spanning-event duplication. */
@@ -20,7 +20,7 @@ data class VisibleSettings(
     val dateHeaderScale: Boolean,
     /** The per-category "Month Header" font dropdown. */
     val monthHeaderFont: Boolean,
-    /** Show empty days, always show today, refresh button, strict grid. */
+    /** Show empty days, always show today, strict grid. */
     val listBehaviour: Boolean,
     /** The look-ahead range relabelled as the peek horizon (density only). */
     val peekHorizon: Boolean,

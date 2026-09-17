@@ -425,24 +425,7 @@ private fun WidgetHeader(
 
         if (config.showRefreshButton) {
             Spacer(modifier = GlanceModifier.width(4.dp))
-            Box(
-                modifier = GlanceModifier
-                    .size(28.dp)
-                    .background(GlanceTheme.colors.surfaceVariant)
-                    .cornerRadius(14.dp)
-                    .clickable(actionRunCallback<RefreshWidgetAction>()),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "↺",
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (14 * config.typographyScale.headerScale).sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
-                    )
-                )
-            }
+            RefreshButton(config)
         }
 
         // Show open-calendar button when the month label is hidden (no tappable month text)
@@ -503,24 +486,7 @@ private fun FloatingControlsOverlay(
             Spacer(modifier = GlanceModifier.defaultWeight())
 
             if (config.showRefreshButton) {
-                Box(
-                    modifier = GlanceModifier
-                        .size(28.dp)
-                        .background(GlanceTheme.colors.surfaceVariant)
-                        .cornerRadius(14.dp)
-                        .clickable(actionRunCallback<RefreshWidgetAction>()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "↺",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (14 * config.typographyScale.headerScale).sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
-                        )
-                    )
-                }
+                RefreshButton(config)
                 Spacer(modifier = GlanceModifier.width(4.dp))
             }
 
@@ -573,6 +539,33 @@ private fun dayEventItemId(date: LocalDate, eventId: Long): Long {
     hash = 31L * hash + date.toEpochDay()
     hash = 31L * hash + eventId
     return hash
+}
+
+/**
+ * The 28dp refresh circle every style draws when `showRefreshButton` is on: bumps the
+ * active profile's refresh nonce (see [RefreshWidgetAction]) so the widget re-reads the
+ * calendar. Deliberately smaller than the two 56dp pills.
+ */
+@Composable
+internal fun RefreshButton(config: WidgetConfig) {
+    Box(
+        modifier = GlanceModifier
+            .size(28.dp)
+            .background(GlanceTheme.colors.surfaceVariant)
+            .cornerRadius(14.dp)
+            .clickable(actionRunCallback<RefreshWidgetAction>()),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "↺",
+            style = TextStyle(
+                color = GlanceTheme.colors.onSurfaceVariant,
+                fontSize = (14 * config.typographyScale.headerScale).sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
+            )
+        )
+    }
 }
 
 /**

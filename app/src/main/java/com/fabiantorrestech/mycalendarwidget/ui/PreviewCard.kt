@@ -471,7 +471,8 @@ private fun PreviewDensityContent(
     val placement = DensityLayout.chromePlacement(
         widthDp = widthDp.value,
         heightDp = heightDp.value,
-        showQuickAdd = config.showQuickAddFab
+        showQuickAdd = config.showQuickAddFab,
+        showRefresh = config.showRefreshButton
     )
 
     Column(modifier = Modifier.padding(DensityLayout.WIDGET_PADDING_DP.dp)) {
@@ -695,6 +696,10 @@ private fun PreviewDensityChrome(
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (placement) {
             ChromePlacement.INLINE, ChromePlacement.BOTTOM_ROW -> {
+                if (config.showRefreshButton) {
+                    PreviewRefreshButton(config)
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
                 if (profiles.size >= 2) {
                     PreviewInlineProfileSwitcher(
                         profiles,
@@ -713,6 +718,26 @@ private fun PreviewDensityChrome(
                 if (config.showQuickAddFab) PreviewQuickAddButton(config) else PreviewOpenCalendarButton()
             }
         }
+    }
+}
+
+/** The widget's [com.fabiantorrestech.mycalendarwidget.widget.RefreshButton], inert. */
+@Composable
+private fun PreviewRefreshButton(config: WidgetConfig) {
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "↺",
+            fontSize = (14 * config.typographyScale.headerScale).sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = config.previewFont(FontCategory.MONTH_HEADER)
+        )
     }
 }
 
