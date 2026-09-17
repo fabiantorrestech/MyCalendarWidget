@@ -45,7 +45,6 @@ import com.fabiantorrestech.mycalendarwidget.widget.density.DensityPalette
 import com.fabiantorrestech.mycalendarwidget.widget.glanceFont
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
 private const val TOP_BAR_SIZE_SP = 10
@@ -191,18 +190,21 @@ private fun DateHeader(
     locale: Locale
 ) {
     if (date == null) return
-    val label = when (date) {
-        today -> context.getString(R.string.peek_today)
-        today.plusDays(1) -> context.getString(R.string.peek_tomorrow)
-        else -> "${date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, locale)} " +
-            TimeFormat.shortDate(date, locale)
-    }
+    val label = PeekLabels.dateHeader(
+        date = date,
+        today = today,
+        todayWord = context.getString(R.string.peek_today),
+        tomorrowWord = context.getString(R.string.peek_tomorrow),
+        locale = locale
+    )
     Text(
         text = label,
         style = TextStyle(
             color = GlanceTheme.colors.secondary,
             fontSize = (HEADER_SIZE_SP * config.typographyScale.subheaderScale).sp,
-            fontWeight = FontWeight.Bold,
+            // Only today stands out in bold; the other headers still read as headers
+            // through their colour and size.
+            fontWeight = if (PeekLabels.isToday(date, today)) FontWeight.Bold else FontWeight.Normal,
             fontFamily = config.glanceFont(FontCategory.WEEKDAY_HEADER)
         ),
         maxLines = 1,
