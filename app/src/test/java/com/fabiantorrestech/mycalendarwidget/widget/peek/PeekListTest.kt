@@ -243,6 +243,8 @@ class PeekListTest {
         // Glance throws on any item id at or below Long.MIN_VALUE / 2.
         val floor = Long.MIN_VALUE / 2
         assertTrue(PeekList.EMPTY_ITEM_ID > floor)
+        assertTrue(PeekList.LOADING_ITEM_ID > floor)
+        assertTrue(PeekList.LOADING_ITEM_ID != PeekList.EMPTY_ITEM_ID)
     }
 
     @Test

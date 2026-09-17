@@ -75,6 +75,7 @@ private const val TITLE_SIZE_SP = 13
 @Composable
 fun PeekOverlay(
     eventsByDay: Map<LocalDate, List<CalendarEvent>>,
+    loading: Boolean,
     config: WidgetConfig,
     context: Context,
     use24Hour: Boolean,
@@ -123,7 +124,23 @@ fun PeekOverlay(
                     )
                 }
             }
-            if (upcoming.isEmpty()) {
+            // "Loading" until the query has answered; only then may the sheet claim
+            // there is nothing coming up.
+            if (loading) {
+                item(itemId = PeekList.LOADING_ITEM_ID) {
+                    Text(
+                        text = context.getString(R.string.peek_loading),
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = (TITLE_SIZE_SP * config.typographyScale.eventNameScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
+                        ),
+                        modifier = GlanceModifier
+                            .fillMaxWidth()
+                            .height(DensityLayout.PEEK_ROW_DP.dp)
+                    )
+                }
+            } else if (upcoming.isEmpty()) {
                 item(itemId = PeekList.EMPTY_ITEM_ID) {
                     Text(
                         text = context.getString(R.string.peek_empty),

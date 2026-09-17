@@ -112,9 +112,11 @@ class BridgeCalWidget : GlanceAppWidget() {
             // repository is queried only when the peek is actually open, so a widget
             // sitting closed on the home screen never reads an event title at all. The
             // key includes peekOpen so opening (or the TTL closing) the sheet re-runs it.
+            // Null until the query below has answered, so the peek can say "Loading"
+            // rather than "Nothing coming up" on the first frame after it opens.
             val loadEvents = !isDensity || peekOpen
-            val eventsByDay by produceState<Map<LocalDate, List<CalendarEvent>>>(
-                initialValue = emptyMap(),
+            val eventsByDay by produceState<Map<LocalDate, List<CalendarEvent>>?>(
+                initialValue = null,
                 key1 = config,
                 key2 = peekOpen
             ) {
@@ -169,7 +171,8 @@ class BridgeCalWidget : GlanceAppWidget() {
             val themed: @androidx.compose.runtime.Composable () -> Unit = {
                 GlanceTheme(colors = colors) {
                     BridgeCalWidgetContent(
-                        eventsByDay = eventsByDay,
+                        eventsByDay = eventsByDay ?: emptyMap(),
+                        peekEventsLoading = eventsByDay == null,
                         config = config,
                         context = context,
                         glanceId = id,

@@ -44,6 +44,9 @@ object PeekList {
      */
     const val EMPTY_ITEM_ID = Long.MIN_VALUE / 2 + 2
 
+    /** The "loading" row shown until the calendar query has answered; see [EMPTY_ITEM_ID]. */
+    const val LOADING_ITEM_ID = Long.MIN_VALUE / 2 + 3
+
     /**
      * The config the peek queries with. The agenda list's display conveniences are all
      * wrong for a "what is coming up" sheet: [WidgetConfig.monthOffset] would follow the

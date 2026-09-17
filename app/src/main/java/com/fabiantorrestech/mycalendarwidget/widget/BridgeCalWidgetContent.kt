@@ -79,7 +79,9 @@ fun BridgeCalWidgetContent(
     cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
     densitySnapshot: DensitySnapshot? = null,
     use24Hour: Boolean = false,
-    peekOpen: Boolean = false
+    peekOpen: Boolean = false,
+    /** True while the peek's calendar query has not answered yet (density only). */
+    peekEventsLoading: Boolean = false
 ) {
     // The style dispatch is exhaustive with no `else`: a new WidgetStyle must be given an
     // explicit arm here rather than silently rendering as the agenda list.
@@ -128,6 +130,7 @@ fun BridgeCalWidgetContent(
                 if (peekOpen) {
                     PeekOverlay(
                         eventsByDay = eventsByDay,
+                        loading = peekEventsLoading,
                         config = config,
                         context = context,
                         use24Hour = use24Hour,
