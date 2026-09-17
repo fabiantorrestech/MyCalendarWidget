@@ -219,22 +219,49 @@ private fun DateHeader(
         tomorrowWord = context.getString(R.string.peek_tomorrow),
         locale = locale
     )
-    Text(
-        text = label,
-        style = TextStyle(
-            color = GlanceTheme.colors.secondary,
-            fontSize = (HEADER_SIZE_SP * config.typographyScale.subheaderScale).sp,
-            // Only today stands out in bold; the other headers still read as headers
-            // through their colour and size.
-            fontWeight = if (PeekLabels.isToday(date, today)) FontWeight.Bold else FontWeight.Normal,
-            fontFamily = config.glanceFont(FontCategory.WEEKDAY_HEADER)
-        ),
-        maxLines = 1,
+    // Every header is bold; today's additionally sits on a filled pill, which stays
+    // distinguishable in grayscale by luminance alone (a colour change would not).
+    val fontSize = (HEADER_SIZE_SP * config.typographyScale.subheaderScale).sp
+    val fontFamily = config.glanceFont(FontCategory.WEEKDAY_HEADER)
+    Row(
         modifier = GlanceModifier
             .fillMaxWidth()
             .height(DensityLayout.PEEK_HEADER_DP.dp)
-            .clickable(closeAction())
-    )
+            .clickable(closeAction()),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (PeekLabels.isToday(date, today)) {
+            Box(
+                modifier = GlanceModifier
+                    .background(GlanceTheme.colors.primaryContainer)
+                    .cornerRadius(DensityLayout.PEEK_TODAY_PILL_RADIUS_DP.dp)
+                    .padding(horizontal = DensityLayout.PEEK_TODAY_PILL_INSET_DP.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onPrimaryContainer,
+                        fontSize = fontSize,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = fontFamily
+                    ),
+                    maxLines = 1
+                )
+            }
+        } else {
+            Text(
+                text = label,
+                style = TextStyle(
+                    color = GlanceTheme.colors.secondary,
+                    fontSize = fontSize,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = fontFamily
+                ),
+                maxLines = 1
+            )
+        }
+    }
 }
 
 /**

@@ -191,6 +191,12 @@ object DensityLayout {
     /** G7: the calendar-colour dot on a peek event row. */
     const val PEEK_DOT_DP = 10f
 
+    /** Corner radius of the filled pill behind the GROUPED peek's "Today" header. */
+    const val PEEK_TODAY_PILL_RADIUS_DP = 6f
+
+    /** Horizontal inset of that pill around its label. */
+    const val PEEK_TODAY_PILL_INSET_DP = 6f
+
     /** G7: the DATED date pill's text size, in sp. */
     const val PEEK_DATE_PILL_SP = 9.5f
 
