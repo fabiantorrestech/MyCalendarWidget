@@ -48,12 +48,13 @@ object DensityLayout {
     const val COMPACT_HEIGHT_DP = 160f
 
     /**
-     * Below this the profile switcher and calendar button no longer fit beside the
-     * qualifier without truncating it to an ellipsis, so they move to a row of their own.
-     * When the quick-add button is shown the breakpoint grows by
-     * [QUICK_ADD_EXTRA_WIDTH_DP]; see [narrowBreakpointDp].
+     * Below this the profile switcher and calendar button no longer fit beside the count
+     * (which yields width to the chrome before the chrome is pushed off the row), so they
+     * move to a row of their own. Sized so a four-column Pixel widget (about 360dp) keeps
+     * the full chrome inline: with the refresh and quick-add extras ([REFRESH_EXTRA_WIDTH_DP],
+     * [QUICK_ADD_EXTRA_WIDTH_DP]) the breakpoint reaches 352dp; see [narrowBreakpointDp].
      */
-    const val NARROW_WIDTH_DP = 300f
+    const val NARROW_WIDTH_DP = 260f
 
     /** One more 56dp chrome button plus its 4dp gap. */
     const val QUICK_ADD_EXTRA_WIDTH_DP = 60f

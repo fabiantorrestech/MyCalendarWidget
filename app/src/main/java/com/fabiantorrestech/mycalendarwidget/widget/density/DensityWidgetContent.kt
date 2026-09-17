@@ -182,6 +182,9 @@ fun DensityWidgetContent(
                         Spacer(modifier = GlanceModifier.width(5.dp))
                     }
 
+                    // The count carries the weight so it yields width to the chrome (an
+                    // ellipsis on a sentence headline) rather than pushing a button off
+                    // the row.
                     Text(
                         text = headline.countText,
                         style = TextStyle(
@@ -189,19 +192,6 @@ fun DensityWidgetContent(
                             fontSize = (countSize * config.typographyScale.headerScale).sp,
                             fontWeight = FontWeight.Medium,
                             fontFamily = config.glanceFont(FontCategory.DATE_HEADER)
-                        )
-                    )
-
-                    Spacer(modifier = GlanceModifier.width(7.dp))
-
-                    // The qualifier carries the weight (rather than a bare spacer) so it gives up
-                    // width to the chrome instead of pushing the calendar button off the row.
-                    Text(
-                        text = headline.qualifierText,
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
                         ),
                         maxLines = 1,
                         modifier = GlanceModifier.defaultWeight()
@@ -215,6 +205,22 @@ fun DensityWidgetContent(
                         )
                         ChromePlacement.BOTTOM_ROW -> {}
                     }
+                }
+
+                // The qualifier ("first at 9:40am", "next in 25m") gets a line of its own
+                // under the count, full width, so the chrome never squeezes it to an
+                // ellipsis. Sentence headlines with nothing to add skip the line.
+                if (headline.qualifierText.isNotBlank()) {
+                    Text(
+                        text = headline.qualifierText,
+                        style = TextStyle(
+                            color = GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                            fontFamily = config.glanceFont(FontCategory.DETAIL)
+                        ),
+                        maxLines = 1,
+                        modifier = GlanceModifier.fillMaxWidth()
+                    )
                 }
 
                 // The whole body below the headline and above the chrome row is the peek

@@ -539,16 +539,9 @@ private fun PreviewDensityContent(
                     fontSize = (countSize * config.typographyScale.headerScale).sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = config.previewFont(FontCategory.DATE_HEADER)
-                )
-                Spacer(modifier = Modifier.width(7.dp))
-                Text(
-                    text = headline.qualifierText,
-                    fontSize = (13 * config.typographyScale.detailScale).sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = config.previewFont(FontCategory.DATE_HEADER),
                     maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                    fontFamily = config.previewFont(FontCategory.DETAIL)
+                    modifier = Modifier.weight(1f)
                 )
                 when (placement) {
                     ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> PreviewDensityChrome(
@@ -556,6 +549,17 @@ private fun PreviewDensityContent(
                     )
                     ChromePlacement.BOTTOM_ROW -> {}
                 }
+            }
+
+            if (headline.qualifierText.isNotBlank()) {
+                Text(
+                    text = headline.qualifierText,
+                    fontSize = (13 * config.typographyScale.detailScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth(),
+                    fontFamily = config.previewFont(FontCategory.DETAIL)
+                )
             }
 
             Spacer(modifier = Modifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
