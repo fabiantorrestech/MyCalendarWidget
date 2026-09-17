@@ -161,8 +161,8 @@ object DensityLayout {
     /** G7: the peek sheet's "Upcoming" bar and its close button row. */
     const val PEEK_TOP_BAR_DP = 18f
 
-    /** G7: a GROUPED date header row. */
-    const val PEEK_HEADER_DP = 16f
+    /** G7: a GROUPED date header row; taller than an event row is thin because its label is set a step above the titles. */
+    const val PEEK_HEADER_DP = 20f
 
     /** G7: one event row in the peek sheet. */
     const val PEEK_ROW_DP = 22f

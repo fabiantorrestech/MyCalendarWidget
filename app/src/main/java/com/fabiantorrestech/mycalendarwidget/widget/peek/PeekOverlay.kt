@@ -49,7 +49,7 @@ import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
 private const val TOP_BAR_SIZE_SP = 10
-private const val HEADER_SIZE_SP = 11
+private const val HEADER_SIZE_SP = 14
 private const val TIME_SIZE_SP = 11
 private const val TITLE_SIZE_SP = 13
 
