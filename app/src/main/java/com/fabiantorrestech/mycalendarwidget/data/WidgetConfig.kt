@@ -109,7 +109,7 @@ data class WidgetConfig(
     val showEmptyDays: Boolean = false,
     val alwaysShowToday: Boolean = false,
     val showSpanningEventsEachDay: Boolean = false,
-    val widgetStyle: WidgetStyle = WidgetStyle.GCAL_LEFT,
+    val widgetStyle: WidgetStyle = WidgetStyle.DENSITY,
     val calendarLaunchView: CalendarLaunchView = CalendarLaunchView.DEFAULT,
     val activeProfile: AutomationProfile = AutomationProfile.STANDARD,
     val headerNavEnabled: Boolean = false,
@@ -124,7 +124,7 @@ data class WidgetConfig(
     val densityLoadBaselineMinutes: Int = 480,
     val densityRolloverHour: Int = 19,            // 0..23
     val densityBusyColor: Int = DensityConstants.DEFAULT_BUSY_COLOR, // 0 = follow theme
-    val densityStripMode: DensityStripMode = DensityStripMode.SHAPE,
+    val densityStripMode: DensityStripMode = DensityStripMode.TONAL,
     val densityPeekFormat: DensityPeekFormat = DensityPeekFormat.GROUPED,
     val densityCountMode: DensityCountMode = DensityCountMode.LEFT,
     val densityCalendarTones: Map<Long, Int> = emptyMap(),   // calendarId -> tone 0..4

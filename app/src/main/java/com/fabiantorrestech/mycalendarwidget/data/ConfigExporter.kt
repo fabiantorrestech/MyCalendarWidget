@@ -97,7 +97,7 @@ object ConfigExporter {
             alwaysShowToday = json.optBoolean("alwaysShowToday", false),
             showSpanningEventsEachDay = json.optBoolean("showSpanningEventsEachDay", false),
             widgetStyle = json.optString("widgetStyle")
-                .let { runCatching { WidgetStyle.valueOf(it) }.getOrDefault(WidgetStyle.GCAL_LEFT) },
+                .let { runCatching { WidgetStyle.valueOf(it) }.getOrDefault(WidgetStyle.DENSITY) },
             calendarLaunchView = json.optString("calendarLaunchView")
                 .let { runCatching { CalendarLaunchView.valueOf(it) }.getOrDefault(CalendarLaunchView.DEFAULT) },
             activeProfile = json.optString("activeProfile")
@@ -116,7 +116,7 @@ object ConfigExporter {
             densityRolloverHour = json.optInt("densityRolloverHour", 19),
             densityBusyColor = json.optInt("densityBusyColor", DensityConstants.DEFAULT_BUSY_COLOR),
             densityStripMode = json.optString("densityStripMode")
-                .let { runCatching { DensityStripMode.valueOf(it) }.getOrDefault(DensityStripMode.SHAPE) },
+                .let { runCatching { DensityStripMode.valueOf(it) }.getOrDefault(DensityStripMode.TONAL) },
             densityPeekFormat = json.optString("densityPeekFormat")
                 .let { runCatching { DensityPeekFormat.valueOf(it) }.getOrDefault(DensityPeekFormat.GROUPED) },
             densityCountMode = json.optString("densityCountMode")

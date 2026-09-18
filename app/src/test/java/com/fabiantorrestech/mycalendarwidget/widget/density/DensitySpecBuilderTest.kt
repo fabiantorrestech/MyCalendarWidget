@@ -49,7 +49,7 @@ class DensitySpecBuilderTest {
 
     private val zone: ZoneId = ZoneId.of("UTC")
     private val date: LocalDate = LocalDate.of(2026, 1, 15)
-    private val config = WidgetConfig()
+    private val config = WidgetConfig(densityStripMode = DensityStripMode.SHAPE)
 
     private fun at(hour: Int, minute: Int = 0): Long =
         LocalDateTime.of(date, LocalTime.of(hour, minute)).atZone(zone).toInstant().toEpochMilli()

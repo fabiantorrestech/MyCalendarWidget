@@ -63,10 +63,10 @@ class BridgeCalWidget : GlanceAppWidget() {
         // Per-widget identity — read from its own (real appWidgetId) store, not the shared config.
         val widgetName = WidgetNameRepository.getName(context, appWidgetId)
         // Read the real, already-stored config before the first composition rather than
-        // starting from WidgetConfig() defaults: with the defaults' widgetStyle (not
-        // DENSITY), the first frame of a density widget would otherwise think isDensity
-        // is false and query CalendarRepository for event content on every cold render,
-        // before the real config flow even emits once.
+        // starting from WidgetConfig() defaults: a widget whose stored style differs from
+        // the default would otherwise render one frame the wrong way on every cold start
+        // (and, for a non-density style, query the calendar for that frame) before the
+        // real config flow emits.
         val initialConfig = profileRepo.activeConfigFlow.first()
 
         provideContent {

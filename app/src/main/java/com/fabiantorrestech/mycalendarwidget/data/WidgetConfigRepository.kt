@@ -140,7 +140,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             showSpanningEventsEachDay = prefs[Keys.SHOW_SPANNING_EVENTS_EACH_DAY] ?: false,
             widgetStyle = prefs[Keys.WIDGET_STYLE]
                 ?.let { runCatching { WidgetStyle.valueOf(it) }.getOrNull() }
-                ?: WidgetStyle.GCAL_LEFT,
+                ?: WidgetStyle.DENSITY,
             calendarLaunchView = prefs[Keys.CALENDAR_LAUNCH_VIEW]
                 ?.let { runCatching { CalendarLaunchView.valueOf(it) }.getOrNull() }
                 ?: CalendarLaunchView.DEFAULT,
@@ -163,7 +163,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             densityBusyColor = prefs[Keys.DENSITY_BUSY_COLOR] ?: DensityConstants.DEFAULT_BUSY_COLOR,
             densityStripMode = prefs[Keys.DENSITY_STRIP_MODE]
                 ?.let { runCatching { DensityStripMode.valueOf(it) }.getOrNull() }
-                ?: DensityStripMode.SHAPE,
+                ?: DensityStripMode.TONAL,
             densityPeekFormat = prefs[Keys.DENSITY_PEEK_FORMAT]
                 ?.let { runCatching { DensityPeekFormat.valueOf(it) }.getOrNull() }
                 ?: DensityPeekFormat.GROUPED,

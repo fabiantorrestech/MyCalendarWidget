@@ -1,5 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
+import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -85,6 +87,17 @@ class ConfigExporterRoundTripTest {
         val roundTripped = ConfigExporter.fromJson(org.json.JSONObject("{}"))
 
         assertEquals(WidgetConfig(), roundTripped)
+    }
+
+    @Test
+    fun `a fresh widget is Density on the Tonal strip`() {
+        // The placement default lives in three places that must agree: the config's own
+        // defaults, the exporter's fallbacks and (checked on device) the datastore's.
+        assertEquals(WidgetStyle.DENSITY, WidgetConfig().widgetStyle)
+        assertEquals(DensityStripMode.TONAL, WidgetConfig().densityStripMode)
+        val fromEmpty = ConfigExporter.fromJson(org.json.JSONObject("{}"))
+        assertEquals(WidgetStyle.DENSITY, fromEmpty.widgetStyle)
+        assertEquals(DensityStripMode.TONAL, fromEmpty.densityStripMode)
     }
 
     @Test
