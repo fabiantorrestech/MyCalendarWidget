@@ -396,22 +396,7 @@ object DensityCanvas {
             .sortedByDescending { (_, rect) -> rect.lane }
             .forEach { (index, rect) ->
                 val depth = max(1, rect.depth)
-                val laneHeight = max(1, (spec.trackHeightPx - (depth - 1) * gap) / depth)
-                val top = track.top + rect.lane * (laneHeight + gap)
-                val bottom = min(track.bottom, top + laneHeight)
-
-                val left = xOf(
-                    windowFraction(rect.startMillis, content.windowStartMillis, content.windowEndMillis),
-                    spec.widthPx
-                )
-                var right = xOf(
-                    windowFraction(rect.endMillis, content.windowStartMillis, content.windowEndMillis),
-                    spec.widthPx
-                )
-                if (rect.isEventEnd) right -= endInset
-                right = max(left + minWidth, right)
-
-                val bounds = IntRect(left, top, right, bottom)
+                val bounds = laneBounds(spec, track, content, rect, gap, minWidth, endInset)
 
                 paint.style = Paint.Style.FILL
                 paint.color = rect.colorInt
@@ -424,7 +409,59 @@ object DensityCanvas {
                     strokeInset(canvas, paint, bounds, outlineInset, edgeColor)
                 }
             }
+
+        // The break between stacked lanes is the widget background, the same colour as
+        // the Tonal outline: left as free track it read as a lighter seam in dark mode,
+        // where the free tint and the background differ far more than in light mode.
         paint.style = Paint.Style.FILL
+        paint.color = spec.backgroundColor
+        laneGapRects(spec, track, content).forEach { canvas.drawRect(it.toRect(), paint) }
+    }
+
+    /** One lane slice in device pixels: its row from lane/depth, its columns from the window. */
+    private fun laneBounds(
+        spec: StripSpec,
+        track: IntRect,
+        content: StripContent.Lanes,
+        rect: LaneRect,
+        gap: Int,
+        minWidth: Int,
+        endInset: Int
+    ): IntRect {
+        val depth = max(1, rect.depth)
+        val laneHeight = max(1, (spec.trackHeightPx - (depth - 1) * gap) / depth)
+        val top = track.top + rect.lane * (laneHeight + gap)
+        val bottom = min(track.bottom, top + laneHeight)
+        val left = xOf(
+            windowFraction(rect.startMillis, content.windowStartMillis, content.windowEndMillis),
+            spec.widthPx
+        )
+        var right = xOf(
+            windowFraction(rect.endMillis, content.windowStartMillis, content.windowEndMillis),
+            spec.widthPx
+        )
+        if (rect.isEventEnd) right -= endInset
+        right = max(left + minWidth, right)
+        return IntRect(left, top, right, bottom)
+    }
+
+    /**
+     * The rows between stacked lanes, one rect per slice that has a lane below it, each
+     * spanning that slice's full columns (so the seam runs the whole overlap, end inset
+     * and all). Empty where only one lane runs. Pure so the geometry is unit-tested.
+     */
+    fun laneGapRects(spec: StripSpec, track: IntRect, content: StripContent.Lanes): List<IntRect> {
+        val gap = (LANE_GAP_DP * spec.pxPerDp).roundToInt()
+        if (gap <= 0) return emptyList()
+        return content.rects.mapNotNull { rect ->
+            val depth = max(1, rect.depth)
+            if (rect.lane >= depth - 1) return@mapNotNull null
+            val laneHeight = max(1, (spec.trackHeightPx - (depth - 1) * gap) / depth)
+            val top = track.top + rect.lane * (laneHeight + gap) + laneHeight
+            val left = xOf(windowFraction(rect.startMillis, content.windowStartMillis, content.windowEndMillis), spec.widthPx)
+            val right = xOf(windowFraction(rect.endMillis, content.windowStartMillis, content.windowEndMillis), spec.widthPx)
+            IntRect(left, top, max(left, right), min(track.bottom, top + gap))
+        }
     }
 
     /** Strokes [bounds] shrunk by [insetPx] on every side, in [color]. */

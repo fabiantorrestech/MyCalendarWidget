@@ -1,5 +1,6 @@
 package com.fabiantorrestech.mycalendarwidget.widget.density
 
+import com.fabiantorrestech.mycalendarwidget.data.density.LaneRect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -219,6 +220,38 @@ class DensityCanvasGeometryTest {
         pxPerDp = pxPerDp,
         backgroundColor = 0
     )
+
+    // --- lane gaps: the break between stacked lanes is background, same as the outline ---
+
+    private fun twoLanes(): StripSpec {
+        val rects = listOf(
+            LaneRect(0L, 100L, lane = 0, depth = 2, calendarId = 1L, colorInt = 1, isEventEnd = true),
+            LaneRect(0L, 100L, lane = 1, depth = 2, calendarId = 2L, colorInt = 2, isEventEnd = true),
+            LaneRect(100L, 200L, lane = 0, depth = 1, calendarId = 1L, colorInt = 1, isEventEnd = true)
+        )
+        return spec(null, overhangPx = 0).copy(
+            content = StripContent.Lanes(rects, windowStartMillis = 0L, windowEndMillis = 200L, laneOutlineColor = 0)
+        )
+    }
+
+    @Test
+    fun laneGapSitsBetweenTheTwoLanesOverTheOverlapOnly() {
+        val s = twoLanes()
+        val gaps = DensityCanvas.laneGapRects(s, DensityCanvas.trackRect(s), s.content as StripContent.Lanes)
+        // Track 56px, gap 8px (2dp at 4px/dp): lanes are 24px each, the gap rows 24..32.
+        assertEquals(listOf(IntRect(0, 24, 300, 32)), gaps)
+    }
+
+    @Test
+    fun noLaneGapWhereOnlyOneLaneRuns() {
+        val s = spec(null, overhangPx = 0).copy(
+            content = StripContent.Lanes(
+                listOf(LaneRect(0L, 200L, lane = 0, depth = 1, calendarId = 1L, colorInt = 1, isEventEnd = true)),
+                windowStartMillis = 0L, windowEndMillis = 200L, laneOutlineColor = null
+            )
+        )
+        assertTrue(DensityCanvas.laneGapRects(s, DensityCanvas.trackRect(s), s.content as StripContent.Lanes).isEmpty())
+    }
 
     // --- overflow: a + centred on a full bar past the baseline ---
 
