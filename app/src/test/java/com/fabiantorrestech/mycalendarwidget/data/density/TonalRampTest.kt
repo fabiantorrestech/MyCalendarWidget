@@ -95,9 +95,12 @@ class TonalRampTest {
 
     @Test
     fun bucketFallsBackToRankWhenUnassigned() {
+        // Ranks map to tones in the order 0, 4, 2, 3, 1 so neighbouring calendars get
+        // tones as far apart as the ramp allows: two calendars are the accent and the
+        // lightest tone, three add the middle one.
         val ids = listOf(10L, 20L, 30L)
         assertEquals(0, TonalRamp.bucket(10L, emptyMap(), ids))
-        assertEquals(1, TonalRamp.bucket(20L, emptyMap(), ids))
+        assertEquals(4, TonalRamp.bucket(20L, emptyMap(), ids))
         assertEquals(2, TonalRamp.bucket(30L, emptyMap(), ids))
     }
 
@@ -110,9 +113,16 @@ class TonalRampTest {
     fun bucketWrapsAtFive() {
         val ids = (1L..7L).toList()
         assertEquals(0, TonalRamp.bucket(1L, emptyMap(), ids))
-        assertEquals(4, TonalRamp.bucket(5L, emptyMap(), ids))
+        assertEquals(3, TonalRamp.bucket(4L, emptyMap(), ids))
+        assertEquals(1, TonalRamp.bucket(5L, emptyMap(), ids))
         assertEquals(0, TonalRamp.bucket(6L, emptyMap(), ids))
-        assertEquals(1, TonalRamp.bucket(7L, emptyMap(), ids))
+        assertEquals(4, TonalRamp.bucket(7L, emptyMap(), ids))
+    }
+
+    @Test
+    fun theFirstFiveRanksCoverEveryTone() {
+        val ids = (1L..5L).toList()
+        assertEquals(setOf(0, 1, 2, 3, 4), ids.map { TonalRamp.bucket(it, emptyMap(), ids) }.toSet())
     }
 
     @Test

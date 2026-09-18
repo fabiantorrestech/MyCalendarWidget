@@ -1,6 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.data.density
 
 import com.fabiantorrestech.mycalendarwidget.data.DensityCountMode
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -874,28 +875,26 @@ class DensityCalculatorTest {
     }
 
     @Test
-    fun `three concurrent events reach depth three`() {
+    fun `three concurrent events cap at depth two by default`() {
+        // The strip is 14dp; with the all-day band above it, two lanes is the most that
+        // still reads. The third event shares the last lane.
         val rects = DensityCalculator.laneRects(
             listOf(block(9, 0, 10, 0, id = 0L), block(9, 0, 10, 0, id = 1L), block(9, 0, 10, 0, id = 2L))
         )
         assertEquals(3, rects.size)
-        assertTrue(rects.all { it.depth == 3 && it.isEventEnd })
-        assertEquals(listOf(0, 1, 2), rects.map { it.lane })
+        assertTrue(rects.all { it.depth == 2 && it.isEventEnd })
+        assertEquals(listOf(0, 1, 1), rects.map { it.lane })
+        assertEquals(DensityConstants.MAX_LANES, 2)
     }
 
     @Test
-    fun `a fourth concurrent event shares the last lane`() {
+    fun `three lanes are still available when asked for`() {
         val rects = DensityCalculator.laneRects(
-            listOf(
-                block(9, 0, 10, 0, id = 0L),
-                block(9, 0, 10, 0, id = 1L),
-                block(9, 0, 10, 0, id = 2L),
-                block(9, 0, 10, 0, id = 3L)
-            )
+            listOf(block(9, 0, 10, 0, id = 0L), block(9, 0, 10, 0, id = 1L), block(9, 0, 10, 0, id = 2L)),
+            maxLanes = 3
         )
-        assertEquals(4, rects.size)
         assertTrue(rects.all { it.depth == 3 })
-        assertEquals(listOf(0, 1, 2, 2), rects.map { it.lane })
+        assertEquals(listOf(0, 1, 2), rects.map { it.lane })
     }
 
     @Test
@@ -903,8 +902,8 @@ class DensityCalculatorTest {
         val a = block(9, 0, 10, 0, id = 0L)
         val b = block(9, 0, 10, 0, id = 1L)
         val c = block(9, 30, 10, 0, id = 2L)
-        val ordered = DensityCalculator.laneRects(listOf(a, b, c))
-        val shuffled = DensityCalculator.laneRects(listOf(c, b, a))
+        val ordered = DensityCalculator.laneRects(listOf(a, b, c), maxLanes = 3)
+        val shuffled = DensityCalculator.laneRects(listOf(c, b, a), maxLanes = 3)
         assertEquals(ordered, shuffled)
         // The ranking within each segment is by (start, id), not input order: a and b
         // (both starting 9:00) take lanes 0 and 1 by id, and c (starting 9:30, after

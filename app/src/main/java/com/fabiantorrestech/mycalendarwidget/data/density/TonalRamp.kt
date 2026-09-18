@@ -45,6 +45,6 @@ object TonalRamp {
         assigned[calendarId]?.let { return it.coerceIn(0, DensityConstants.TONE_COUNT - 1) }
         val index = enabledSortedIds.indexOf(calendarId)
         val rank = if (index < 0) 0 else index
-        return rank % DensityConstants.TONE_COUNT
+        return DensityConstants.RANK_TO_TONE[rank % DensityConstants.TONE_COUNT]
     }
 }

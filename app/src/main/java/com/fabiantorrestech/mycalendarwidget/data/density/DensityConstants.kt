@@ -23,6 +23,19 @@ object DensityConstants {
     /** Number of tones the Tonal strip mode can assign to calendars. */
     const val TONE_COUNT = 5
 
+    /**
+     * The tone each automatic rank draws in: neighbouring ranks land as far apart on the
+     * ramp as it allows (two calendars are the accent and the lightest tone), while a
+     * calendar's rank, and so its tone, never changes when another calendar is added.
+     */
+    val RANK_TO_TONE = intArrayOf(0, 4, 2, 3, 1)
+
+    /**
+     * How many stacked lanes the strip splits coinciding events into. Two: the track is
+     * 14dp and the all-day band sits above it, so a third lane no longer reads.
+     */
+    const val MAX_LANES = 2
+
     /** How far each tone is shifted from the accent, index 0 being the accent itself. */
     val TONE_RATIOS = floatArrayOf(0f, .16f, .32f, .47f, .60f)
 

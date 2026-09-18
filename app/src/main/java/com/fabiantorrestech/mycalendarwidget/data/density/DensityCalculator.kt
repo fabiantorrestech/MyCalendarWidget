@@ -273,7 +273,7 @@ object DensityCalculator {
      * caller-side bug that produces zero or a negative lane count fails loudly instead of
      * silently rendering as if `maxLanes = 1` had been asked for.
      */
-    fun laneRects(events: List<EventBlock>, maxLanes: Int = 3): List<LaneRect> {
+    fun laneRects(events: List<EventBlock>, maxLanes: Int = DensityConstants.MAX_LANES): List<LaneRect> {
         require(maxLanes >= 1) { "maxLanes must be >= 1, was $maxLanes" }
         if (events.isEmpty()) return emptyList()
 

@@ -287,7 +287,8 @@ class DensitySpecBuilderTest {
         val lanes = spec.content as StripContent.Lanes
         val rectForCalendar9 = lanes.rects.first { it.calendarId == 9L }
         val ramp = TonalRamp.ramp(palette().busy, palette().background)
-        assertEquals(ramp[1], rectForCalendar9.colorInt)
+        // Rank 1 draws in tone 4 (ranks spread over the ramp as 0, 4, 2, 3, 1).
+        assertEquals(ramp[4], rectForCalendar9.colorInt)
     }
 
     @Test
