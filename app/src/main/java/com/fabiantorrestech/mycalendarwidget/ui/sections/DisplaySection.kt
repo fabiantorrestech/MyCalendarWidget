@@ -95,7 +95,11 @@ fun DisplaySection(
         )
     }
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    // Only a rule when something sits above it; for Density the two toggles below are
+    // the whole section, and a rule straight under the header just looked stray.
+    if (visible.agendaText || visible.listBehaviour || !visible.peekHorizon) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    }
 
     ToggleRow(
         label = "Show Quick Add (+) button",

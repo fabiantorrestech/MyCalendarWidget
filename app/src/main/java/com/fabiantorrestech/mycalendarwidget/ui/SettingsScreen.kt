@@ -267,31 +267,31 @@ fun SettingsScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
 
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 4.dp)
-                ) {
-                    items(profiles, key = { it.id }) { profile ->
-                        FilterChip(
-                            selected = profile.id == activeProfileId,
-                            onClick = { viewModel.setActiveProfile(profile.id) },
-                            label = { Text(profile.name) },
-                            enabled = visible.profilesEditable
-                        )
+            // Density uses only the selected profile: the chip row, the Profiles section
+            // and the profile-count warning are dropped and one red note stands in.
+            if (visible.profilesEditable) {
+                item {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 4.dp)
+                    ) {
+                        items(profiles, key = { it.id }) { profile ->
+                            FilterChip(
+                                selected = profile.id == activeProfileId,
+                                onClick = { viewModel.setActiveProfile(profile.id) },
+                                label = { Text(profile.name) }
+                            )
+                        }
+                        item {
+                            SuggestionChip(
+                                onClick = { showAddProfileDialog = true },
+                                label = { Text("+ Add") }
+                            )
+                        }
                     }
-                    item {
-                        SuggestionChip(
-                            onClick = { showAddProfileDialog = true },
-                            label = { Text("+ Add") },
-                            enabled = visible.profilesEditable
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (!visible.profilesEditable) {
+            } else {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -302,7 +302,7 @@ fun SettingsScreen(
                         Text(
                             text = stringResource(R.string.density_profiles_locked),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                         )
                     }
@@ -310,7 +310,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (profiles.size >= 2) {
+            if (visible.profilesEditable && profiles.size >= 2) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -357,19 +357,20 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            item {
-                ProfilesSection(
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    onRename = { id, name -> viewModel.renameProfile(id, name) },
-                    onDelete = { viewModel.deleteProfile(it) },
-                    onMoveUp = { viewModel.moveProfileUp(it) },
-                    onMoveDown = { viewModel.moveProfileDown(it) },
-                    onCycleStyleChange = { viewModel.setCycleUiStyle(it) },
-                    enabled = visible.profilesEditable
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            if (visible.profilesEditable) {
+                item {
+                    ProfilesSection(
+                        profiles = profiles,
+                        activeProfileId = activeProfileId,
+                        cycleUiStyle = cycleUiStyle,
+                        onRename = { id, name -> viewModel.renameProfile(id, name) },
+                        onDelete = { viewModel.deleteProfile(it) },
+                        onMoveUp = { viewModel.moveProfileUp(it) },
+                        onMoveDown = { viewModel.moveProfileDown(it) },
+                        onCycleStyleChange = { viewModel.setCycleUiStyle(it) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
 
             if (!stickyPreview) {
