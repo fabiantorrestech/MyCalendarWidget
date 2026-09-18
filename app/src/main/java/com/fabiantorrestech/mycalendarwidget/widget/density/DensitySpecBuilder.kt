@@ -159,6 +159,15 @@ object DensityLayout {
     /** G7: 10dp between look-ahead day bars (and their day labels above them). */
     const val DAY_BAR_GUTTER_DP = 10f
 
+    /** The thin band above a bar that says "an all-day event spans this day". */
+    const val ALL_DAY_BAND_DP = 2f
+
+    /** Clear space between that band and the bar under it. */
+    const val ALL_DAY_BAND_GAP_DP = 1f
+
+    /** What the look-ahead bars bitmap occupies: band, gap, then the bar itself. */
+    const val DAY_BAR_IMAGE_HEIGHT_DP = ALL_DAY_BAND_DP + ALL_DAY_BAND_GAP_DP + DAY_BAR_HEIGHT_DP
+
     /**
      * A day label keeps its weekday ("Thu (9/18)") only when its column is at least this
      * wide; narrower columns (six or seven bars on a phone-width widget) show the date
@@ -399,7 +408,10 @@ object DensitySpecBuilder {
             pxPerDp = density,
             ghost = null,
             cutAtStart = day.cutAtStart,
-            cutAtEnd = day.cutAtEnd
+            cutAtEnd = day.cutAtEnd,
+            // The band is the busy colour in every mode, Detail included: it marks the
+            // day, not an event, so it never needs a calendar colour of its own.
+            allDayBandColor = if (day.hasAllDay) palette.busy else null
         )
     }
 
@@ -421,11 +433,14 @@ object DensitySpecBuilder {
         }
         return LoadBarsSpec(
             widthPx = max(1, widthPx),
-            heightPx = max(1, (DensityLayout.DAY_BAR_HEIGHT_DP * density).roundToInt()),
+            heightPx = max(1, (DensityLayout.DAY_BAR_IMAGE_HEIGHT_DP * density).roundToInt()),
             loads = loads,
             gutterPx = max(0, (DensityLayout.DAY_BAR_GUTTER_DP * density).roundToInt()),
             fillColor = palette.busy,
-            trackColor = palette.free
+            trackColor = palette.free,
+            bandPx = max(0, (DensityLayout.ALL_DAY_BAND_DP * density).roundToInt()),
+            bandGapPx = max(0, (DensityLayout.ALL_DAY_BAND_GAP_DP * density).roundToInt()),
+            allDay = snapshot.lookahead.map { it.hasAllDay }
         )
     }
 

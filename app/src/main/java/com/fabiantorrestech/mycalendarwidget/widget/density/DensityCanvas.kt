@@ -90,7 +90,9 @@ data class StripSpec(
     /** A busy block runs in from the previous day: draw the opening chevron. */
     val cutAtStart: Boolean = false,
     /** A busy block runs on into the next day: draw the closing chevron. */
-    val cutAtEnd: Boolean = false
+    val cutAtEnd: Boolean = false,
+    /** Colour of the all-day band across the top overhang, or null when the day has none. */
+    val allDayBandColor: Int? = null
 ) {
     val heightPx: Int get() = trackHeightPx + 2 * overhangPx
 }
@@ -102,7 +104,13 @@ data class LoadBarsSpec(
     val loads: List<Float>,
     val gutterPx: Int,
     val fillColor: Int,
-    val trackColor: Int
+    val trackColor: Int,
+    /** Height of the all-day band reserved above every bar (0 = no band row at all). */
+    val bandPx: Int = 0,
+    /** Clear rows between the band and the bar. */
+    val bandGapPx: Int = 0,
+    /** One flag per load: draw that column's band. Missing entries mean no band. */
+    val allDay: List<Boolean> = emptyList()
 )
 
 /**
@@ -148,6 +156,19 @@ object DensityCanvas {
             spec.heightPx
         )
         return halo to caret
+    }
+
+    /**
+     * The all-day band: the top overhang rows, full width, in [StripSpec.allDayBandColor].
+     * One row is left clear above the track when the overhang can spare it, so the band
+     * never merges into a busy block that touches the top edge. Null when the day has no
+     * all-day event or there is no overhang to draw in.
+     */
+    fun allDayBandRect(spec: StripSpec): IntRect? {
+        spec.allDayBandColor ?: return null
+        if (spec.overhangPx <= 0) return null
+        val bottom = if (spec.overhangPx >= 3) spec.overhangPx - 1 else spec.overhangPx
+        return IntRect(0, 0, spec.widthPx, bottom)
     }
 
     /**
@@ -219,6 +240,11 @@ object DensityCanvas {
         paint.color = scaled.freeColor
         canvas.drawRect(track.toRect(), paint)
 
+        allDayBandRect(scaled)?.let { band ->
+            paint.color = scaled.allDayBandColor ?: scaled.freeColor
+            canvas.drawRect(band.toRect(), paint)
+        }
+
         val saved = canvas.save()
         canvas.clipRect(track.toRect())
         when (val content = scaled.content) {
@@ -263,7 +289,8 @@ object DensityCanvas {
             content = content,
             freeColor = dim(spec.freeColor),
             nowColor = dim(spec.nowColor),
-            backgroundColor = dim(spec.backgroundColor)
+            backgroundColor = dim(spec.backgroundColor),
+            allDayBandColor = spec.allDayBandColor?.let(::dim)
         )
     }
 
@@ -413,8 +440,20 @@ object DensityCanvas {
 
         paint.color = scaled.fillColor
         loadBarFillRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
+        loadBarBandRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
 
         return bitmap
+    }
+
+    /**
+     * The all-day bands: one [LoadBarsSpec.bandPx]-tall rect across the top of every
+     * column whose [LoadBarsSpec.allDay] flag is set. Same column split as the tracks.
+     */
+    fun loadBarBandRects(spec: LoadBarsSpec): List<IntRect> {
+        if (spec.bandPx <= 0) return emptyList()
+        return loadBarTrackRects(spec).mapIndexedNotNull { i, track ->
+            if (spec.allDay.getOrNull(i) == true) IntRect(track.left, 0, track.right, spec.bandPx) else null
+        }
     }
 
     /**
@@ -427,9 +466,11 @@ object DensityCanvas {
         val n = spec.loads.size
         if (n <= 0 || spec.widthPx <= 0) return emptyList()
         val colW = (spec.widthPx - spec.gutterPx * (n - 1)) / n
+        // The band row (and its gap) sits above the bars, so the tracks start below it.
+        val top = (spec.bandPx + spec.bandGapPx).coerceIn(0, max(0, spec.heightPx - 1))
         return (0 until n).map { i ->
             val left = i * (colW + spec.gutterPx)
-            IntRect(left, 0, left + colW, spec.heightPx)
+            IntRect(left, top, left + colW, spec.heightPx)
         }
     }
 
@@ -453,7 +494,9 @@ object DensityCanvas {
         return spec.copy(
             widthPx = max(1, (spec.widthPx * scale).toInt()),
             heightPx = max(1, (spec.heightPx * scale).toInt()),
-            gutterPx = (spec.gutterPx * scale).toInt()
+            gutterPx = (spec.gutterPx * scale).toInt(),
+            bandPx = (spec.bandPx * scale).toInt(),
+            bandGapPx = (spec.bandGapPx * scale).toInt()
         )
     }
 

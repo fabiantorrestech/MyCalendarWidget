@@ -177,6 +177,30 @@ class DensitySpecBuilderTest {
     }
 
     @Test
+    fun stripSpecCarriesAnAllDayBandOnlyWhenTheDayHasOne() {
+        val plain = singleEventDay(9, 10)
+        assertNull(DensitySpecBuilder.stripSpec(plain, config, palette(), 1000, 1f, null, zone).allDayBandColor)
+        val withAllDay = plain.copy(hasAllDay = true)
+        assertEquals(palette().busy, DensitySpecBuilder.stripSpec(withAllDay, config, palette(), 1000, 1f, null, zone).allDayBandColor)
+    }
+
+    @Test
+    fun loadBarsSpecFlagsAllDayDaysAndReservesTheBand() {
+        val snapshot = DensitySnapshot(
+            hasPermission = true,
+            featured = dayAt(date),
+            featuredIsToday = true,
+            lookahead = listOf(dayAt(date.plusDays(1)).copy(hasAllDay = true), dayAt(date.plusDays(2))),
+            nowMillis = 0L
+        )
+        val spec = DensitySpecBuilder.loadBarsSpec(snapshot, config, palette(), 300, 2f)
+        assertEquals(listOf(true, false), spec.allDay)
+        assertEquals((DensityLayout.ALL_DAY_BAND_DP * 2f).toInt(), spec.bandPx)
+        assertEquals((DensityLayout.ALL_DAY_BAND_GAP_DP * 2f).toInt(), spec.bandGapPx)
+        assertEquals((DensityLayout.DAY_BAR_IMAGE_HEIGHT_DP * 2f).toInt(), spec.heightPx)
+    }
+
+    @Test
     fun stripSpecCarriesTheDaysCutFlags() {
         val cut = singleEventDay(9, 10).copy(cutAtStart = true, cutAtEnd = true)
         val spec = DensitySpecBuilder.stripSpec(cut, config, palette(), 1000, 1f, null, zone)
@@ -488,7 +512,7 @@ class DensitySpecBuilderTest {
         assertEquals(0.83333f, spec.loads[1], 0.001f)
         assertEquals(0.125f, spec.loads[2], 0.001f)
         assertEquals(1000, spec.widthPx)
-        assertEquals(12, spec.heightPx)
+        assertEquals((DensityLayout.DAY_BAR_IMAGE_HEIGHT_DP * 2f).toInt(), spec.heightPx)
         assertEquals(20, spec.gutterPx)
         assertEquals(p.busy, spec.fillColor)
         assertEquals(p.free, spec.trackColor)

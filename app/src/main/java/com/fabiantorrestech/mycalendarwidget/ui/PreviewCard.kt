@@ -730,15 +730,6 @@ private fun PreviewDensityContent(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (snapshot.featured.hasAllDay) {
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.onSurface)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                }
                 Text(
                     text = headline.countText,
                     fontSize = (countSize * config.typographyScale.headerScale).sp,
@@ -905,7 +896,7 @@ private fun PreviewDensityLookaheadBars(
         bitmap = remember(barsSpec) { DensityCanvas.renderLoadBars(barsSpec).asImageBitmap() },
         contentDescription = null,
         contentScale = ContentScale.FillBounds,
-        modifier = Modifier.fillMaxWidth().height(DensityLayout.DAY_BAR_HEIGHT_DP.dp)
+        modifier = Modifier.fillMaxWidth().height(DensityLayout.DAY_BAR_IMAGE_HEIGHT_DP.dp)
     )
 }
 

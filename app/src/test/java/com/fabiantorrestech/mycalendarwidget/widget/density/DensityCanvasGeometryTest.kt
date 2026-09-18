@@ -22,7 +22,8 @@ class DensityCanvasGeometryTest {
         overhangPx: Int = 8,
         haloPx: Int = 4,
         cutAtStart: Boolean = false,
-        cutAtEnd: Boolean = false
+        cutAtEnd: Boolean = false,
+        allDayBandColor: Int? = null
     ) = StripSpec(
         widthPx = 600,
         trackHeightPx = 56,
@@ -36,8 +37,47 @@ class DensityCanvasGeometryTest {
         backgroundColor = 0,
         pxPerDp = 4f,
         cutAtStart = cutAtStart,
-        cutAtEnd = cutAtEnd
+        cutAtEnd = cutAtEnd,
+        allDayBandColor = allDayBandColor
     )
+
+    // --- all-day band: the top overhang rows, full width, one pixel clear of the track ---
+
+    @Test
+    fun noAllDayBandWithoutAColor() {
+        assertNull(DensityCanvas.allDayBandRect(spec(null)))
+    }
+
+    @Test
+    fun allDayBandFillsTheTopOverhangLessOnePixel() {
+        // overhang 8px: the band is rows 0..6, leaving row 7 clear so it never merges
+        // with a busy block touching the top of the track.
+        assertEquals(IntRect(0, 0, 600, 7), DensityCanvas.allDayBandRect(spec(null, allDayBandColor = 1)))
+    }
+
+    @Test
+    fun allDayBandUsesTheWholeOverhangWhenItIsTooThinToSpare() {
+        assertEquals(IntRect(0, 0, 600, 2), DensityCanvas.allDayBandRect(spec(null, overhangPx = 2, allDayBandColor = 1)))
+        assertNull(DensityCanvas.allDayBandRect(spec(null, overhangPx = 0, allDayBandColor = 1)))
+    }
+
+    @Test
+    fun loadBarBandsSitAboveTheBarsOnlyForAllDayDays() {
+        val s = loadBarsSpec(loads = listOf(0.5f, 0.2f, 0f), widthPx = 100, heightPx = 9, gutterPx = 5, bandPx = 2, bandGapPx = 1, allDay = listOf(true, false, true))
+        val tracks = DensityCanvas.loadBarTrackRects(s)
+        assertTrue(tracks.all { it.top == 3 && it.bottom == 9 })
+        val bands = DensityCanvas.loadBarBandRects(s)
+        assertEquals(2, bands.size)
+        assertEquals(IntRect(0, 0, 30, 2), bands[0])
+        assertEquals(IntRect(70, 0, 100, 2), bands[1])
+    }
+
+    @Test
+    fun loadBarsWithoutBandsKeepTheirOldGeometry() {
+        val s = loadBarsSpec(loads = listOf(1f), widthPx = 100, heightPx = 6, gutterPx = 0)
+        assertEquals(IntRect(0, 0, 100, 6), DensityCanvas.loadBarTrackRects(s).single())
+        assertTrue(DensityCanvas.loadBarBandRects(s).isEmpty())
+    }
 
     // --- midnight cut chevrons (5dp tall -> 21 odd rows, 1dp stroke, 2dp inside the edge; 4 px/dp) ---
 
@@ -159,14 +199,20 @@ class DensityCanvasGeometryTest {
         loads: List<Float>,
         widthPx: Int = 100,
         heightPx: Int = 6,
-        gutterPx: Int = 10
+        gutterPx: Int = 10,
+        bandPx: Int = 0,
+        bandGapPx: Int = 0,
+        allDay: List<Boolean> = emptyList()
     ) = LoadBarsSpec(
         widthPx = widthPx,
         heightPx = heightPx,
         loads = loads,
         gutterPx = gutterPx,
         fillColor = 0,
-        trackColor = 0
+        trackColor = 0,
+        bandPx = bandPx,
+        bandGapPx = bandGapPx,
+        allDay = allDay
     )
 
     @Test

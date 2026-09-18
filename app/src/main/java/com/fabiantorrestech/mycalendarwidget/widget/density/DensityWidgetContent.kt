@@ -168,16 +168,8 @@ fun DensityWidgetContent(
                     modifier = GlanceModifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (snapshot.featured.hasAllDay) {
-                        Box(
-                            modifier = GlanceModifier
-                                .size(4.dp)
-                                .background(GlanceTheme.colors.onSurface)
-                                .cornerRadius(2.dp)
-                        ) {}
-                        Spacer(modifier = GlanceModifier.width(5.dp))
-                    }
-
+                    // An all-day event shows as the band along the top of the strip
+                    // (DensityCanvas.allDayBandRect), not as a mark beside the count.
                     // The count carries the weight so it yields width to the chrome (an
                     // ellipsis on a sentence headline) rather than pushing a button off
                     // the row.
@@ -406,7 +398,7 @@ private fun DensityLookaheadBars(
         Image(
             ImageProvider(remember(barsSpec) { DensityCanvas.renderLoadBars(barsSpec) }),
             null,
-            GlanceModifier.fillMaxWidth().height(DensityLayout.DAY_BAR_HEIGHT_DP.dp),
+            GlanceModifier.fillMaxWidth().height(DensityLayout.DAY_BAR_IMAGE_HEIGHT_DP.dp),
             ContentScale.FillBounds
         )
     }
