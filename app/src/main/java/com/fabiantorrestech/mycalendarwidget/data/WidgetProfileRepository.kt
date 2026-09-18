@@ -138,6 +138,19 @@ class WidgetProfileRepository(private val context: Context, private val widgetId
         }
     }
 
+    /**
+     * Throws every profile away and starts over with one "Default" profile on [config],
+     * active. The cycle style is left alone: it is how the switcher looks, not a setting
+     * of any profile.
+     */
+    suspend fun resetToDefaults(config: WidgetConfig = WidgetConfig()) {
+        dataStore.edit { prefs ->
+            val defaultId = UUID.randomUUID().toString()
+            prefs[Keys.PROFILES_JSON] = serializeProfiles(listOf(WidgetProfileEntry(defaultId, "Default", config)))
+            prefs[Keys.ACTIVE_PROFILE_ID] = defaultId
+        }
+    }
+
     suspend fun migrateIfNeeded(legacyConfig: WidgetConfig) {
         dataStore.edit { prefs ->
             if (prefs[Keys.PROFILES_JSON].isNullOrBlank()) {

@@ -266,6 +266,38 @@ class SettingsViewModel(
         viewModelScope.launch { profileRepo.setCycleUiStyle(style) }
     }
 
+    /**
+     * Every setting of this widget back to its defaults: the sync link (if any) is cut,
+     * all profiles are replaced by one fresh Default, the legacy store is reset so
+     * exports agree, and the widget name is cleared. [onDone] runs once it is all written.
+     */
+    fun resetAllDefaults(onDone: () -> Unit) {
+        viewModelScope.launch {
+            val fresh = WidgetConfig()
+            configRepo.setSyncSource(null)
+            profileRepo.resetToDefaults(fresh)
+            configRepo.updateConfig(fresh)
+            WidgetNameRepository.clear(appContext, appWidgetId)
+            _widgetName.value = ""
+            _syncSource.value = null
+            WidgetSyncScheduler.schedule(appContext, appWidgetId, WidgetSyncScheduler.effectiveIntervalMinutes(fresh))
+            loadAvailableWidgets()
+            onDone()
+        }
+    }
+
+    /**
+     * Done: run the auto-backup (when it is on) and only then hand control back so the
+     * activity finishes after the files are written. A failed backup is logged and
+     * reported through [onDone]'s argument; it never blocks leaving the screen.
+     */
+    fun finishWithBackup(onDone: (backupError: String?) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { AutoBackup.backupAll(appContext) }
+            onDone(result.exceptionOrNull()?.message)
+        }
+    }
+
     fun exportConfig(context: Context, uri: Uri) {
         _exportState.value = ExportState.InProgress
         viewModelScope.launch {
