@@ -66,6 +66,9 @@ import com.fabiantorrestech.mycalendarwidget.ui.sections.DensitySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.DisplaySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ProfilesSection
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
+import com.fabiantorrestech.mycalendarwidget.R
+import com.fabiantorrestech.mycalendarwidget.ui.sections.VisibleSettings
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -225,6 +228,8 @@ fun SettingsScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            val visible = VisibleSettings.forStyle(config.widgetStyle)
+
             item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -234,17 +239,38 @@ fun SettingsScreen(
                         FilterChip(
                             selected = profile.id == activeProfileId,
                             onClick = { viewModel.setActiveProfile(profile.id) },
-                            label = { Text(profile.name) }
+                            label = { Text(profile.name) },
+                            enabled = visible.profilesEditable
                         )
                     }
                     item {
                         SuggestionChip(
                             onClick = { showAddProfileDialog = true },
-                            label = { Text("+ Add") }
+                            label = { Text("+ Add") },
+                            enabled = visible.profilesEditable
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (!visible.profilesEditable) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.density_profiles_locked),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
 
             if (profiles.size >= 2) {
@@ -303,7 +329,8 @@ fun SettingsScreen(
                     onDelete = { viewModel.deleteProfile(it) },
                     onMoveUp = { viewModel.moveProfileUp(it) },
                     onMoveDown = { viewModel.moveProfileDown(it) },
-                    onCycleStyleChange = { viewModel.setCycleUiStyle(it) }
+                    onCycleStyleChange = { viewModel.setCycleUiStyle(it) },
+                    enabled = visible.profilesEditable
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
