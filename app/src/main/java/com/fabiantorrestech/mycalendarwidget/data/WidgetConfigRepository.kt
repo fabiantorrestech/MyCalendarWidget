@@ -1,5 +1,6 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -159,7 +160,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             densityLookaheadDays = prefs[Keys.DENSITY_LOOKAHEAD_DAYS] ?: 3,
             densityLoadBaselineMinutes = prefs[Keys.DENSITY_LOAD_BASELINE] ?: 480,
             densityRolloverHour = prefs[Keys.DENSITY_ROLLOVER_HOUR] ?: 19,
-            densityBusyColor = prefs[Keys.DENSITY_BUSY_COLOR] ?: 0,
+            densityBusyColor = prefs[Keys.DENSITY_BUSY_COLOR] ?: DensityConstants.DEFAULT_BUSY_COLOR,
             densityStripMode = prefs[Keys.DENSITY_STRIP_MODE]
                 ?.let { runCatching { DensityStripMode.valueOf(it) }.getOrNull() }
                 ?: DensityStripMode.SHAPE,

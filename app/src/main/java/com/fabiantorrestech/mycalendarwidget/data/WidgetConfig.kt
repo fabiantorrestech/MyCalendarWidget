@@ -1,5 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
+
 enum class AutomationProfile { STANDARD, DENSE, MINIMAL }
 
 enum class DefaultClickTarget { SYSTEM_DEFAULT, DIGICAL, GCAL }
@@ -121,7 +123,7 @@ data class WidgetConfig(
     val densityLookaheadDays: Int = 3,            // 0..7
     val densityLoadBaselineMinutes: Int = 480,
     val densityRolloverHour: Int = 19,            // 0..23
-    val densityBusyColor: Int = 0,                // 0 = unset, follow theme
+    val densityBusyColor: Int = DensityConstants.DEFAULT_BUSY_COLOR, // 0 = follow theme
     val densityStripMode: DensityStripMode = DensityStripMode.SHAPE,
     val densityPeekFormat: DensityPeekFormat = DensityPeekFormat.GROUPED,
     val densityCountMode: DensityCountMode = DensityCountMode.LEFT,

@@ -1,5 +1,6 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
 import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
@@ -113,7 +114,7 @@ object ConfigExporter {
             densityLookaheadDays = json.optInt("densityLookaheadDays", 3),
             densityLoadBaselineMinutes = json.optInt("densityLoadBaselineMinutes", 480),
             densityRolloverHour = json.optInt("densityRolloverHour", 19),
-            densityBusyColor = json.optInt("densityBusyColor", 0),
+            densityBusyColor = json.optInt("densityBusyColor", DensityConstants.DEFAULT_BUSY_COLOR),
             densityStripMode = json.optString("densityStripMode")
                 .let { runCatching { DensityStripMode.valueOf(it) }.getOrDefault(DensityStripMode.SHAPE) },
             densityPeekFormat = json.optString("densityPeekFormat")
