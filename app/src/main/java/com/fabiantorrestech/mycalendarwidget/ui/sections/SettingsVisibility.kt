@@ -29,7 +29,13 @@ data class VisibleSettings(
     /** The Advanced Standard/Dense/Minimal preset buttons. */
     val layoutProfiles: Boolean,
     /** The Density section itself. */
-    val densitySection: Boolean
+    val densitySection: Boolean,
+    /**
+     * Whether profiles can be added, switched, renamed, reordered or deleted here. The
+     * density style uses only the selected profile (and draws no switcher), so its
+     * profile controls are shown greyed out with a note rather than removed.
+     */
+    val profilesEditable: Boolean
 ) {
     companion object {
         fun forStyle(style: WidgetStyle): VisibleSettings = when (style) {
@@ -42,7 +48,8 @@ data class VisibleSettings(
                 peekHorizon = false,
                 syncInterval = true,
                 layoutProfiles = true,
-                densitySection = false
+                densitySection = false,
+                profilesEditable = true
             )
             WidgetStyle.DENSITY -> VisibleSettings(
                 agendaText = false,
@@ -53,7 +60,8 @@ data class VisibleSettings(
                 peekHorizon = true,
                 syncInterval = false,
                 layoutProfiles = false,
-                densitySection = true
+                densitySection = true,
+                profilesEditable = false
             )
         }
     }

@@ -22,7 +22,8 @@ class SettingsVisibilityTest {
         peekHorizon = false,
         syncInterval = true,
         layoutProfiles = true,
-        densitySection = false
+        densitySection = false,
+        profilesEditable = true
     )
 
     @Test
@@ -35,6 +36,12 @@ class SettingsVisibilityTest {
         assertEquals(false, v.listBehaviour)
         assertEquals(false, v.syncInterval)
         assertEquals(false, v.layoutProfiles)
+    }
+
+    @Test
+    fun density_locksProfiles() {
+        assertEquals(false, VisibleSettings.forStyle(WidgetStyle.DENSITY).profilesEditable)
+        assertEquals(true, VisibleSettings.forStyle(WidgetStyle.AGENDA).profilesEditable)
     }
 
     @Test
