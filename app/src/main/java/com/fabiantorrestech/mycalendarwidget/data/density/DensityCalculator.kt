@@ -169,9 +169,14 @@ object DensityCalculator {
 
         val onDay = raw.filter { it.end > dayStart && it.begin < dayEnd }
         // hasAllDay still honours the enabled-calendar set and excludes declined/canceled
-        // instances; only the all-day-ness itself is not filtered out here.
-        val hasAllDay = onDay.any {
+        // instances; only the all-day-ness itself is not filtered out here. An all-day
+        // instance is judged by the UTC dates the provider stores it under, not by its
+        // instants overlapping the local day: those instants are UTC midnights, so west
+        // of UTC tomorrow's all-day event "begins" this evening and would otherwise flag
+        // today as well. (The peek applies the same rule.)
+        val hasAllDay = raw.any {
             it.allDay &&
+                coversDateAsAllDay(it, date) &&
                 (enabledCalendarIds.isEmpty() || it.calendarId in enabledCalendarIds) &&
                 it.selfAttendeeStatus != DensityConstants.ATTENDEE_STATUS_DECLINED &&
                 it.status != DensityConstants.EVENT_STATUS_CANCELED
@@ -221,6 +226,14 @@ object DensityCalculator {
             cutAtStart = busy.any { it.begin < dayStart && it.end > dayStart },
             cutAtEnd = busy.any { it.end > dayEnd && it.begin < dayEnd }
         )
+    }
+
+    /** True when [date] lies inside an all-day instance's UTC date range `[begin, end)`. */
+    private fun coversDateAsAllDay(instance: RawInstance, date: LocalDate): Boolean {
+        val utc = ZoneId.of("UTC")
+        val first = Instant.ofEpochMilli(instance.begin).atZone(utc).toLocalDate()
+        val lastExclusive = Instant.ofEpochMilli(instance.end - 1).atZone(utc).toLocalDate().plusDays(1)
+        return !date.isBefore(first) && date.isBefore(lastExclusive)
     }
 
     /** Busy time as a fraction of a full day's baseline, clamped to 0f..1f. */

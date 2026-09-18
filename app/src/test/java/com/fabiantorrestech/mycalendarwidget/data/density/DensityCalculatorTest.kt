@@ -226,6 +226,17 @@ class DensityCalculatorTest {
     }
 
     @Test
+    fun `an all-day instance is judged by its UTC date, not by local overlap`() {
+        // The provider hands an all-day instance back as UTC midnights: tomorrow's all-day
+        // event begins at 20:00 New York time today, and must not flag today.
+        val utcMidnight = tomorrow.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+        val allDay = raw(utcMidnight, utcMidnight + 86_400_000L, allDay = true)
+        assertFalse(DensityCalculator.buildDay(day, listOf(allDay), emptySet(), 480, 1320, zone).hasAllDay)
+        assertTrue(DensityCalculator.buildDay(tomorrow, listOf(allDay), emptySet(), 480, 1320, zone).hasAllDay)
+        assertFalse(DensityCalculator.buildDay(tomorrow.plusDays(1), listOf(allDay), emptySet(), 480, 1320, zone).hasAllDay)
+    }
+
+    @Test
     fun `hasAllDay is false when the all-day instance is on a disabled calendar`() {
         val result = DensityCalculator.buildDay(
             date = day,
