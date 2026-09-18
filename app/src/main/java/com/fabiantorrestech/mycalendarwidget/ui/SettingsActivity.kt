@@ -4,6 +4,7 @@ import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -59,10 +60,15 @@ class SettingsActivity : ComponentActivity() {
                     appWidgetId = widgetId,
                     onSaveComplete = {
                         refreshWidgets()
-                        if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                            val resultIntent = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                            setResult(RESULT_OK, resultIntent)
-                            finish()
+                        viewModel.finishWithBackup { backupError ->
+                            if (backupError != null) {
+                                Toast.makeText(this, "Auto-backup failed: $backupError", Toast.LENGTH_LONG).show()
+                            }
+                            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                                val resultIntent = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                                setResult(RESULT_OK, resultIntent)
+                                finish()
+                            }
                         }
                     }
                 )

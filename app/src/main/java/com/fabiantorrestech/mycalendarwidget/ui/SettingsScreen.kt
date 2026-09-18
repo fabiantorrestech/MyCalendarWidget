@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.platform.LocalConfiguration
 import com.fabiantorrestech.mycalendarwidget.data.SettingsUiPrefs
+import com.fabiantorrestech.mycalendarwidget.data.AutoBackup
+import com.fabiantorrestech.mycalendarwidget.ui.sections.AutoBackupSection
+import com.fabiantorrestech.mycalendarwidget.ui.sections.ResetSection
+import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -132,6 +136,22 @@ fun SettingsScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { viewModel.importConfig(context, it) }
+    }
+
+    var autoBackupEnabled by rememberSaveable { mutableStateOf(SettingsUiPrefs.autoBackupEnabled(context)) }
+    var autoBackupFolder by rememberSaveable { mutableStateOf(AutoBackup.folderLabel(context)) }
+    val treeLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Keep the grant across reboots and app restarts; Done may run months later.
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            SettingsUiPrefs.setAutoBackupTree(context, it)
+            autoBackupFolder = AutoBackup.folderLabel(context)
+        }
     }
 
     LaunchedEffect(exportState) {
@@ -462,6 +482,30 @@ fun SettingsScreen(
                     onApplyProfile = { viewModel.applyProfile(it) },
                     onExport = { exportLauncher.launch("bridgecal_widget_backup_$appWidgetId.json") },
                     onImport = { importLauncher.launch(arrayOf("application/json")) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
+                AutoBackupSection(
+                    enabled = autoBackupEnabled,
+                    folderLabel = autoBackupFolder,
+                    onEnabledChange = {
+                        autoBackupEnabled = it
+                        SettingsUiPrefs.setAutoBackupEnabled(context, it)
+                    },
+                    onChooseFolder = { treeLauncher.launch(null) }
+                )
+            }
+
+            item {
+                ResetSection(
+                    onConfirmReset = {
+                        viewModel.resetAllDefaults {
+                            localWidgetName = ""
+                            scope.launch { snackbarHostState.showSnackbar("Settings reset to defaults") }
+                        }
+                    }
                 )
             }
         }

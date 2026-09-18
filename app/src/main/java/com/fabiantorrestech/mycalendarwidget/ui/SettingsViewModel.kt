@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.fabiantorrestech.mycalendarwidget.data.AutoBackup
 import com.fabiantorrestech.mycalendarwidget.data.AutomationProfile
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.CalendarInfo
