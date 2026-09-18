@@ -630,7 +630,7 @@ private fun PreviewDensityAxisRow(axis: AxisSpec, config: WidgetConfig) {
             Box(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label.orEmpty(),
-                    fontSize = (11 * config.typographyScale.detailScale).sp,
+                    fontSize = (11 * config.typographyScale.eventTimeScale).sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     fontFamily = config.previewFont(FontCategory.EVENT_TIME)

@@ -446,7 +446,9 @@ private fun DensityAxisRow(axis: AxisSpec, config: WidgetConfig) {
                     text = label.orEmpty(),
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (AXIS_SIZE_SP * config.typographyScale.detailScale).sp,
+                        // Same slider and font as the day labels below ("Following days
+                        // bars" in Settings), so one control sizes every hour/day label.
+                        fontSize = (AXIS_SIZE_SP * config.typographyScale.eventTimeScale).sp,
                         fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
                     ),
                     maxLines = 1
