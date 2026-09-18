@@ -110,7 +110,13 @@ data class LoadBarsSpec(
     /** Clear rows between the band and the bar. */
     val bandGapPx: Int = 0,
     /** One flag per load: draw that column's band. Missing entries mean no band. */
-    val allDay: List<Boolean> = emptyList()
+    val allDay: List<Boolean> = emptyList(),
+    /** One flag per load: the day is past the baseline, so its full bar gets a › mark. */
+    val overflow: List<Boolean> = emptyList(),
+    /** Device pixels per dp, for the overflow mark's stroke and inset. */
+    val pxPerDp: Float = 1f,
+    /** The widget background, which the overflow mark is cut in. */
+    val backgroundColor: Int = 0
 )
 
 /**
@@ -181,22 +187,41 @@ object DensityCanvas {
      */
     fun cutChevronRects(spec: StripSpec, atEnd: Boolean): List<IntRect> {
         if (if (atEnd) !spec.cutAtEnd else !spec.cutAtStart) return emptyList()
-        val track = trackRect(spec)
-        // An odd number of rows, so there is exactly one tip row and the two arms mirror
-        // each other pixel for pixel.
-        val half = ((DensityLayout.CUT_CHEVRON_DP * spec.pxPerDp).roundToInt() / 2)
+        return chevronRows(trackRect(spec), rightEdge = if (atEnd) spec.widthPx else null, pxPerDp = spec.pxPerDp)
+    }
+
+    /**
+     * The chevron itself, as stair-stepped 1px-tall rows centred on [track]: a › whose
+     * tip sits [DensityLayout.CUT_CHEVRON_INSET_DP] inside [rightEdge], or a ‹ inside the
+     * track's left edge when [rightEdge] is null. Shared by the strip's midnight cuts and
+     * the look-ahead bars' overflow mark so the two can never drift apart. An odd number
+     * of rows, so there is exactly one tip row and the two arms mirror pixel for pixel;
+     * never taller than the track.
+     */
+    private fun chevronRows(track: IntRect, rightEdge: Int?, pxPerDp: Float): List<IntRect> {
+        val half = ((DensityLayout.CUT_CHEVRON_DP * pxPerDp).roundToInt() / 2)
             .coerceIn(0, max(0, (track.height - 1) / 2))
         val height = 2 * half + 1
-        val stroke = max(1, (DensityLayout.CUT_CHEVRON_STROKE_DP * spec.pxPerDp).roundToInt())
-        val inset = (DensityLayout.CUT_CHEVRON_INSET_DP * spec.pxPerDp).roundToInt()
+        val stroke = max(1, (DensityLayout.CUT_CHEVRON_STROKE_DP * pxPerDp).roundToInt())
+        val inset = (DensityLayout.CUT_CHEVRON_INSET_DP * pxPerDp).roundToInt()
         val top = track.top + (track.height - height) / 2
         return (0 until height).map { row ->
             // 0 on the middle row (the tip), `half` on the outermost rows.
             val back = abs(row - half)
-            val left = if (atEnd) spec.widthPx - inset - stroke - back else inset + back
+            val left = if (rightEdge != null) rightEdge - inset - stroke - back else track.left + inset + back
             IntRect(left, top + row, left + stroke, top + row + 1)
         }
     }
+
+    /**
+     * A › cut into the right end of every full bar whose day is past the baseline
+     * ([LoadBarsSpec.overflow]): the same mark the strip uses for a midnight cut, saying
+     * "more than fits" in one hue.
+     */
+    fun loadBarOverflowRects(spec: LoadBarsSpec): List<IntRect> =
+        loadBarTrackRects(spec).flatMapIndexed { i, track ->
+            if (spec.overflow.getOrNull(i) == true) chevronRows(track, rightEdge = track.right, pxPerDp = spec.pxPerDp) else emptyList()
+        }
 
     /**
      * The strip as a transparent-backed ARGB bitmap: free track, then the busy content
@@ -441,6 +466,9 @@ object DensityCanvas {
         paint.color = scaled.fillColor
         loadBarFillRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
         loadBarBandRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
+
+        paint.color = scaled.backgroundColor
+        loadBarOverflowRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
 
         return bitmap
     }

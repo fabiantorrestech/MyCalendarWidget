@@ -242,6 +242,13 @@ object DensityCalculator {
         return (busyMinutes.toFloat() / baselineMinutes.toFloat()).coerceIn(0f, 1f)
     }
 
+    /**
+     * True when the day's busy time is strictly past the baseline — the part [dayLoad]'s
+     * clamp hides. Exactly at the baseline is a full bar with nothing to mark.
+     */
+    fun overflowsBaseline(busyMinutes: Int, baselineMinutes: Int): Boolean =
+        baselineMinutes > 0 && busyMinutes > baselineMinutes
+
     /** Events still to come, counting one that is in progress right now. */
     fun remainingCount(day: DayDensity, nowMillis: Long): Int =
         day.busyEnds.count { it > nowMillis }

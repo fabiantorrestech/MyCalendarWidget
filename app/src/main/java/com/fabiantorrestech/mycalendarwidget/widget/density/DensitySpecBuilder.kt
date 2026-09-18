@@ -440,7 +440,12 @@ object DensitySpecBuilder {
             trackColor = palette.free,
             bandPx = max(0, (DensityLayout.ALL_DAY_BAND_DP * density).roundToInt()),
             bandGapPx = max(0, (DensityLayout.ALL_DAY_BAND_GAP_DP * density).roundToInt()),
-            allDay = snapshot.lookahead.map { it.hasAllDay }
+            allDay = snapshot.lookahead.map { it.hasAllDay },
+            overflow = snapshot.lookahead.map {
+                DensityCalculator.overflowsBaseline(it.busyMinutes, config.densityLoadBaselineMinutes)
+            },
+            pxPerDp = density,
+            backgroundColor = palette.background
         )
     }
 

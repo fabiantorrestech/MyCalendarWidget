@@ -201,6 +201,20 @@ class DensitySpecBuilderTest {
     }
 
     @Test
+    fun loadBarsSpecFlagsOverflowingDays() {
+        val snapshot = DensitySnapshot(
+            hasPermission = true,
+            featured = dayAt(date),
+            featuredIsToday = true,
+            lookahead = listOf(dayAt(date.plusDays(1), busyMinutes = 600), dayAt(date.plusDays(2), busyMinutes = 480)),
+            nowMillis = 0L
+        )
+        val spec = DensitySpecBuilder.loadBarsSpec(snapshot, config, palette(), 300, 2f)
+        assertEquals(listOf(true, false), spec.overflow)
+        assertEquals(palette().background, spec.backgroundColor)
+    }
+
+    @Test
     fun stripSpecCarriesTheDaysCutFlags() {
         val cut = singleEventDay(9, 10).copy(cutAtStart = true, cutAtEnd = true)
         val spec = DensitySpecBuilder.stripSpec(cut, config, palette(), 1000, 1f, null, zone)

@@ -511,6 +511,22 @@ class DensityCalculatorTest {
         assertEquals(0f, DensityCalculator.dayLoad(240, 0), 0.0001f)
     }
 
+    @Test
+    fun `a day past the baseline overflows`() {
+        assertTrue(DensityCalculator.overflowsBaseline(600, 480))
+    }
+
+    @Test
+    fun `a day at the baseline does not overflow`() {
+        assertFalse(DensityCalculator.overflowsBaseline(480, 480))
+        assertFalse(DensityCalculator.overflowsBaseline(240, 480))
+    }
+
+    @Test
+    fun `a zero baseline never overflows`() {
+        assertFalse(DensityCalculator.overflowsBaseline(600, 0))
+    }
+
     // -------------------------------------------------------------- headline
 
     private fun headlineFor(
