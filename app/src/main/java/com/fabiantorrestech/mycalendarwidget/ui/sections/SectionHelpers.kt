@@ -48,6 +48,7 @@ fun StepSliderRow(
     steps: List<Int>,
     savedIndex: Int,
     labelForIndex: (Int) -> String,
+    description: String? = null,
     onIndexChangeFinished: (Int) -> Unit
 ) {
     var localIndex by remember(savedIndex) { mutableFloatStateOf(savedIndex.toFloat()) }
@@ -65,6 +66,13 @@ fun StepSliderRow(
             )
             Text(
                 text = labelForIndex(localIndex.roundToInt()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (description != null) {
+            Text(
+                text = description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

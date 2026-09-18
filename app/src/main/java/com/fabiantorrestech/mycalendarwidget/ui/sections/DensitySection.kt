@@ -127,6 +127,10 @@ fun DensitySection(
     val baselineSteps = (120..720 step 30).toList()
     StepSliderRow(
         label = "Load baseline",
+        description = "The amount of time the following days' progress bars track up to: " +
+            "how many of the baseline hours are occupied." + "\n\n" +
+            "e.g. with a baseline of 8h, 6h of events fills the bar 75%. Past the baseline the " +
+            "bar fills completely, turns heavier and shows a + to say you're over capacity that day.",
         steps = baselineSteps,
         savedIndex = baselineSteps.indexOf(config.densityLoadBaselineMinutes)
             .let { if (it < 0) baselineSteps.indexOf(480) else it },
