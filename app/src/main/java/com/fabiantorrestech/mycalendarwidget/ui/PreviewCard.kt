@@ -95,9 +95,6 @@ fun PreviewCard(
                 PreviewDensityContent(
                     snapshot = densitySnapshot,
                     config = config,
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
                     use24Hour = use24Hour,
                     widthDp = maxWidth,
                     // Unconstrained in a scrolling settings page; assume a two-row widget.
@@ -461,9 +458,6 @@ private val PREVIEW_DENSITY_HEIGHT = 200.dp
 private fun PreviewDensityContent(
     snapshot: DensitySnapshot?,
     config: WidgetConfig,
-    profiles: List<WidgetProfileEntry>,
-    activeProfileId: String,
-    cycleUiStyle: CycleUiStyle,
     use24Hour: Boolean,
     widthDp: Dp,
     heightDp: Dp
@@ -545,9 +539,7 @@ private fun PreviewDensityContent(
                     modifier = Modifier.weight(1f)
                 )
                 when (placement) {
-                    ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> PreviewDensityChrome(
-                        placement, config, profiles, activeProfileId, cycleUiStyle
-                    )
+                    ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> PreviewDensityChrome(placement, config)
                     ChromePlacement.BOTTOM_ROW -> {}
                 }
             }
@@ -615,7 +607,7 @@ private fun PreviewDensityContent(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    PreviewDensityChrome(placement, config, profiles, activeProfileId, cycleUiStyle)
+                    PreviewDensityChrome(placement, config)
                 }
             }
         }
@@ -711,24 +703,13 @@ private fun PreviewDensityLookaheadBars(
 @Composable
 private fun PreviewDensityChrome(
     placement: ChromePlacement,
-    config: WidgetConfig,
-    profiles: List<WidgetProfileEntry>,
-    activeProfileId: String,
-    cycleUiStyle: CycleUiStyle
+    config: WidgetConfig
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (placement) {
             ChromePlacement.INLINE, ChromePlacement.BOTTOM_ROW -> {
                 if (config.showRefreshButton) {
                     PreviewRefreshButton(config)
-                    Spacer(modifier = Modifier.width(4.dp))
-                }
-                if (profiles.size >= 2) {
-                    PreviewInlineProfileSwitcher(
-                        profiles,
-                        activeProfileId,
-                        previewFloatingCycleUiStyle(config.widgetStyle, cycleUiStyle)
-                    )
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 PreviewOpenCalendarButton()

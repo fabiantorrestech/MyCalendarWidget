@@ -33,19 +33,15 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.fabiantorrestech.mycalendarwidget.R
-import com.fabiantorrestech.mycalendarwidget.data.CycleUiStyle
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
-import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
-import com.fabiantorrestech.mycalendarwidget.widget.InlineProfileSwitcher
 import com.fabiantorrestech.mycalendarwidget.widget.OpenCalendarButton
 import com.fabiantorrestech.mycalendarwidget.widget.QuickAddButton
 import com.fabiantorrestech.mycalendarwidget.widget.RefreshButton
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout.ChromePlacement
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetClickActions
-import com.fabiantorrestech.mycalendarwidget.widget.floatingProfileUiStyle
 import com.fabiantorrestech.mycalendarwidget.widget.glanceFont
 import java.time.ZoneId
 import java.util.Locale
@@ -82,9 +78,6 @@ fun DensityWidgetContent(
     snapshot: DensitySnapshot?,
     config: WidgetConfig,
     context: Context,
-    profiles: List<WidgetProfileEntry>,
-    activeProfileId: String,
-    cycleUiStyle: CycleUiStyle,
     palette: DensityPalette,
     use24Hour: Boolean,
     peekOpen: Boolean = false,
@@ -203,9 +196,7 @@ fun DensityWidgetContent(
                     // Wide enough: everything stays inline. Narrow and short: one button
                     // fits. Narrow and tall: the chrome gets its own row below the body.
                     when (placement) {
-                        ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> DensityChrome(
-                            placement, config, profiles, activeProfileId, cycleUiStyle
-                        )
+                        ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> DensityChrome(placement, config)
                         ChromePlacement.BOTTOM_ROW -> {}
                     }
                 }
@@ -298,7 +289,7 @@ fun DensityWidgetContent(
                         horizontalAlignment = Alignment.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        DensityChrome(placement, config, profiles, activeProfileId, cycleUiStyle)
+                        DensityChrome(placement, config)
                     }
                 }
             }
@@ -316,24 +307,15 @@ fun DensityWidgetContent(
 @Composable
 private fun DensityChrome(
     placement: ChromePlacement,
-    config: WidgetConfig,
-    profiles: List<WidgetProfileEntry>,
-    activeProfileId: String,
-    cycleUiStyle: CycleUiStyle
+    config: WidgetConfig
 ) {
+    // No profile switcher here: the density style uses only the selected profile, so
+    // the chrome is refresh, calendar and quick-add.
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (placement) {
             ChromePlacement.INLINE, ChromePlacement.BOTTOM_ROW -> {
                 if (config.showRefreshButton) {
                     RefreshButton(config)
-                    Spacer(modifier = GlanceModifier.width(4.dp))
-                }
-                if (profiles.size >= 2) {
-                    InlineProfileSwitcher(
-                        profiles,
-                        activeProfileId,
-                        floatingProfileUiStyle(config.widgetStyle, cycleUiStyle)
-                    )
                     Spacer(modifier = GlanceModifier.width(4.dp))
                 }
                 OpenCalendarButton(config)
