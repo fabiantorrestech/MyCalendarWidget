@@ -64,6 +64,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItemKind
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekLabels
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekTypography
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PASSED_ALPHA
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -471,7 +472,7 @@ fun PeekPreviewCard(
     val (today, items) = remember(eventsByDay, config.densityPeekFormat) {
         val today = LocalDate.now(zone)
         val upcoming = PeekList.upcoming(eventsByDay, System.currentTimeMillis(), today)
-        today to PeekList.items(upcoming, config.densityPeekFormat)
+        today to PeekList.items(upcoming, config.densityPeekFormat, System.currentTimeMillis())
     }
     val timeColumn = if (use24Hour) DensityLayout.PEEK_TIME_COL_24H_DP else DensityLayout.PEEK_TIME_COL_12H_DP
 
@@ -533,7 +534,7 @@ fun PeekPreviewCard(
                                 Spacer(modifier = Modifier.height(1.dp))
                             }
                             PeekItemKind.EVENT -> item.event?.let { event ->
-                                PreviewPeekEventRow(event, item.date, config, use24Hour, zone, locale, timeColumn)
+                                PreviewPeekEventRow(event, item.date, item.passed, config, use24Hour, zone, locale, timeColumn)
                             }
                         }
                     }
@@ -592,6 +593,7 @@ private fun PreviewPeekHeader(date: LocalDate, today: LocalDate, config: WidgetC
 private fun PreviewPeekEventRow(
     event: CalendarEvent,
     date: LocalDate,
+    passed: Boolean,
     config: WidgetConfig,
     use24Hour: Boolean,
     zone: ZoneId,
@@ -603,6 +605,7 @@ private fun PreviewPeekEventRow(
     } else {
         TimeFormat.compact(event.dtStart, zone, use24Hour)
     }
+    val alpha = if (passed) PASSED_ALPHA else 1f
     Row(
         modifier = Modifier.fillMaxWidth().height(DensityLayout.PEEK_ROW_DP.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -630,7 +633,7 @@ private fun PreviewPeekEventRow(
         Text(
             text = time,
             fontSize = (PeekTypography.TIME_SP * config.typographyScale.eventTimeScale).sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
             fontFamily = config.previewFont(FontCategory.EVENT_TIME),
             maxLines = 1,
             modifier = Modifier.width(timeColumnDp.dp)
@@ -640,14 +643,14 @@ private fun PreviewPeekEventRow(
             modifier = Modifier
                 .size(DensityLayout.PEEK_DOT_DP.dp)
                 .clip(RoundedCornerShape((DensityLayout.PEEK_DOT_DP / 2f).dp))
-                .background(Color(event.displayColor))
+                .background(Color(event.displayColor).copy(alpha = alpha))
         )
         Spacer(modifier = Modifier.width(7.dp))
         Text(
             text = event.title,
             fontSize = (PeekTypography.TITLE_SP * config.typographyScale.eventNameScale).sp,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
             fontFamily = config.previewFont(FontCategory.EVENT_NAME),
             maxLines = 1,
             modifier = Modifier.weight(1f)

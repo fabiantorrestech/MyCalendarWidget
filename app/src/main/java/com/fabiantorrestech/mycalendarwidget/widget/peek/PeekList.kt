@@ -18,7 +18,9 @@ data class PeekItem(
     val kind: PeekItemKind,
     val itemId: Long,
     val date: LocalDate,
-    val event: CalendarEvent?
+    val event: CalendarEvent?,
+    /** A timed event on today that has already ended: drawn faded, still listed. */
+    val passed: Boolean = false
 )
 
 /**
@@ -69,14 +71,15 @@ object PeekList {
     )
 
     /**
-     * Every event still ahead of [nowMillis], flattened out of the by-day map and paired
-     * with the day it belongs to.
+     * Every event on today or later, flattened out of the by-day map and paired with the
+     * day it belongs to. Today's events that have already ended stay on the list (the
+     * sheet fades them; see [PeekItem.passed]) so the day reads whole; events on earlier
+     * days are gone.
      *
-     * Two different cut-offs, because all-day events have two different clocks. A timed
-     * event is over when its `dtEnd` has passed. An all-day instance's `dtStart`/`dtEnd`
+     * All-day events use a different clock: an all-day instance's `dtStart`/`dtEnd`
      * come back from the provider in *UTC* midnight terms, so west of UTC today's all-day
-     * event "ends" hours before the local day does — judging it by its date instead keeps
-     * it on the sheet until the day itself rolls over.
+     * event "ends" hours before the local day does — it is judged by its date, which is
+     * also all a timed event is judged by now.
      *
      * The ordering is fully specified rather than inherited from the map: day, then
      * all-day before timed, then start, then id. A map whose keys arrive in a different
@@ -101,7 +104,7 @@ object PeekList {
             .sortedBy { (date, _) -> if (date.isBefore(today)) 1 else 0 }
             .distinctBy { it.second.id }
             .filter { (date, event) ->
-                if (event.allDay) !date.isBefore(today) else event.dtEnd > nowMillis
+                if (event.allDay) !date.isBefore(today) else !date.isBefore(today) || event.dtEnd > nowMillis
             }
             .sortedWith(
                 compareBy(
@@ -123,7 +126,8 @@ object PeekList {
      */
     fun items(
         upcoming: List<Pair<LocalDate, CalendarEvent>>,
-        format: DensityPeekFormat
+        format: DensityPeekFormat,
+        nowMillis: Long
     ): List<PeekItem> {
         val items = ArrayList<PeekItem>(upcoming.size + 8)
 
@@ -144,7 +148,8 @@ object PeekList {
                 }
                 lastDate = date
             }
-            items.add(PeekItem(PeekItemKind.EVENT, event.id, date, event))
+            val passed = !event.allDay && event.dtEnd <= nowMillis
+            items.add(PeekItem(PeekItemKind.EVENT, event.id, date, event, passed = passed))
         }
         return items
     }

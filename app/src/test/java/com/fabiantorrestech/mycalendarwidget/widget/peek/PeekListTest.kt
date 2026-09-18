@@ -81,18 +81,37 @@ class PeekListTest {
     }
 
     @Test
-    fun `finished event is dropped and an in-progress one is kept`() {
+    fun `today's finished event is kept ahead of the in-progress one`() {
         val done = event(1L, at(0, 7), at(0, 8))
         val running = event(2L, at(0, 8), at(0, 12))
         val map = mapOf(TODAY to listOf(done, running))
         val result = PeekList.upcoming(map, at(0, 9), TODAY)
-        assertEquals(listOf(2L), result.map { it.second.id })
+        assertEquals(listOf(1L, 2L), result.map { it.second.id })
     }
 
     @Test
-    fun `event ending exactly now is dropped`() {
+    fun `event ending exactly now is kept as passed`() {
         val e = event(1L, at(0, 8), at(0, 9))
         val map = mapOf(TODAY to listOf(e))
+        val items = PeekList.items(PeekList.upcoming(map, at(0, 9), TODAY), DensityPeekFormat.DATED, at(0, 9))
+        assertEquals(listOf(true), items.map { it.passed })
+    }
+
+    @Test
+    fun `only finished timed events are flagged passed`() {
+        val done = event(1L, at(0, 7), at(0, 8))
+        val running = event(2L, at(0, 8), at(0, 12))
+        val later = event(3L, at(0, 14), at(0, 15))
+        val allDay = event(4L, at(0, 0), at(1, 0), allDay = true)
+        val map = mapOf(TODAY to listOf(done, running, later, allDay))
+        val items = PeekList.items(PeekList.upcoming(map, at(0, 9), TODAY), DensityPeekFormat.DATED, at(0, 9))
+        assertEquals(listOf(4L to false, 1L to true, 2L to false, 3L to false), items.map { it.itemId to it.passed })
+    }
+
+    @Test
+    fun `a finished event from an earlier day is still dropped`() {
+        val old = event(1L, at(-1, 7), at(-1, 8))
+        val map = mapOf(TODAY.minusDays(1) to listOf(old))
         assertTrue(PeekList.upcoming(map, at(0, 9), TODAY).isEmpty())
     }
 
@@ -188,7 +207,7 @@ class PeekListTest {
 
     @Test
     fun `grouped starts with a header and has one header per day change`() {
-        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.GROUPED)
+        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.GROUPED, at(0, 8))
         assertEquals(PeekItemKind.HEADER, items.first().kind)
         assertEquals(
             listOf(TODAY, TODAY.plusDays(1)),
@@ -200,14 +219,14 @@ class PeekListTest {
 
     @Test
     fun `grouped header itemId is the negated epoch day`() {
-        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.GROUPED)
+        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.GROUPED, at(0, 8))
         val header = items.first { it.kind == PeekItemKind.HEADER }
         assertEquals(-TODAY.toEpochDay(), header.itemId)
     }
 
     @Test
     fun `dated separates days but never before the first day`() {
-        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.DATED)
+        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.DATED, at(0, 8))
         assertEquals(PeekItemKind.EVENT, items.first().kind)
         assertTrue(items.none { it.kind == PeekItemKind.HEADER })
         val separators = items.filter { it.kind == PeekItemKind.SEPARATOR }
@@ -220,7 +239,7 @@ class PeekListTest {
 
     @Test
     fun `event items carry the event and its id`() {
-        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.DATED)
+        val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.DATED, at(0, 8))
         val events = items.filter { it.kind == PeekItemKind.EVENT }
         assertEquals(listOf(1L, 2L, 3L), events.map { it.itemId })
         assertEquals(listOf(1L, 2L, 3L), events.map { it.event?.id })
@@ -230,8 +249,8 @@ class PeekListTest {
     @Test
     fun `every itemId is unique and stable across two calls`() {
         DensityPeekFormat.entries.forEach { format ->
-            val first = PeekList.items(twoDaysUpcoming(), format)
-            val second = PeekList.items(twoDaysUpcoming(), format)
+            val first = PeekList.items(twoDaysUpcoming(), format, at(0, 8))
+            val second = PeekList.items(twoDaysUpcoming(), format, at(0, 8))
             val ids = first.map { it.itemId }
             assertEquals("$format has duplicate itemIds", ids.size, ids.distinct().size)
             assertEquals(ids, second.map { it.itemId })
@@ -250,7 +269,7 @@ class PeekListTest {
     @Test
     fun `empty upcoming yields no items`() {
         DensityPeekFormat.entries.forEach { format ->
-            assertTrue(PeekList.items(emptyList(), format).isEmpty())
+            assertTrue(PeekList.items(emptyList(), format, at(0, 8)).isEmpty())
         }
     }
 

@@ -57,6 +57,9 @@ internal object PeekTypography {
 }
 
 private const val TOP_BAR_SIZE_SP = PeekTypography.TOP_BAR_SP
+
+/** How far a finished event's row fades (text and dot alike). */
+internal const val PASSED_ALPHA = 0.55f
 private const val HEADER_SIZE_SP = PeekTypography.HEADER_SP
 private const val TIME_SIZE_SP = PeekTypography.TIME_SP
 private const val TITLE_SIZE_SP = PeekTypography.TITLE_SP
@@ -105,7 +108,7 @@ fun PeekOverlay(
             nowMillis = nowMillis,
             today = today
         )
-        Triple(today, upcoming, PeekList.items(upcoming, config.densityPeekFormat))
+        Triple(today, upcoming, PeekList.items(upcoming, config.densityPeekFormat, nowMillis))
     }
 
     Box(modifier = GlanceModifier.fillMaxSize()) {
@@ -123,6 +126,7 @@ fun PeekOverlay(
                     PeekItemKind.EVENT -> EventRow(
                         event = item.event,
                         date = item.date,
+                        passed = item.passed,
                         config = config,
                         context = context,
                         use24Hour = use24Hour,
@@ -300,6 +304,7 @@ private fun DaySeparator() {
 private fun EventRow(
     event: CalendarEvent?,
     date: LocalDate?,
+    passed: Boolean,
     config: WidgetConfig,
     context: Context,
     use24Hour: Boolean,
@@ -308,6 +313,19 @@ private fun EventRow(
     palette: DensityPalette
 ) {
     if (event == null) return
+    // A finished event fades to PASSED_ALPHA: the theme colours are resolved for the
+    // current mode and re-wrapped with the alpha, since a ColorProvider cannot be dimmed.
+    val titleColor = if (passed) {
+        ColorProvider(GlanceTheme.colors.onSurface.getColor(context).copy(alpha = PASSED_ALPHA))
+    } else {
+        GlanceTheme.colors.onSurface
+    }
+    val timeColor = if (passed) {
+        ColorProvider(GlanceTheme.colors.onSurfaceVariant.getColor(context).copy(alpha = PASSED_ALPHA))
+    } else {
+        GlanceTheme.colors.onSurfaceVariant
+    }
+    val dotColor = Color(event.displayColor).let { if (passed) it.copy(alpha = PASSED_ALPHA) else it }
     val time = if (event.allDay) {
         context.getString(R.string.peek_all_day)
     } else {
@@ -354,7 +372,7 @@ private fun EventRow(
         Text(
             text = time,
             style = TextStyle(
-                color = GlanceTheme.colors.onSurfaceVariant,
+                color = timeColor,
                 fontSize = (TIME_SIZE_SP * config.typographyScale.eventTimeScale).sp,
                 fontFamily = config.glanceFont(FontCategory.EVENT_TIME)
             ),
@@ -365,14 +383,14 @@ private fun EventRow(
         Box(
             modifier = GlanceModifier
                 .size(DensityLayout.PEEK_DOT_DP.dp)
-                .background(ColorProvider(Color(event.displayColor)))
+                .background(ColorProvider(dotColor))
                 .cornerRadius((DensityLayout.PEEK_DOT_DP / 2f).dp)
         ) {}
         Spacer(modifier = GlanceModifier.width(7.dp))
         Text(
             text = event.title,
             style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
+                color = titleColor,
                 fontSize = (TITLE_SIZE_SP * config.typographyScale.eventNameScale).sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
