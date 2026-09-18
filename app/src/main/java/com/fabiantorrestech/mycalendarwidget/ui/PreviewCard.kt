@@ -56,6 +56,14 @@ import com.fabiantorrestech.mycalendarwidget.widget.density.SECOND_LINE_SEPARATO
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout.ChromePlacement
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityPalette
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.fabiantorrestech.mycalendarwidget.data.DensityPeekFormat
+import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItemKind
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekLabels
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekTypography
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -444,6 +452,208 @@ private fun PreviewInlineProfileSwitcher(
 
 /** What the card assumes when the settings page gives it no height of its own. */
 private val PREVIEW_DENSITY_HEIGHT = 200.dp
+
+/**
+ * Compose mirror of the density peek sheet (`PeekOverlay`): the "Upcoming" bar, then the
+ * same rows [PeekList] builds for the widget, at the same [DensityLayout.PEEK_*] sizes and
+ * the same scale/font fields, so the appearance sliders can be judged against it. Inert:
+ * nothing here closes or opens anything.
+ */
+@Composable
+fun PeekPreviewCard(
+    config: WidgetConfig,
+    eventsByDay: Map<LocalDate, List<CalendarEvent>>,
+    use24Hour: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val zone = ZoneId.systemDefault()
+    val locale = Locale.getDefault()
+    val (today, items) = remember(eventsByDay, config.densityPeekFormat) {
+        val today = LocalDate.now(zone)
+        val upcoming = PeekList.upcoming(eventsByDay, System.currentTimeMillis(), today)
+        today to PeekList.items(upcoming, config.densityPeekFormat)
+    }
+    val timeColumn = if (use24Hour) DensityLayout.PEEK_TIME_COL_24H_DP else DensityLayout.PEEK_TIME_COL_12H_DP
+
+    Card(
+        modifier = modifier.fillMaxWidth().height(PREVIEW_DENSITY_HEIGHT),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(DensityLayout.WIDGET_PADDING_DP.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(DensityLayout.PEEK_TOP_BAR_DP.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.peek_upcoming),
+                    fontSize = PeekTypography.TOP_BAR_SP.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(9.dp)
+                    )
+                }
+            }
+            if (items.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.peek_empty),
+                    fontSize = (PeekTypography.TITLE_SP * config.typographyScale.eventNameScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = config.previewFont(FontCategory.EVENT_NAME),
+                    modifier = Modifier.fillMaxWidth().height(DensityLayout.PEEK_ROW_DP.dp)
+                )
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    items(items, key = { it.itemId }) { item ->
+                        when (item.kind) {
+                            PeekItemKind.HEADER -> PreviewPeekHeader(item.date, today, config, locale)
+                            PeekItemKind.SEPARATOR -> {
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(DensityLayout.PEEK_SEPARATOR_DP.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant)
+                                )
+                                Spacer(modifier = Modifier.height(1.dp))
+                            }
+                            PeekItemKind.EVENT -> item.event?.let { event ->
+                                PreviewPeekEventRow(event, item.date, config, use24Hour, zone, locale, timeColumn)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewPeekHeader(date: LocalDate, today: LocalDate, config: WidgetConfig, locale: Locale) {
+    val label = PeekLabels.dateHeader(
+        date = date,
+        today = today,
+        todayWord = stringResource(R.string.peek_today),
+        tomorrowWord = stringResource(R.string.peek_tomorrow),
+        locale = locale
+    )
+    val fontSize = (PeekTypography.HEADER_SP * config.typographyScale.subheaderScale).sp
+    val fontFamily = config.previewFont(FontCategory.WEEKDAY_HEADER)
+    Row(
+        modifier = Modifier.fillMaxWidth().height(DensityLayout.PEEK_HEADER_DP.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (PeekLabels.isToday(date, today)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(DensityLayout.PEEK_TODAY_PILL_RADIUS_DP.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = DensityLayout.PEEK_TODAY_PILL_INSET_DP.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    fontSize = fontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontFamily = fontFamily,
+                    maxLines = 1
+                )
+            }
+        } else {
+            Text(
+                text = label,
+                fontSize = fontSize,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                fontFamily = fontFamily,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun PreviewPeekEventRow(
+    event: CalendarEvent,
+    date: LocalDate,
+    config: WidgetConfig,
+    use24Hour: Boolean,
+    zone: ZoneId,
+    locale: Locale,
+    timeColumnDp: Float
+) {
+    val time = if (event.allDay) {
+        stringResource(R.string.peek_all_day)
+    } else {
+        TimeFormat.compact(event.dtStart, zone, use24Hour)
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().height(DensityLayout.PEEK_ROW_DP.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        when (config.densityPeekFormat) {
+            DensityPeekFormat.GROUPED -> {}
+            DensityPeekFormat.DATED -> {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(vertical = 1.dp, horizontal = 5.dp)
+                ) {
+                    Text(
+                        text = TimeFormat.shortDate(date, locale),
+                        fontSize = DensityLayout.PEEK_DATE_PILL_SP.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontFamily = config.previewFont(FontCategory.EVENT_TIME),
+                        maxLines = 1
+                    )
+                }
+                Spacer(modifier = Modifier.width(7.dp))
+            }
+        }
+        Text(
+            text = time,
+            fontSize = (PeekTypography.TIME_SP * config.typographyScale.eventTimeScale).sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = config.previewFont(FontCategory.EVENT_TIME),
+            maxLines = 1,
+            modifier = Modifier.width(timeColumnDp.dp)
+        )
+        Spacer(modifier = Modifier.width(7.dp))
+        Box(
+            modifier = Modifier
+                .size(DensityLayout.PEEK_DOT_DP.dp)
+                .clip(RoundedCornerShape((DensityLayout.PEEK_DOT_DP / 2f).dp))
+                .background(Color(event.displayColor))
+        )
+        Spacer(modifier = Modifier.width(7.dp))
+        Text(
+            text = event.title,
+            fontSize = (PeekTypography.TITLE_SP * config.typographyScale.eventNameScale).sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontFamily = config.previewFont(FontCategory.EVENT_NAME),
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
 
 /**
  * Compose approximation of [com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent]:

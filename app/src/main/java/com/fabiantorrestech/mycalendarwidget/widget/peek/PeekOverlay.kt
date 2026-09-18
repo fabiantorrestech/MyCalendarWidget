@@ -48,10 +48,18 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
 
-private const val TOP_BAR_SIZE_SP = 10
-private const val HEADER_SIZE_SP = 14
-private const val TIME_SIZE_SP = 11
-private const val TITLE_SIZE_SP = 13
+/** The peek sheet's base text sizes, shared with the settings preview's mirror of it. */
+internal object PeekTypography {
+    const val TOP_BAR_SP = 10
+    const val HEADER_SP = 14
+    const val TIME_SP = 11
+    const val TITLE_SP = 13
+}
+
+private const val TOP_BAR_SIZE_SP = PeekTypography.TOP_BAR_SP
+private const val HEADER_SIZE_SP = PeekTypography.HEADER_SP
+private const val TIME_SIZE_SP = PeekTypography.TIME_SP
+private const val TITLE_SIZE_SP = PeekTypography.TITLE_SP
 
 /**
  * The peek sheet: the one place in the density widget where event titles are shown.

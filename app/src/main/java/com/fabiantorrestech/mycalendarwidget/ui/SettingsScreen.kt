@@ -353,6 +353,22 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
+            if (visible.densitySection) {
+                item {
+                    Text(
+                        text = "Peek Preview",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    PeekPreviewCard(
+                        config = config,
+                        eventsByDay = previewEvents,
+                        use24Hour = remember(context) { use24Hour(context) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
             item {
                 AppearanceSection(
                     config = config,

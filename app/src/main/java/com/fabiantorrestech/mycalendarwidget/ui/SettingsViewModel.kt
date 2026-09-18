@@ -27,6 +27,7 @@ import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.toWidgetConfig
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetSyncScheduler
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -78,10 +79,12 @@ class SettingsViewModel(
     val previewEvents: StateFlow<Map<LocalDate, List<CalendarEvent>>> =
         config.flatMapLatest { cfg ->
             flow {
-                val events = if (cfg.widgetStyle == WidgetStyle.DENSITY) {
-                    emptyMap()
-                } else {
-                    withContext(Dispatchers.IO) { calendarRepo.getEventsByDay(cfg) }
+                // Density's preview card shows the peek sheet, so it queries with the
+                // peek's own config (the widget itself only does this once the peek opens).
+                val events = withContext(Dispatchers.IO) {
+                    calendarRepo.getEventsByDay(
+                        if (cfg.widgetStyle == WidgetStyle.DENSITY) PeekList.peekQueryConfig(cfg) else cfg
+                    )
                 }
                 emit(events)
             }
