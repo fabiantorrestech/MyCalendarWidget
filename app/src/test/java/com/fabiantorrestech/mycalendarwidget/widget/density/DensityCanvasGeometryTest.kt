@@ -220,36 +220,39 @@ class DensityCanvasGeometryTest {
         backgroundColor = 0
     )
 
-    // --- overflow chevrons: a > inside the right end of a bar past the baseline ---
+    // --- overflow: a + centred on a full bar past the baseline ---
 
     @Test
-    fun overflowChevronOnlyOnFlaggedColumns() {
+    fun overflowPlusOnlyOnFlaggedColumns() {
         val s = loadBarsSpec(loads = listOf(1f, 1f, 0.5f), widthPx = 100, heightPx = 24, gutterPx = 5, overflow = listOf(true, false, true))
-        val rects = DensityCanvas.loadBarOverflowRects(s)
         val tracks = DensityCanvas.loadBarTrackRects(s)
-        assertTrue(rects.isNotEmpty())
-        // Every row lies inside column 0 or column 2; none inside column 1.
+        val rects = DensityCanvas.loadBarOverflowPlusRects(s)
+        assertEquals(4, rects.size)
         assertTrue(rects.all { r -> (r.left >= tracks[0].left && r.right <= tracks[0].right) || (r.left >= tracks[2].left && r.right <= tracks[2].right) })
-        assertTrue(DensityCanvas.loadBarOverflowRects(loadBarsSpec(loads = listOf(1f))).isEmpty())
+        assertTrue(DensityCanvas.loadBarOverflowPlusRects(loadBarsSpec(loads = listOf(1f))).isEmpty())
     }
 
     @Test
-    fun overflowChevronSitsInsideTheColumnsRightEdge() {
-        // One 100px column, 24px bar, 4 px/dp: the tip touches 8px (2dp) inside the right edge.
-        val s = loadBarsSpec(loads = listOf(1f), widthPx = 100, heightPx = 24, gutterPx = 0, overflow = listOf(true))
-        val rects = DensityCanvas.loadBarOverflowRects(s)
-        assertEquals(92, rects.maxOf { it.right })
-        assertTrue(rects.all { it.width == 4 && it.height == 1 })
+    fun overflowPlusIsCentredInTheColumn() {
+        // One 101px column, 24px bar, 4 px/dp: both arms are centred on (50, 12) within a pixel.
+        val s = loadBarsSpec(loads = listOf(1f), widthPx = 101, heightPx = 24, gutterPx = 0, overflow = listOf(true))
+        val (horizontal, vertical) = DensityCanvas.loadBarOverflowPlusRects(s)
+        assertTrue(abs((horizontal.left + horizontal.right) / 2 - 50) <= 1)
+        assertTrue(abs((horizontal.top + horizontal.bottom) / 2 - 12) <= 1)
+        assertTrue(abs((vertical.left + vertical.right) / 2 - 50) <= 1)
+        assertTrue(abs((vertical.top + vertical.bottom) / 2 - 12) <= 1)
+        assertEquals(4, horizontal.height)
+        assertEquals(4, vertical.width)
+        assertEquals(horizontal.width, vertical.height)
     }
 
     @Test
-    fun overflowChevronFitsInsideTheBar() {
-        // A bar shorter than the 5dp chevron: the mark shrinks to an odd row count that fits.
+    fun overflowPlusFitsInsideTheBar() {
         val s = loadBarsSpec(loads = listOf(1f), widthPx = 100, heightPx = 9, gutterPx = 0, bandPx = 2, bandGapPx = 1, overflow = listOf(true))
         val track = DensityCanvas.loadBarTrackRects(s).single()
-        val rects = DensityCanvas.loadBarOverflowRects(s)
-        assertEquals(5, rects.size)
-        assertTrue(rects.all { it.top >= track.top && it.bottom <= track.bottom })
+        val rects = DensityCanvas.loadBarOverflowPlusRects(s)
+        assertEquals(2, rects.size)
+        assertTrue(rects.all { it.top >= track.top && it.bottom <= track.bottom && it.left >= track.left && it.right <= track.right })
     }
 
     @Test

@@ -116,7 +116,9 @@ data class LoadBarsSpec(
     /** Device pixels per dp, for the overflow mark's stroke and inset. */
     val pxPerDp: Float = 1f,
     /** The widget background, which the overflow mark is cut in. */
-    val backgroundColor: Int = 0
+    val backgroundColor: Int = 0,
+    /** Fill for an overflowing column: the busy colour pulled toward the foreground. */
+    val overflowFillColor: Int = fillColor
 )
 
 /**
@@ -214,13 +216,28 @@ object DensityCanvas {
     }
 
     /**
-     * A › cut into the right end of every full bar whose day is past the baseline
-     * ([LoadBarsSpec.overflow]): the same mark the strip uses for a midnight cut, saying
-     * "more than fits" in one hue.
+     * A + centred on every full bar whose day is past the baseline
+     * ([LoadBarsSpec.overflow]): two [DensityLayout.CUT_CHEVRON_STROKE_DP]-thick rects, the
+     * horizontal arm then the vertical one, each column in turn. The arm length is the
+     * chevron height ([DensityLayout.CUT_CHEVRON_DP]) or the bar height less a pixel of
+     * clearance top and bottom, whichever is smaller, and odd so the arms share a centre
+     * pixel. Cut in the background colour so it stays one hue.
      */
-    fun loadBarOverflowRects(spec: LoadBarsSpec): List<IntRect> =
+    fun loadBarOverflowPlusRects(spec: LoadBarsSpec): List<IntRect> =
         loadBarTrackRects(spec).flatMapIndexed { i, track ->
-            if (spec.overflow.getOrNull(i) == true) chevronRows(track, rightEdge = track.right, pxPerDp = spec.pxPerDp) else emptyList()
+            if (spec.overflow.getOrNull(i) != true) return@flatMapIndexed emptyList()
+            val stroke = max(1, (DensityLayout.CUT_CHEVRON_STROKE_DP * spec.pxPerDp).roundToInt())
+            val room = max(1, track.height - 2)
+            val wanted = max(1, (DensityLayout.CUT_CHEVRON_DP * spec.pxPerDp).roundToInt())
+            val arm = min(wanted, room).let { if (it % 2 == 0) max(1, it - 1) else it }
+            val cx = (track.left + track.right) / 2
+            val cy = (track.top + track.bottom) / 2
+            val half = arm / 2
+            val s0 = stroke / 2
+            listOf(
+                IntRect(cx - half, cy - s0, cx - half + arm, cy - s0 + stroke),
+                IntRect(cx - s0, cy - half, cx - s0 + stroke, cy - half + arm)
+            )
         }
 
     /**
@@ -463,12 +480,15 @@ object DensityCanvas {
         paint.color = scaled.trackColor
         loadBarTrackRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
 
+        loadBarFillRects(scaled).forEachIndexed { i, rect ->
+            paint.color = if (scaled.overflow.getOrNull(i) == true) scaled.overflowFillColor else scaled.fillColor
+            canvas.drawRect(rect.toRect(), paint)
+        }
         paint.color = scaled.fillColor
-        loadBarFillRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
         loadBarBandRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
 
         paint.color = scaled.backgroundColor
-        loadBarOverflowRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
+        loadBarOverflowPlusRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
 
         return bitmap
     }

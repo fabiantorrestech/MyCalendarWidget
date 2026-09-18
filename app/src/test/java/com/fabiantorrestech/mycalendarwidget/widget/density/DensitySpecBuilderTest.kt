@@ -215,6 +215,20 @@ class DensitySpecBuilderTest {
     }
 
     @Test
+    fun overflowFillIsHeavierThanTheBusyColour() {
+        // "Heavier" means pulled toward onSurface, so it reads in light and dark themes alike.
+        val p = palette()
+        val spec = DensitySpecBuilder.loadBarsSpec(
+            DensitySnapshot(true, dayAt(date), true, listOf(dayAt(date.plusDays(1), busyMinutes = 600)), 0L),
+            config, p, 300, 2f
+        )
+        assertNotEquals(p.busy, spec.overflowFillColor)
+        val towardOnSurface = ColorMath.luminance(p.onSurface) - ColorMath.luminance(p.busy)
+        val moved = ColorMath.luminance(spec.overflowFillColor) - ColorMath.luminance(p.busy)
+        assertTrue(towardOnSurface * moved > 0f)
+    }
+
+    @Test
     fun stripSpecCarriesTheDaysCutFlags() {
         val cut = singleEventDay(9, 10).copy(cutAtStart = true, cutAtEnd = true)
         val spec = DensitySpecBuilder.stripSpec(cut, config, palette(), 1000, 1f, null, zone)

@@ -262,6 +262,9 @@ object DensitySpecBuilder {
     /** One axis tick every four hours, as 8a / 12p / 4p / 8p on the default window. */
     private const val AXIS_STEP_MINUTES = 240
 
+    /** How far an overflowing bar's fill is pulled toward the foreground colour. */
+    private const val OVERFLOW_HEAVY_T = 0.35f
+
     private const val MIN_AXIS_CELLS = 4
     private const val MAX_AXIS_CELLS = 10
 
@@ -445,7 +448,10 @@ object DensitySpecBuilder {
                 DensityCalculator.overflowsBaseline(it.busyMinutes, config.densityLoadBaselineMinutes)
             },
             pxPerDp = density,
-            backgroundColor = palette.background
+            backgroundColor = palette.background,
+            // Toward onSurface rather than plain black: heavier in light and dark themes
+            // alike, where a darkened fill would sink into a dark background.
+            overflowFillColor = ColorMath.lerp(palette.busy, palette.onSurface, OVERFLOW_HEAVY_T)
         )
     }
 
