@@ -65,8 +65,10 @@ fun DensitySection(
     val endHour = config.densityWindowEndMinutes / 60
 
     IntSliderRow(
-        label = "Day window starts",
-        description = "Grows on days with earlier or later events",
+        label = "Today - start time",
+        description = "The widget's today bar will grow dynamically at the beginning with events " +
+            "that start earlier, even if they occur earlier than this set time. This is just what " +
+            "your bar will show on days where your first event is after this set start time.",
         savedValue = startHour,
         range = 0..12,
         valueLabel = { "$it:00" },
@@ -91,8 +93,11 @@ fun DensitySection(
         }
     )
     IntSliderRow(
-        label = "Day window ends",
-        description = "Grows on days with earlier or later events",
+        label = "Today - end time",
+        description = "This will dynamically grow for days where your events run past this time " +
+            "regardless of what you set here. This time that you set will be what the widget's " +
+            "ending time normally will display until in the cases when you don't have events that " +
+            "go over this set time.",
         savedValue = endHour,
         range = 13..24,
         valueLabel = { "$it:00" },
