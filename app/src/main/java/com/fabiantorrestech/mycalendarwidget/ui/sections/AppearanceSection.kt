@@ -61,17 +61,33 @@ fun AppearanceSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
         )
+        LabeledIntro(
+            title = "Density Color Scheme",
+            body = "Colors used by the Density widget.\n" +
+                "Shape is a plain yes/no: is anything happening at those times.\n" +
+                "Tonal (default) sits between Shape and Detail: one color scheme, still sliced " +
+                "so events at the same time stay apart, using only shades of the selected color.\n" +
+                "Detail carves out each event and colors it by its calendar."
+        )
         EnumSegmentedRow(
             options = DensityStripMode.entries,
             selected = config.densityStripMode,
             label = { it.displayName },
             onSelect = { onConfigChange(config.copy(densityStripMode = it)) }
         )
+        LabeledIntro(
+            title = "Peek Layout",
+            body = "How the tap-to-peek list groups its rows: headers per day, or a date on every row."
+        )
         EnumSegmentedRow(
             options = DensityPeekFormat.entries,
             selected = config.densityPeekFormat,
             label = { it.displayName },
             onSelect = { onConfigChange(config.copy(densityPeekFormat = it)) }
+        )
+        LabeledIntro(
+            title = "Density Header Status",
+            body = "A quick-glance large text that shows what your day looks like according to your calendar."
         )
         EnumSegmentedRow(
             options = DensityCountMode.entries,
@@ -120,14 +136,18 @@ fun AppearanceSection(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
     }
 
-    ToggleRow(
-        label = "Material You dynamic color",
-        description = "Match system wallpaper palette (Android 12+)",
-        checked = config.dynamicColor,
-        onCheckedChange = { onConfigChange(config.copy(dynamicColor = it)) }
-    )
+    // Under Density the Material You switch sits with the busy colour it feeds
+    // (DensityLookControls); the agenda styles keep it here.
+    if (!visible.densitySection) {
+        ToggleRow(
+            label = "Material You dynamic color",
+            description = "Match system wallpaper palette (Android 12+)",
+            checked = config.dynamicColor,
+            onCheckedChange = { onConfigChange(config.copy(dynamicColor = it)) }
+        )
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    }
 
     Text(
         text = "Font Size Scales",
@@ -226,6 +246,22 @@ fun AppearanceSection(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         DensityLookControls(config = config, calendars = calendars, onConfigChange = onConfigChange)
     }
+}
+
+/** A small titled paragraph introducing the control under it. */
+@Composable
+private fun LabeledIntro(title: String, body: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+    )
+    Text(
+        text = body,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

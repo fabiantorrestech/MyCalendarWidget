@@ -62,10 +62,30 @@ internal fun DensityLookControls(
     calendars: List<CalendarInfo>,
     onConfigChange: (WidgetConfig) -> Unit
 ) {
+    ToggleRow(
+        label = "Material You dynamic color",
+        description = "Match system wallpaper palette (Android 12+)",
+        checked = config.dynamicColor,
+        onCheckedChange = { onConfigChange(config.copy(dynamicColor = it)) }
+    )
+
     Text(
         text = "Busy color",
         style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier.padding(bottom = 6.dp)
+        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+    )
+    Text(
+        // In Detail the day bar wears calendar colours, so the busy colour is left with
+        // the look-ahead bars and the all-day band.
+        text = when (config.densityStripMode) {
+            DensityStripMode.SHAPE, DensityStripMode.TONAL ->
+                "The color scheme used to distinguish busy events on your day progress bar."
+            DensityStripMode.DETAIL ->
+                "Colors the look-ahead bars and the all-day band; the day bar itself uses each event's calendar color."
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp)
     )
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
