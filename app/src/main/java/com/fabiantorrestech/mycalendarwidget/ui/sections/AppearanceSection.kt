@@ -26,6 +26,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.fabiantorrestech.mycalendarwidget.R
+import com.fabiantorrestech.mycalendarwidget.data.CalendarInfo
+import com.fabiantorrestech.mycalendarwidget.data.DensityCountMode
+import com.fabiantorrestech.mycalendarwidget.data.DensityPeekFormat
+import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.FontMode
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
@@ -37,10 +43,45 @@ import kotlin.math.roundToInt
 @Composable
 fun AppearanceSection(
     config: WidgetConfig,
+    calendars: List<CalendarInfo>,
     onConfigChange: (WidgetConfig) -> Unit
 ) {
     SectionHeader(title = "Appearance")
     val visible = VisibleSettings.forStyle(config.widgetStyle)
+    val labels = TypographyLabels.forStyle(config.widgetStyle)
+
+    WidgetStylePicker(config = config, onConfigChange = onConfigChange)
+
+    // The density style's look: strip mode, peek format and count mode sit right under
+    // the style they belong to.
+    if (visible.densitySection) {
+        Text(
+            text = stringResource(R.string.density_profiles_locked),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
+        )
+        EnumSegmentedRow(
+            options = DensityStripMode.entries,
+            selected = config.densityStripMode,
+            label = { it.displayName },
+            onSelect = { onConfigChange(config.copy(densityStripMode = it)) }
+        )
+        EnumSegmentedRow(
+            options = DensityPeekFormat.entries,
+            selected = config.densityPeekFormat,
+            label = { it.displayName },
+            onSelect = { onConfigChange(config.copy(densityPeekFormat = it)) }
+        )
+        EnumSegmentedRow(
+            options = DensityCountMode.entries,
+            selected = config.densityCountMode,
+            label = { it.displayName },
+            onSelect = { onConfigChange(config.copy(densityCountMode = it)) }
+        )
+    }
+
+    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
     // The month header and its navigation only exist in the agenda styles.
     if (visible.monthChrome) {
@@ -95,34 +136,36 @@ fun AppearanceSection(
     )
 
     ScaleSlider(
-        label = "Month header",
+        label = labels.headerScale,
         savedValue = config.typographyScale.headerScale,
         onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(headerScale = it))) }
     )
     ScaleSlider(
-        label = "Weekday Headers",
+        label = labels.subheaderScale,
         savedValue = config.typographyScale.subheaderScale,
         onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(subheaderScale = it))) }
     )
     if (visible.dateHeaderScale) {
         ScaleSlider(
-            label = "Date Headers",
+            label = labels.dateHeaderScale,
             savedValue = config.typographyScale.dateHeaderScale,
             onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(dateHeaderScale = it))) }
         )
     }
     ScaleSlider(
-        label = "Event Time",
+        label = labels.eventTimeScale,
+        description = labels.eventTimeDescription,
         savedValue = config.typographyScale.eventTimeScale,
         onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(eventTimeScale = it))) }
     )
     ScaleSlider(
-        label = "Event Names",
+        label = labels.eventNameScale,
         savedValue = config.typographyScale.eventNameScale,
         onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(eventNameScale = it))) }
     )
     ScaleSlider(
-        label = "Details",
+        label = labels.detailScale,
+        description = labels.detailDescription,
         savedValue = config.typographyScale.detailScale,
         onValueChangeFinished = { onConfigChange(config.copy(typographyScale = config.typographyScale.copy(detailScale = it))) }
     )
@@ -156,27 +199,32 @@ fun AppearanceSection(
         }
         FontMode.PER_CATEGORY -> {
             if (visible.monthHeaderFont) {
-                FontDropdown("Month Header", config.fontConfig.monthHeaderFont) {
+                FontDropdown(labels.monthHeaderFont, config.fontConfig.monthHeaderFont) {
                     onConfigChange(config.copy(fontConfig = config.fontConfig.copy(monthHeaderFont = it)))
                 }
             }
-            FontDropdown("Weekday Headers", config.fontConfig.weekdayHeaderFont) {
+            FontDropdown(labels.weekdayHeaderFont, config.fontConfig.weekdayHeaderFont) {
                 onConfigChange(config.copy(fontConfig = config.fontConfig.copy(weekdayHeaderFont = it)))
             }
-            FontDropdown("Date Headers", config.fontConfig.dateHeaderFont) {
+            FontDropdown(labels.dateHeaderFont, config.fontConfig.dateHeaderFont) {
                 onConfigChange(config.copy(fontConfig = config.fontConfig.copy(dateHeaderFont = it)))
             }
-            FontDropdown("Event Time", config.fontConfig.eventTimeFont) {
+            FontDropdown(labels.eventTimeFont, config.fontConfig.eventTimeFont) {
                 onConfigChange(config.copy(fontConfig = config.fontConfig.copy(eventTimeFont = it)))
             }
-            FontDropdown("Event Names", config.fontConfig.eventNameFont) {
+            FontDropdown(labels.eventNameFont, config.fontConfig.eventNameFont) {
                 onConfigChange(config.copy(fontConfig = config.fontConfig.copy(eventNameFont = it)))
             }
-            FontDropdown("Details", config.fontConfig.detailFont) {
+            FontDropdown(labels.detailFont, config.fontConfig.detailFont) {
                 onConfigChange(config.copy(fontConfig = config.fontConfig.copy(detailFont = it)))
             }
         }
         FontMode.DEFAULT -> {}
+    }
+
+    if (visible.densitySection) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        DensityLookControls(config = config, calendars = calendars, onConfigChange = onConfigChange)
     }
 }
 
@@ -215,7 +263,8 @@ private fun FontDropdown(label: String, selected: WidgetFont, onSelected: (Widge
 private fun ScaleSlider(
     label: String,
     savedValue: Float,
-    onValueChangeFinished: (Float) -> Unit
+    onValueChangeFinished: (Float) -> Unit,
+    description: String? = null
 ) {
     // Local state for smooth dragging; only saves to DataStore on finger-up
     var localValue by remember(savedValue) { mutableFloatStateOf(savedValue) }
@@ -225,11 +274,19 @@ private fun ScaleSlider(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (description != null) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Text(
                 text = "${(localValue * 100).roundToInt()}%",
                 style = MaterialTheme.typography.bodySmall,

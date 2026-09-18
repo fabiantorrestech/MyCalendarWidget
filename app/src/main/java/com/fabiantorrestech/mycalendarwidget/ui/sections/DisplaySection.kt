@@ -30,48 +30,6 @@ fun DisplaySection(
     SectionHeader(title = "Display")
     val visible = VisibleSettings.forStyle(config.widgetStyle)
 
-    Text(
-        text = "Widget Style",
-        style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier.padding(bottom = 6.dp)
-    )
-
-    var styleMenuExpanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = styleMenuExpanded,
-        onExpandedChange = { styleMenuExpanded = it },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        OutlinedTextField(
-            value = config.widgetStyle.displayName,
-            onValueChange = {},
-            readOnly = true,
-            singleLine = true,
-            label = null,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = styleMenuExpanded) },
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
-        )
-        ExposedDropdownMenu(
-            expanded = styleMenuExpanded,
-            onDismissRequest = { styleMenuExpanded = false }
-        ) {
-            // Driven by the enum itself, so a new style shows up here without another edit.
-            WidgetStyle.entries.forEach { style ->
-                DropdownMenuItem(
-                    text = { Text(style.displayName) },
-                    onClick = {
-                        styleMenuExpanded = false
-                        onConfigChange(config.copy(widgetStyle = style))
-                    }
-                )
-            }
-        }
-    }
-
-    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
     // Which groups a style shows is decided once, in VisibleSettings: the density style
     // renders no event text and no agenda list, so those controls are hidden rather than
     // left inert.
@@ -105,19 +63,8 @@ fun DisplaySection(
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
     }
 
-    // Density's peek list is the only thing this range still drives in that style (the
-    // agenda/detail lines it also feeds are hidden above for Density), so it gets its own
-    // label and a one-line description there instead of sharing "Days to look ahead"
-    // with the density section's separate look-ahead-bars range.
-    if (visible.peekHorizon) {
-        IntSliderRow(
-            label = "Peek horizon (days)",
-            description = "How far ahead the peek list reaches",
-            savedValue = config.daysAheadToLoad,
-            range = 7..90,
-            onValueChangeFinished = { onConfigChange(config.copy(daysAheadToLoad = it)) }
-        )
-    } else {
+    // For Density the same range is the peek horizon and lives in Widget Behavior.
+    if (!visible.peekHorizon) {
         IntSliderRow(
             label = "Days to look ahead",
             savedValue = config.daysAheadToLoad,

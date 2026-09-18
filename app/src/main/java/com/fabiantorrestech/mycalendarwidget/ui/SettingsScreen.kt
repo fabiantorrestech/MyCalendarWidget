@@ -372,6 +372,7 @@ fun SettingsScreen(
             item {
                 AppearanceSection(
                     config = config,
+                    calendars = calendars,
                     onConfigChange = viewModel::updateConfig
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -422,7 +423,6 @@ fun SettingsScreen(
             item {
                 DensitySection(
                     config = config,
-                    calendars = calendars,
                     onConfigChange = viewModel::updateConfig
                 )
                 Spacer(modifier = Modifier.height(16.dp))
