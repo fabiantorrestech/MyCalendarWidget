@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalConfiguration
+import com.fabiantorrestech.mycalendarwidget.data.SettingsUiPrefs
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,6 +102,9 @@ fun SettingsScreen(
     var showAddProfileDialog by rememberSaveable { mutableStateOf(false) }
     var newProfileName by rememberSaveable { mutableStateOf("") }
     var showSyncDialog by rememberSaveable { mutableStateOf(false) }
+    var stickyPreview by rememberSaveable { mutableStateOf(SettingsUiPrefs.stickyPreview(context)) }
+    var previewView by rememberSaveable { mutableStateOf(PreviewView.WIDGET) }
+    val use24HourClock = remember(context) { use24Hour(context) }
     var selectedSyncId by rememberSaveable { mutableIntStateOf(-1) }
 
     // Local state for the name field — avoids a DataStore write on every keystroke
@@ -222,13 +230,42 @@ fun SettingsScreen(
             )
         }
 
+        val visible = VisibleSettings.forStyle(config.widgetStyle)
+        // The pane pins above the list as a sibling, never over it, so no setting can
+        // scroll behind it; it is capped so the settings always keep most of the screen.
+        val pinnedMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            if (stickyPreview) {
+                PreviewPane(
+                    config = config,
+                    eventsByDay = previewEvents,
+                    densitySnapshot = previewDensity,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    use24Hour = use24HourClock,
+                    view = previewView,
+                    onViewChange = { previewView = it },
+                    scrollInside = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = pinnedMaxHeight)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                HorizontalDivider()
+            }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            val visible = VisibleSettings.forStyle(config.widgetStyle)
 
             item {
                 LazyRow(
@@ -335,35 +372,19 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            item {
-                Text(
-                    text = "Widget Preview",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                PreviewCard(
-                    config = config,
-                    eventsByDay = previewEvents,
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    densitySnapshot = previewDensity,
-                    use24Hour = remember(context) { use24Hour(context) }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            if (visible.densitySection) {
+            if (!stickyPreview) {
                 item {
-                    Text(
-                        text = "Peek Preview",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    PeekPreviewCard(
+                    PreviewPane(
                         config = config,
                         eventsByDay = previewEvents,
-                        use24Hour = remember(context) { use24Hour(context) }
+                        densitySnapshot = previewDensity,
+                        profiles = profiles,
+                        activeProfileId = activeProfileId,
+                        cycleUiStyle = cycleUiStyle,
+                        use24Hour = use24HourClock,
+                        view = previewView,
+                        onViewChange = { previewView = it },
+                        scrollInside = false
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -373,7 +394,12 @@ fun SettingsScreen(
                 AppearanceSection(
                     config = config,
                     calendars = calendars,
-                    onConfigChange = viewModel::updateConfig
+                    onConfigChange = viewModel::updateConfig,
+                    stickyPreview = stickyPreview,
+                    onStickyPreviewChange = {
+                        stickyPreview = it
+                        SettingsUiPrefs.setStickyPreview(context, it)
+                    }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -437,6 +463,7 @@ fun SettingsScreen(
                     onImport = { importLauncher.launch(arrayOf("application/json")) }
                 )
             }
+        }
         }
     }
 }

@@ -44,11 +44,22 @@ import kotlin.math.roundToInt
 fun AppearanceSection(
     config: WidgetConfig,
     calendars: List<CalendarInfo>,
-    onConfigChange: (WidgetConfig) -> Unit
+    onConfigChange: (WidgetConfig) -> Unit,
+    stickyPreview: Boolean,
+    onStickyPreviewChange: (Boolean) -> Unit
 ) {
     SectionHeader(title = "Appearance")
     val visible = VisibleSettings.forStyle(config.widgetStyle)
     val labels = TypographyLabels.forStyle(config.widgetStyle)
+
+    ToggleRow(
+        label = "Sticky preview to top",
+        description = "Keep the preview pinned while you adjust settings",
+        checked = stickyPreview,
+        onCheckedChange = onStickyPreviewChange
+    )
+
+    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
     WidgetStylePicker(config = config, onConfigChange = onConfigChange)
 
