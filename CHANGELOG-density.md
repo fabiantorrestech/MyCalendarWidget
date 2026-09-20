@@ -64,3 +64,5 @@ than the order it was built in.
 - The seam between two stacked events showed a lighter line in dark mode; it now matches the outline in both themes.
 - The look-ahead bars distinguish a day at the baseline from one past it: an over-capacity day fills completely, turns heavier and carries a +.
 - The settings screen no longer renders the profile chips, the Profiles section and the add-profile dialog twice.
+- **Reset all defaults** used to crash the app and reset nothing at all on a widget that had never been synced; it now does what it says.
+- The "Sync config with…" list named each widget by the style it had when profiles were introduced, not the style it uses now.
