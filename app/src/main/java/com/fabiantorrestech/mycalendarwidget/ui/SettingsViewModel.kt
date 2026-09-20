@@ -152,7 +152,11 @@ class SettingsViewModel(
             val glanceIds = manager.getGlanceIds(BridgeCalWidget::class.java)
             val summaries = glanceIds.mapIndexed { index, glanceId ->
                 val id = manager.getAppWidgetId(glanceId)
-                val config = WidgetConfigRepository(appContext, id).configFlow.first()
+                // The style has to come from the profile store, the one the widget itself
+                // renders from. The legacy per-widget store is only written by a couple of
+                // widget actions, so reading the style there left the sync dialog naming
+                // whatever style a widget had when profiles were introduced.
+                val config = WidgetProfileRepository(appContext, id).activeConfigFlow.first()
                 val syncSource = WidgetSyncLinkRepository.getSyncSource(appContext, id)
                 WidgetSummary(
                     appWidgetId = id,
