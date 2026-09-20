@@ -237,18 +237,32 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
     /**
      * Links this widget's config to [sourceId], or unlinks if null.
      * On unlink, the current shared config is copied into this widget's own DataStore first.
+     *
+     * Asking for the link the widget already has does nothing. That guard is not a
+     * micro-optimisation: the branches below open a DataStore for this widget's own
+     * file, and DataStore throws `IllegalStateException: There are multiple DataStores
+     * active for the same file` if another instance for that file is still alive. On a
+     * real link change the file this repository reads actually changes, so there is only
+     * ever one; on a no-op call (unlinking a widget that was never linked, which is what
+     * "Reset all defaults" does) the file would not change and the second instance
+     * crashed the app.
+     *
+     * [clearCache] is deliberately not called here either: the cache is keyed by the
+     * resolved id and a resolved id always maps to the same file, so an entry never goes
+     * stale — dropping it only risks handing out a second instance for a file something
+     * else still holds. It stays for widget deletion, where nothing should hold the store.
      */
     suspend fun setSyncSource(sourceId: Int?) {
+        if (WidgetSyncLinkRepository.getSyncSource(context, appWidgetId) == sourceId) return
+
         if (sourceId == null) {
             // Capture current config before clearing link so the widget retains it independently
             val snapshot = configFlow.first()
             WidgetSyncLinkRepository.setSyncSource(context, appWidgetId, null)
-            clearCache(appWidgetId)
             _dataStore.value = getOrCreate(context, appWidgetId)
             updateConfig(snapshot)
         } else {
             WidgetSyncLinkRepository.setSyncSource(context, appWidgetId, sourceId)
-            clearCache(appWidgetId)
             _dataStore.value = getOrCreate(context, WidgetSyncLinkRepository.resolveSource(context, appWidgetId))
         }
     }
