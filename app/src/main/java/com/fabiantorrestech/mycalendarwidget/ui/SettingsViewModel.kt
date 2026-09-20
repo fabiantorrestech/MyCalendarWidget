@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.fabiantorrestech.mycalendarwidget.data.AutoBackup
 import com.fabiantorrestech.mycalendarwidget.data.AutomationProfile
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.CalendarInfo
@@ -21,6 +22,10 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
+import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.ui.preview.SampleCalendar
+import java.time.ZoneId
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
 import com.fabiantorrestech.mycalendarwidget.data.toWidgetConfig
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetSyncScheduler
@@ -72,13 +77,35 @@ class SettingsViewModel(
     private val _calendars = MutableStateFlow<List<CalendarInfo>>(emptyList())
     val calendars: StateFlow<List<CalendarInfo>> = _calendars.asStateFlow()
 
+    // Every preview runs on the scripted SampleCalendar rather than the user's own
+    // events: the same shapes for everyone, nothing private on screen, and no calendar
+    // query while settings are open. Re-derived whenever the config changes (the
+    // look-ahead count and the day window shape the sample).
     val previewEvents: StateFlow<Map<LocalDate, List<CalendarEvent>>> =
         config.flatMapLatest { cfg ->
             flow {
-                val events = withContext(Dispatchers.IO) { calendarRepo.getEventsByDay(cfg) }
-                emit(events)
+                val zone = ZoneId.systemDefault()
+                val today = LocalDate.now(zone)
+                emit(SampleCalendar.eventsByDay(today, zone, maxOf(cfg.densityLookaheadDays, 3)))
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /**
+     * The density preview's counterpart to [previewEvents], built from the same sample:
+     * only while the density style is selected, and never from the real calendar.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val previewDensity: StateFlow<DensitySnapshot?> =
+        config.flatMapLatest { cfg ->
+            flow {
+                val snapshot = if (cfg.widgetStyle == WidgetStyle.DENSITY) {
+                    SampleCalendar.snapshot(cfg, System.currentTimeMillis(), ZoneId.systemDefault())
+                } else {
+                    null
+                }
+                emit(snapshot)
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
     val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
@@ -125,7 +152,11 @@ class SettingsViewModel(
             val glanceIds = manager.getGlanceIds(BridgeCalWidget::class.java)
             val summaries = glanceIds.mapIndexed { index, glanceId ->
                 val id = manager.getAppWidgetId(glanceId)
-                val config = WidgetConfigRepository(appContext, id).configFlow.first()
+                // The style has to come from the profile store, the one the widget itself
+                // renders from. The legacy per-widget store is only written by a couple of
+                // widget actions, so reading the style there left the sync dialog naming
+                // whatever style a widget had when profiles were introduced.
+                val config = WidgetProfileRepository(appContext, id).activeConfigFlow.first()
                 val syncSource = WidgetSyncLinkRepository.getSyncSource(appContext, id)
                 WidgetSummary(
                     appWidgetId = id,
@@ -152,8 +183,9 @@ class SettingsViewModel(
 
     fun updateConfig(newConfig: WidgetConfig) {
         viewModelScope.launch {
-            if (newConfig.syncIntervalMinutes != config.value.syncIntervalMinutes) {
-                WidgetSyncScheduler.schedule(appContext, appWidgetId, newConfig.syncIntervalMinutes)
+            val newInterval = WidgetSyncScheduler.effectiveIntervalMinutes(newConfig)
+            if (newInterval != WidgetSyncScheduler.effectiveIntervalMinutes(config.value)) {
+                WidgetSyncScheduler.schedule(appContext, appWidgetId, newInterval)
             }
             val profileId = profileRepo.ensureActiveProfileId(config.value)
             profileRepo.updateProfileConfig(profileId, newConfig)
@@ -237,6 +269,38 @@ class SettingsViewModel(
 
     fun setCycleUiStyle(style: CycleUiStyle) {
         viewModelScope.launch { profileRepo.setCycleUiStyle(style) }
+    }
+
+    /**
+     * Every setting of this widget back to its defaults: the sync link (if any) is cut,
+     * all profiles are replaced by one fresh Default, the legacy store is reset so
+     * exports agree, and the widget name is cleared. [onDone] runs once it is all written.
+     */
+    fun resetAllDefaults(onDone: () -> Unit) {
+        viewModelScope.launch {
+            val fresh = WidgetConfig()
+            configRepo.setSyncSource(null)
+            profileRepo.resetToDefaults(fresh)
+            configRepo.updateConfig(fresh)
+            WidgetNameRepository.clear(appContext, appWidgetId)
+            _widgetName.value = ""
+            _syncSource.value = null
+            WidgetSyncScheduler.schedule(appContext, appWidgetId, WidgetSyncScheduler.effectiveIntervalMinutes(fresh))
+            loadAvailableWidgets()
+            onDone()
+        }
+    }
+
+    /**
+     * Done: run the auto-backup (when it is on) and only then hand control back so the
+     * activity finishes after the files are written. A failed backup is logged and
+     * reported through [onDone]'s argument; it never blocks leaving the screen.
+     */
+    fun finishWithBackup(onDone: (backupError: String?) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { AutoBackup.backupAll(appContext) }
+            onDone(result.exceptionOrNull()?.message)
+        }
     }
 
     fun exportConfig(context: Context, uri: Uri) {

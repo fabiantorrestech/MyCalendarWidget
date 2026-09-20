@@ -1,10 +1,27 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
+
 enum class AutomationProfile { STANDARD, DENSE, MINIMAL }
 
 enum class DefaultClickTarget { SYSTEM_DEFAULT, DIGICAL, GCAL }
 
-enum class WidgetStyle { AGENDA, GCAL, GCAL_LEFT }
+enum class WidgetStyle(val displayName: String) {
+    AGENDA("Standard"), GCAL("GCal Style 1"), GCAL_LEFT("GCal Style 2"), DENSITY("Density")
+}
+
+enum class DensityStripMode(val displayName: String) {
+    SHAPE("Shape"),    // merged, anonymous, one accent
+    TONAL("Tonal"),    // per event, true duration, tones of the accent per calendar bucket
+    DETAIL("Detail")   // per event, true duration, calendar colors
+}
+enum class DensityPeekFormat(val displayName: String) {
+    GROUPED("Grouped"),     // date header on day change, then time · dot · title rows
+    DATED("Dated rows")     // date pill on every row, separators between days
+}
+enum class DensityCountMode(val displayName: String) {
+    LEFT("Left today"), FRACTION("Left of total"), TOTAL("Total")
+}
 
 enum class HeaderNavStyle { ARROWS, CHIPS }
 
@@ -53,7 +70,14 @@ data class CalendarInfo(
     val displayName: String,
     val accountName: String,
     val color: Int,
-    val enabled: Boolean
+    val enabled: Boolean,
+    /**
+     * `Calendars.VISIBLE` from the provider — whether the user has this calendar checked
+     * on in their calendar app. Used to keep the density Tonal rank fallback (Settings)
+     * aligned with the widget's own fallback ([DensitySpecBuilder]'s `visibleCalendarIds`),
+     * which is scoped to the same provider flag.
+     */
+    val visible: Boolean = true
 )
 
 data class TypographyScale(
@@ -85,7 +109,7 @@ data class WidgetConfig(
     val showEmptyDays: Boolean = false,
     val alwaysShowToday: Boolean = false,
     val showSpanningEventsEachDay: Boolean = false,
-    val widgetStyle: WidgetStyle = WidgetStyle.GCAL_LEFT,
+    val widgetStyle: WidgetStyle = WidgetStyle.DENSITY,
     val calendarLaunchView: CalendarLaunchView = CalendarLaunchView.DEFAULT,
     val activeProfile: AutomationProfile = AutomationProfile.STANDARD,
     val headerNavEnabled: Boolean = false,
@@ -94,6 +118,16 @@ data class WidgetConfig(
     val showMonthInHeader: Boolean = true,
     val syncIntervalMinutes: Int = 0,
     val refreshNonce: Int = 0,
+    val densityWindowStartMinutes: Int = 480,
+    val densityWindowEndMinutes: Int = 1320,
+    val densityLookaheadDays: Int = 3,            // 0..7
+    val densityLoadBaselineMinutes: Int = 480,
+    val densityRolloverHour: Int = 19,            // 0..23
+    val densityBusyColor: Int = DensityConstants.DEFAULT_BUSY_COLOR, // 0 = follow theme
+    val densityStripMode: DensityStripMode = DensityStripMode.TONAL,
+    val densityPeekFormat: DensityPeekFormat = DensityPeekFormat.GROUPED,
+    val densityCountMode: DensityCountMode = DensityCountMode.LEFT,
+    val densityCalendarTones: Map<Long, Int> = emptyMap(),   // calendarId -> tone 0..4
     val configVersion: Int = 1
 )
 

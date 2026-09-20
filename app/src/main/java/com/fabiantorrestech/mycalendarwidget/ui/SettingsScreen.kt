@@ -11,7 +11,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalConfiguration
+import com.fabiantorrestech.mycalendarwidget.data.SettingsUiPrefs
+import com.fabiantorrestech.mycalendarwidget.data.AutoBackup
+import com.fabiantorrestech.mycalendarwidget.ui.sections.AutoBackupSection
+import com.fabiantorrestech.mycalendarwidget.ui.sections.ResetSection
+import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -62,8 +71,13 @@ import com.fabiantorrestech.mycalendarwidget.ui.sections.AdvancedSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.AppearanceSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.CalendarFilterSection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ClickRoutingSection
+import com.fabiantorrestech.mycalendarwidget.ui.sections.DensitySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.DisplaySection
 import com.fabiantorrestech.mycalendarwidget.ui.sections.ProfilesSection
+import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
+import com.fabiantorrestech.mycalendarwidget.R
+import com.fabiantorrestech.mycalendarwidget.ui.sections.VisibleSettings
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +92,7 @@ fun SettingsScreen(
     val calendars by viewModel.calendars.collectAsState()
     val exportState by viewModel.exportState.collectAsState()
     val previewEvents by viewModel.previewEvents.collectAsState()
+    val previewDensity by viewModel.previewDensity.collectAsState()
     val syncSource by viewModel.syncSource.collectAsState()
     val availableWidgets by viewModel.availableWidgetsToSync.collectAsState()
     val allOtherWidgets by viewModel.allOtherWidgets.collectAsState()
@@ -91,6 +106,9 @@ fun SettingsScreen(
     var showAddProfileDialog by rememberSaveable { mutableStateOf(false) }
     var newProfileName by rememberSaveable { mutableStateOf("") }
     var showSyncDialog by rememberSaveable { mutableStateOf(false) }
+    var stickyPreview by rememberSaveable { mutableStateOf(SettingsUiPrefs.stickyPreview(context)) }
+    var previewView by rememberSaveable { mutableStateOf(PreviewView.WIDGET) }
+    val use24HourClock = remember(context) { use24Hour(context) }
     var selectedSyncId by rememberSaveable { mutableIntStateOf(-1) }
 
     // Local state for the name field — avoids a DataStore write on every keystroke
@@ -118,6 +136,22 @@ fun SettingsScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { viewModel.importConfig(context, it) }
+    }
+
+    var autoBackupEnabled by rememberSaveable { mutableStateOf(SettingsUiPrefs.autoBackupEnabled(context)) }
+    var autoBackupFolder by rememberSaveable { mutableStateOf(AutoBackup.folderLabel(context)) }
+    val treeLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Keep the grant across reboots and app restarts; Done may run months later.
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            SettingsUiPrefs.setAutoBackupTree(context, it)
+            autoBackupFolder = AutoBackup.folderLabel(context)
+        }
     }
 
     LaunchedEffect(exportState) {
@@ -153,35 +187,6 @@ fun SettingsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        if (showAddProfileDialog) {
-            AlertDialog(
-                onDismissRequest = { showAddProfileDialog = false; newProfileName = "" },
-                title = { Text("New profile") },
-                text = {
-                    OutlinedTextField(
-                        value = newProfileName,
-                        onValueChange = { newProfileName = it },
-                        label = { Text("Profile name") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            if (newProfileName.isNotBlank()) {
-                                viewModel.addProfile(newProfileName.trim())
-                                showAddProfileDialog = false
-                                newProfileName = ""
-                            }
-                        }
-                    ) { Text("Create") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showAddProfileDialog = false; newProfileName = "" }) { Text("Cancel") }
-                }
-            )
-        }
-
         if (showSyncDialog) {
             SyncDialog(
                 syncSource = syncSource,
@@ -245,35 +250,87 @@ fun SettingsScreen(
             )
         }
 
+        val visible = VisibleSettings.forStyle(config.widgetStyle)
+        // The pane pins above the list as a sibling, never over it, so no setting can
+        // scroll behind it; it is capped so the settings always keep most of the screen.
+        val pinnedMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            if (stickyPreview) {
+                PreviewPane(
+                    config = config,
+                    eventsByDay = previewEvents,
+                    densitySnapshot = previewDensity,
+                    profiles = profiles,
+                    activeProfileId = activeProfileId,
+                    cycleUiStyle = cycleUiStyle,
+                    use24Hour = use24HourClock,
+                    view = previewView,
+                    onViewChange = { previewView = it },
+                    scrollInside = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = pinnedMaxHeight)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                HorizontalDivider()
+            }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 4.dp)
-                ) {
-                    items(profiles, key = { it.id }) { profile ->
-                        FilterChip(
-                            selected = profile.id == activeProfileId,
-                            onClick = { viewModel.setActiveProfile(profile.id) },
-                            label = { Text(profile.name) }
-                        )
+
+            // Density uses only the selected profile: the chip row, the Profiles section
+            // and the profile-count warning are dropped and one red note stands in.
+            if (visible.profilesEditable) {
+                item {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 4.dp)
+                    ) {
+                        items(profiles, key = { it.id }) { profile ->
+                            FilterChip(
+                                selected = profile.id == activeProfileId,
+                                onClick = { viewModel.setActiveProfile(profile.id) },
+                                label = { Text(profile.name) }
+                            )
+                        }
+                        item {
+                            SuggestionChip(
+                                onClick = { showAddProfileDialog = true },
+                                label = { Text("+ Add") }
+                            )
+                        }
                     }
-                    item {
-                        SuggestionChip(
-                            onClick = { showAddProfileDialog = true },
-                            label = { Text("+ Add") }
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.density_profiles_locked),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
 
-            if (profiles.size >= 2) {
+            if (visible.profilesEditable && profiles.size >= 2) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -320,84 +377,50 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            item {
-                ProfilesSection(
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    onRename = { id, name -> viewModel.renameProfile(id, name) },
-                    onDelete = { viewModel.deleteProfile(it) },
-                    onMoveUp = { viewModel.moveProfileUp(it) },
-                    onMoveDown = { viewModel.moveProfileDown(it) },
-                    onCycleStyleChange = { viewModel.setCycleUiStyle(it) }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            item {
-                Text(
-                    text = "Active profile",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(end = 4.dp)
-                ) {
-                    items(
-                        items = profiles,
-                        key = { it.id }
-                    ) { profile ->
-                        FilterChip(
-                            selected = profile.id == activeProfileId,
-                            onClick = { viewModel.setActiveProfile(profile.id) },
-                            label = { Text(profile.name) }
-                        )
-                    }
-                    item {
-                        SuggestionChip(
-                            onClick = { showAddProfileDialog = true },
-                            label = { Text("+ Add") }
-                        )
-                    }
+            if (visible.profilesEditable) {
+                item {
+                    ProfilesSection(
+                        profiles = profiles,
+                        activeProfileId = activeProfileId,
+                        cycleUiStyle = cycleUiStyle,
+                        onRename = { id, name -> viewModel.renameProfile(id, name) },
+                        onDelete = { viewModel.deleteProfile(it) },
+                        onMoveUp = { viewModel.moveProfileUp(it) },
+                        onMoveDown = { viewModel.moveProfileDown(it) },
+                        onCycleStyleChange = { viewModel.setCycleUiStyle(it) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            item {
-                ProfilesSection(
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle,
-                    onRename = viewModel::renameProfile,
-                    onDelete = viewModel::deleteProfile,
-                    onMoveUp = viewModel::moveProfileUp,
-                    onMoveDown = viewModel::moveProfileDown,
-                    onCycleStyleChange = viewModel::setCycleUiStyle
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            item {
-                Text(
-                    text = "Widget Preview",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                PreviewCard(
-                    config = config,
-                    eventsByDay = previewEvents,
-                    profiles = profiles,
-                    activeProfileId = activeProfileId,
-                    cycleUiStyle = cycleUiStyle
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            if (!stickyPreview) {
+                item {
+                    PreviewPane(
+                        config = config,
+                        eventsByDay = previewEvents,
+                        densitySnapshot = previewDensity,
+                        profiles = profiles,
+                        activeProfileId = activeProfileId,
+                        cycleUiStyle = cycleUiStyle,
+                        use24Hour = use24HourClock,
+                        view = previewView,
+                        onViewChange = { previewView = it },
+                        scrollInside = false
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
 
             item {
                 AppearanceSection(
                     config = config,
-                    onConfigChange = viewModel::updateConfig
+                    calendars = calendars,
+                    onConfigChange = viewModel::updateConfig,
+                    stickyPreview = stickyPreview,
+                    onStickyPreviewChange = {
+                        stickyPreview = it
+                        SettingsUiPrefs.setStickyPreview(context, it)
+                    }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -445,6 +468,14 @@ fun SettingsScreen(
             }
 
             item {
+                DensitySection(
+                    config = config,
+                    onConfigChange = viewModel::updateConfig
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
                 AdvancedSection(
                     config = config,
                     onConfigChange = viewModel::updateConfig,
@@ -452,7 +483,32 @@ fun SettingsScreen(
                     onExport = { exportLauncher.launch("bridgecal_widget_backup_$appWidgetId.json") },
                     onImport = { importLauncher.launch(arrayOf("application/json")) }
                 )
+                Spacer(modifier = Modifier.height(16.dp))
             }
+
+            item {
+                AutoBackupSection(
+                    enabled = autoBackupEnabled,
+                    folderLabel = autoBackupFolder,
+                    onEnabledChange = {
+                        autoBackupEnabled = it
+                        SettingsUiPrefs.setAutoBackupEnabled(context, it)
+                    },
+                    onChooseFolder = { treeLauncher.launch(null) }
+                )
+            }
+
+            item {
+                ResetSection(
+                    onConfirmReset = {
+                        viewModel.resetAllDefaults {
+                            localWidgetName = ""
+                            scope.launch { snackbarHostState.showSnackbar("Settings reset to defaults") }
+                        }
+                    }
+                )
+            }
+        }
         }
     }
 }
@@ -527,7 +583,7 @@ private fun SyncDialog(
                                     onClick = { onSelectId(widget.appWidgetId) }
                                 )
                                 Text(
-                                    text = "$label — ${widget.style.name}",
+                                    text = "$label — ${widget.style.displayName}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.padding(start = 4.dp)
                                 )

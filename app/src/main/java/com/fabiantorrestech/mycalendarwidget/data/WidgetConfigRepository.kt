@@ -1,5 +1,6 @@
 package com.fabiantorrestech.mycalendarwidget.data
 
+import com.fabiantorrestech.mycalendarwidget.data.density.DensityConstants
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -82,6 +83,16 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
         val CALENDAR_LAUNCH_VIEW = stringPreferencesKey("calendar_launch_view")
         val SYNC_INTERVAL = intPreferencesKey("sync_interval")
         val REFRESH_NONCE = intPreferencesKey("refresh_nonce")
+        val DENSITY_WINDOW_START = intPreferencesKey("density_window_start")
+        val DENSITY_WINDOW_END = intPreferencesKey("density_window_end")
+        val DENSITY_LOOKAHEAD_DAYS = intPreferencesKey("density_lookahead_days")
+        val DENSITY_LOAD_BASELINE = intPreferencesKey("density_load_baseline")
+        val DENSITY_ROLLOVER_HOUR = intPreferencesKey("density_rollover_hour")
+        val DENSITY_BUSY_COLOR = intPreferencesKey("density_busy_color")
+        val DENSITY_STRIP_MODE = stringPreferencesKey("density_strip_mode")
+        val DENSITY_PEEK_FORMAT = stringPreferencesKey("density_peek_format")
+        val DENSITY_COUNT_MODE = stringPreferencesKey("density_count_mode")
+        val DENSITY_CALENDAR_TONES = stringPreferencesKey("density_calendar_tones")
     }
 
     val configFlow: Flow<WidgetConfig> = _dataStore.flatMapLatest { store -> store.data }.map { prefs ->
@@ -129,7 +140,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             showSpanningEventsEachDay = prefs[Keys.SHOW_SPANNING_EVENTS_EACH_DAY] ?: false,
             widgetStyle = prefs[Keys.WIDGET_STYLE]
                 ?.let { runCatching { WidgetStyle.valueOf(it) }.getOrNull() }
-                ?: WidgetStyle.GCAL_LEFT,
+                ?: WidgetStyle.DENSITY,
             calendarLaunchView = prefs[Keys.CALENDAR_LAUNCH_VIEW]
                 ?.let { runCatching { CalendarLaunchView.valueOf(it) }.getOrNull() }
                 ?: CalendarLaunchView.DEFAULT,
@@ -143,7 +154,23 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             monthOffset = prefs[Keys.MONTH_OFFSET] ?: 0,
             showMonthInHeader = prefs[Keys.SHOW_MONTH_IN_HEADER] ?: true,
             syncIntervalMinutes = prefs[Keys.SYNC_INTERVAL] ?: 0,
-            refreshNonce = prefs[Keys.REFRESH_NONCE] ?: 0
+            refreshNonce = prefs[Keys.REFRESH_NONCE] ?: 0,
+            densityWindowStartMinutes = prefs[Keys.DENSITY_WINDOW_START] ?: 480,
+            densityWindowEndMinutes = prefs[Keys.DENSITY_WINDOW_END] ?: 1320,
+            densityLookaheadDays = prefs[Keys.DENSITY_LOOKAHEAD_DAYS] ?: 3,
+            densityLoadBaselineMinutes = prefs[Keys.DENSITY_LOAD_BASELINE] ?: 480,
+            densityRolloverHour = prefs[Keys.DENSITY_ROLLOVER_HOUR] ?: 19,
+            densityBusyColor = prefs[Keys.DENSITY_BUSY_COLOR] ?: DensityConstants.DEFAULT_BUSY_COLOR,
+            densityStripMode = prefs[Keys.DENSITY_STRIP_MODE]
+                ?.let { runCatching { DensityStripMode.valueOf(it) }.getOrNull() }
+                ?: DensityStripMode.TONAL,
+            densityPeekFormat = prefs[Keys.DENSITY_PEEK_FORMAT]
+                ?.let { runCatching { DensityPeekFormat.valueOf(it) }.getOrNull() }
+                ?: DensityPeekFormat.GROUPED,
+            densityCountMode = prefs[Keys.DENSITY_COUNT_MODE]
+                ?.let { runCatching { DensityCountMode.valueOf(it) }.getOrNull() }
+                ?: DensityCountMode.LEFT,
+            densityCalendarTones = ConfigExporter.calendarTonesFromJson(prefs[Keys.DENSITY_CALENDAR_TONES])
         )
     }
 
@@ -189,6 +216,16 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             prefs[Keys.CALENDAR_LAUNCH_VIEW] = config.calendarLaunchView.name
             prefs[Keys.SYNC_INTERVAL] = config.syncIntervalMinutes
             prefs[Keys.REFRESH_NONCE] = config.refreshNonce
+            prefs[Keys.DENSITY_WINDOW_START] = config.densityWindowStartMinutes
+            prefs[Keys.DENSITY_WINDOW_END] = config.densityWindowEndMinutes
+            prefs[Keys.DENSITY_LOOKAHEAD_DAYS] = config.densityLookaheadDays
+            prefs[Keys.DENSITY_LOAD_BASELINE] = config.densityLoadBaselineMinutes
+            prefs[Keys.DENSITY_ROLLOVER_HOUR] = config.densityRolloverHour
+            prefs[Keys.DENSITY_BUSY_COLOR] = config.densityBusyColor
+            prefs[Keys.DENSITY_STRIP_MODE] = config.densityStripMode.name
+            prefs[Keys.DENSITY_PEEK_FORMAT] = config.densityPeekFormat.name
+            prefs[Keys.DENSITY_COUNT_MODE] = config.densityCountMode.name
+            prefs[Keys.DENSITY_CALENDAR_TONES] = ConfigExporter.calendarTonesToJson(config.densityCalendarTones)
         }
     }
 
@@ -200,18 +237,32 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
     /**
      * Links this widget's config to [sourceId], or unlinks if null.
      * On unlink, the current shared config is copied into this widget's own DataStore first.
+     *
+     * Asking for the link the widget already has does nothing. That guard is not a
+     * micro-optimisation: the branches below open a DataStore for this widget's own
+     * file, and DataStore throws `IllegalStateException: There are multiple DataStores
+     * active for the same file` if another instance for that file is still alive. On a
+     * real link change the file this repository reads actually changes, so there is only
+     * ever one; on a no-op call (unlinking a widget that was never linked, which is what
+     * "Reset all defaults" does) the file would not change and the second instance
+     * crashed the app.
+     *
+     * [clearCache] is deliberately not called here either: the cache is keyed by the
+     * resolved id and a resolved id always maps to the same file, so an entry never goes
+     * stale — dropping it only risks handing out a second instance for a file something
+     * else still holds. It stays for widget deletion, where nothing should hold the store.
      */
     suspend fun setSyncSource(sourceId: Int?) {
+        if (WidgetSyncLinkRepository.getSyncSource(context, appWidgetId) == sourceId) return
+
         if (sourceId == null) {
             // Capture current config before clearing link so the widget retains it independently
             val snapshot = configFlow.first()
             WidgetSyncLinkRepository.setSyncSource(context, appWidgetId, null)
-            clearCache(appWidgetId)
             _dataStore.value = getOrCreate(context, appWidgetId)
             updateConfig(snapshot)
         } else {
             WidgetSyncLinkRepository.setSyncSource(context, appWidgetId, sourceId)
-            clearCache(appWidgetId)
             _dataStore.value = getOrCreate(context, WidgetSyncLinkRepository.resolveSource(context, appWidgetId))
         }
     }

@@ -5,4 +5,13 @@
     <string name="widget_description">Agenda calendar widget with Material You theming and smart click routing</string>
     <string name="no_events">No upcoming events</string>
     <string name="permission_required">Calendar permission required to display events</string>
+    <string name="density_no_permission">Tap to grant calendar access</string>
+    <string name="peek_upcoming">Upcoming</string>
+    <string name="peek_today">Today</string>
+    <string name="peek_tomorrow">Tomorrow</string>
+    <string name="peek_all_day">All day</string>
+    <string name="peek_empty">Nothing coming up</string>
+    <string name="peek_loading">Loading\u2026</string>
+    <string name="density_profiles_locked">Density uses only the selected profile. Profile switching and editing are off while this style is selected.</string>
+    <string name="advanced_density_sync_note">Density refreshes every 5 minutes and at midnight.</string>
 </resources>

@@ -1,7 +1,9 @@
 package com.fabiantorrestech.mycalendarwidget.widget
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -20,6 +22,13 @@ import com.fabiantorrestech.mycalendarwidget.data.FontMode
 import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
+import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityWidgetContent
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekOverlay
+import com.fabiantorrestech.mycalendarwidget.widget.peek.SetPeekAction
+import com.fabiantorrestech.mycalendarwidget.widget.peek.peekOpenKey
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
@@ -49,7 +58,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
 
-private fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
+internal fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
     fontConfig.resolve(category).glanceFamilyName?.let { androidx.glance.text.FontFamily(it) }
 
 private data class DayEventRenderItem(
@@ -67,74 +76,138 @@ fun BridgeCalWidgetContent(
     glanceId: GlanceId,
     profiles: List<WidgetProfileEntry> = emptyList(),
     activeProfileId: String = "",
-    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL
+    cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
+    densitySnapshot: DensitySnapshot? = null,
+    use24Hour: Boolean = false,
+    peekOpen: Boolean = false,
+    /** True while the peek's calendar query has not answered yet (density only). */
+    peekEventsLoading: Boolean = false
 ) {
-    val rootPadding = if (config.strictGridMode) 0.dp else 8.dp
-    val rootModifier = GlanceModifier
-        .fillMaxSize()
-        .background(GlanceTheme.colors.widgetBackground)
-        .cornerRadius(16.dp)
-        .padding(rootPadding)
-
-    // Suppress the first month's inline header only when the month is already
-    // visible in the widget header (via static title or nav). When both are off,
-    // the list shows all month headers — matching Google Calendar's style.
-    val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
-    val firstDisplayedMonth = if (suppressFirstMonth) {
-        eventsByDay.keys.firstOrNull()?.let { YearMonth.of(it.year, it.month) }
-    } else null
-
-    // When neither month text nor nav controls occupy the header, the buttons float
-    // as an overlay so the list can use the full widget height.
-    val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
-    val floatingContentTopInset = floatingContentTopInset(config, profiles, cycleUiStyle)
-
-    if (floatingMode) {
-        Box(modifier = rootModifier) {
-            if (eventsByDay.isEmpty()) {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .padding(top = floatingContentTopInset),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No upcoming events",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = (14 * config.typographyScale.detailScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
-                        )
+    // The style dispatch is exhaustive with no `else`: a new WidgetStyle must be given an
+    // explicit arm here rather than silently rendering as the agenda list.
+    when (config.widgetStyle) {
+        WidgetStyle.DENSITY -> {
+            // One Box, two layers: the density renderer (which becomes a ghosted strip
+            // and nothing else once the peek opens) and, above it, the peek sheet. The
+            // sheet lives in `widget/peek/` and the renderer in `widget/density/`; only
+            // this dispatcher knows about both, which is what keeps the density pipeline
+            // free of event content by construction (G1) — DensityWidgetContent is never
+            // handed `eventsByDay` at all.
+            // Computed once here rather than separately in DensityWidgetContent and
+            // PeekOverlay: both need the identical palette (the sheet's DATED date pill
+            // must sit on the exact ground the strip's own pill tint uses), and this is
+            // the one place that already knows about both packages.
+            val isDark = (context.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val densityPalette = DensitySpecBuilder.palette(
+                config = config,
+                isDark = isDark,
+                background = GlanceTheme.colors.widgetBackground.getColor(context).toArgb(),
+                onSurface = GlanceTheme.colors.onSurface.getColor(context).toArgb(),
+                primary = GlanceTheme.colors.primary.getColor(context).toArgb()
+            )
+            Box(modifier = GlanceModifier.fillMaxSize()) {
+                DensityWidgetContent(
+                    snapshot = densitySnapshot,
+                    config = config,
+                    context = context,
+                    palette = densityPalette,
+                    use24Hour = use24Hour,
+                    peekOpen = peekOpen,
+                    // Supplied from here because `widget/density/` may not reference the
+                    // peek package; the renderer only knows "the strip runs this". Null
+                    // while the peek is open: the sheet layered on top owns every touch,
+                    // so the strip underneath must not also carry a click target.
+                    stripAction = if (peekOpen) {
+                        null
+                    } else {
+                        actionRunCallback<SetPeekAction>(actionParametersOf(peekOpenKey to true))
+                    }
+                )
+                if (peekOpen) {
+                    PeekOverlay(
+                        eventsByDay = eventsByDay,
+                        loading = peekEventsLoading,
+                        config = config,
+                        context = context,
+                        use24Hour = use24Hour,
+                        // The same palette the ghosted strip behind the sheet was drawn
+                        // from, so the DATED date pill and the strip agree on their ground.
+                        palette = densityPalette
                     )
-                }
-            } else {
-                Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .padding(top = floatingContentTopInset)
-                ) {
-                    EventList(eventsByDay, firstDisplayedMonth, config, context)
                 }
             }
-            FloatingControlsOverlay(config, profiles, activeProfileId, cycleUiStyle)
         }
-    } else {
-        Column(modifier = rootModifier) {
-            WidgetHeader(config, context, profiles, activeProfileId, cycleUiStyle)
-            Spacer(modifier = GlanceModifier.height(4.dp))
-            if (eventsByDay.isEmpty()) {
-                Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No upcoming events",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = (14 * config.typographyScale.detailScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
-                        )
-                    )
+
+        WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.GCAL_LEFT -> {
+            val rootPadding = if (config.strictGridMode) 0.dp else 8.dp
+            val rootModifier = GlanceModifier
+                .fillMaxSize()
+                .background(GlanceTheme.colors.widgetBackground)
+                .cornerRadius(16.dp)
+                .padding(rootPadding)
+
+            // Suppress the first month's inline header only when the month is already
+            // visible in the widget header (via static title or nav). When both are off,
+            // the list shows all month headers — matching Google Calendar's style.
+            val suppressFirstMonth = config.showMonthInHeader || config.headerNavEnabled
+            val firstDisplayedMonth = if (suppressFirstMonth) {
+                eventsByDay.keys.firstOrNull()?.let { YearMonth.of(it.year, it.month) }
+            } else null
+
+            // When neither month text nor nav controls occupy the header, the buttons float
+            // as an overlay so the list can use the full widget height.
+            val floatingMode = !config.showMonthInHeader && !config.headerNavEnabled
+            val floatingContentTopInset = floatingContentTopInset(config, profiles, cycleUiStyle)
+
+            if (floatingMode) {
+                Box(modifier = rootModifier) {
+                    if (eventsByDay.isEmpty()) {
+                        Box(
+                            modifier = GlanceModifier
+                                .fillMaxSize()
+                                .padding(top = floatingContentTopInset),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No upcoming events",
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = (14 * config.typographyScale.detailScale).sp,
+                                    fontFamily = config.glanceFont(FontCategory.DETAIL)
+                                )
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = GlanceModifier
+                                .fillMaxSize()
+                                .padding(top = floatingContentTopInset)
+                        ) {
+                            EventList(eventsByDay, firstDisplayedMonth, config, context)
+                        }
+                    }
+                    FloatingControlsOverlay(config, profiles, activeProfileId, cycleUiStyle)
                 }
             } else {
-                EventList(eventsByDay, firstDisplayedMonth, config, context)
+                Column(modifier = rootModifier) {
+                    WidgetHeader(config, context, profiles, activeProfileId, cycleUiStyle)
+                    Spacer(modifier = GlanceModifier.height(4.dp))
+                    if (eventsByDay.isEmpty()) {
+                        Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "No upcoming events",
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = (14 * config.typographyScale.detailScale).sp,
+                                    fontFamily = config.glanceFont(FontCategory.DETAIL)
+                                )
+                            )
+                        }
+                    } else {
+                        EventList(eventsByDay, firstDisplayedMonth, config, context)
+                    }
+                }
             }
         }
     }
@@ -148,44 +221,52 @@ private fun EventList(
     context: Context
 ) {
     LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-        if (config.widgetStyle == WidgetStyle.GCAL_LEFT) {
-            var lastMonth: java.time.Month? = null
-            eventsByDay.forEach { (date, events) ->
-                if (date.month != lastMonth) {
-                    val ym = YearMonth.of(date.year, date.month)
-                    if (ym != firstDisplayedMonth) {
-                        item(itemId = date.toEpochDay() * 1000 + 999) {
-                            MonthSectionHeader(date, config)
+        when (config.widgetStyle) {
+            WidgetStyle.GCAL_LEFT -> {
+                var lastMonth: java.time.Month? = null
+                eventsByDay.forEach { (date, events) ->
+                    if (date.month != lastMonth) {
+                        val ym = YearMonth.of(date.year, date.month)
+                        if (ym != firstDisplayedMonth) {
+                            item(itemId = date.toEpochDay() * 1000 + 999) {
+                                MonthSectionHeader(date, config)
+                            }
                         }
+                        lastMonth = date.month
                     }
-                    lastMonth = date.month
-                }
-                item(itemId = date.toEpochDay()) {
-                    DayGroupGcalLeft(date, events, config, context)
+                    item(itemId = date.toEpochDay()) {
+                        DayGroupGcalLeft(date, events, config, context)
+                    }
                 }
             }
-        } else {
-            var lastMonth: java.time.Month? = null
-            eventsByDay.forEach { (date, events) ->
-                if (date.month != lastMonth) {
-                    val ym = YearMonth.of(date.year, date.month)
-                    if (ym != firstDisplayedMonth) {
-                        item(itemId = date.toEpochDay() * 1000 + 999) {
-                            MonthSectionHeader(date, config)
+
+            WidgetStyle.AGENDA, WidgetStyle.GCAL -> {
+                var lastMonth: java.time.Month? = null
+                eventsByDay.forEach { (date, events) ->
+                    if (date.month != lastMonth) {
+                        val ym = YearMonth.of(date.year, date.month)
+                        if (ym != firstDisplayedMonth) {
+                            item(itemId = date.toEpochDay() * 1000 + 999) {
+                                MonthSectionHeader(date, config)
+                            }
                         }
+                        lastMonth = date.month
                     }
-                    lastMonth = date.month
-                }
-                item(itemId = date.toEpochDay()) {
-                    DayHeader(date, config)
-                }
-                items(
-                    items = events.map { DayEventRenderItem(date, it) },
-                    itemId = { it.itemId }
-                ) { renderItem ->
-                    EventChip(renderItem.event, config, context)
+                    item(itemId = date.toEpochDay()) {
+                        DayHeader(date, config)
+                    }
+                    items(
+                        items = events.map { DayEventRenderItem(date, it) },
+                        itemId = { it.itemId }
+                    ) { renderItem ->
+                        EventChip(renderItem.event, config, context)
+                    }
                 }
             }
+
+            // Density never renders an event list: the root dispatch routes it away long
+            // before this point, and the fetch that feeds this list is skipped entirely.
+            WidgetStyle.DENSITY -> error("DENSITY must not reach EventList")
         }
     }
 }
@@ -344,24 +425,7 @@ private fun WidgetHeader(
 
         if (config.showRefreshButton) {
             Spacer(modifier = GlanceModifier.width(4.dp))
-            Box(
-                modifier = GlanceModifier
-                    .size(28.dp)
-                    .background(GlanceTheme.colors.surfaceVariant)
-                    .cornerRadius(14.dp)
-                    .clickable(actionRunCallback<RefreshWidgetAction>()),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "↺",
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = (14 * config.typographyScale.headerScale).sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
-                    )
-                )
-            }
+            RefreshButton(config)
         }
 
         // Show open-calendar button when the month label is hidden (no tappable month text)
@@ -372,21 +436,7 @@ private fun WidgetHeader(
 
         if (config.showQuickAddFab) {
             Spacer(modifier = GlanceModifier.width(4.dp))
-            Box(
-                modifier = GlanceModifier
-                    .width(56.dp)
-                    .height(36.dp)
-                    .background(GlanceTheme.colors.primaryContainer)
-                    .cornerRadius(18.dp)
-                    .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    provider = ImageProvider(R.drawable.ic_widget_add),
-                    contentDescription = "Add event",
-                    modifier = GlanceModifier.size(20.dp)
-                )
-            }
+            QuickAddButton()
         }
     }
 
@@ -436,24 +486,7 @@ private fun FloatingControlsOverlay(
             Spacer(modifier = GlanceModifier.defaultWeight())
 
             if (config.showRefreshButton) {
-                Box(
-                    modifier = GlanceModifier
-                        .size(28.dp)
-                        .background(GlanceTheme.colors.surfaceVariant)
-                        .cornerRadius(14.dp)
-                        .clickable(actionRunCallback<RefreshWidgetAction>()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "↺",
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (14 * config.typographyScale.headerScale).sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
-                        )
-                    )
-                }
+                RefreshButton(config)
                 Spacer(modifier = GlanceModifier.width(4.dp))
             }
 
@@ -461,28 +494,14 @@ private fun FloatingControlsOverlay(
 
             if (config.showQuickAddFab) {
                 Spacer(modifier = GlanceModifier.width(4.dp))
-                Box(
-                    modifier = GlanceModifier
-                        .width(56.dp)
-                        .height(36.dp)
-                        .background(GlanceTheme.colors.primaryContainer)
-                        .cornerRadius(18.dp)
-                        .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_widget_add),
-                        contentDescription = "Add event",
-                        modifier = GlanceModifier.size(20.dp)
-                    )
-                }
+                QuickAddButton()
             }
         }
     }
 }
 
 @Composable
-private fun InlineProfileSwitcher(
+internal fun InlineProfileSwitcher(
     profiles: List<WidgetProfileEntry>,
     activeProfileId: String,
     cycleUiStyle: CycleUiStyle,
@@ -495,15 +514,15 @@ private fun InlineProfileSwitcher(
     }
 }
 
-private fun floatingProfileUiStyle(
+internal fun floatingProfileUiStyle(
     widgetStyle: WidgetStyle,
     cycleUiStyle: CycleUiStyle
-): CycleUiStyle =
-    if (cycleUiStyle == CycleUiStyle.TABS && widgetStyle != WidgetStyle.GCAL_LEFT) {
-        CycleUiStyle.DOTS
-    } else {
-        cycleUiStyle
-    }
+): CycleUiStyle = when (widgetStyle) {
+    // Only the left-rail layout has room for the tab strip; every other style falls back to dots.
+    WidgetStyle.GCAL_LEFT -> cycleUiStyle
+    WidgetStyle.AGENDA, WidgetStyle.GCAL, WidgetStyle.DENSITY ->
+        if (cycleUiStyle == CycleUiStyle.TABS) CycleUiStyle.DOTS else cycleUiStyle
+}
 
 private fun floatingContentTopInset(
     config: WidgetConfig,
@@ -522,8 +541,60 @@ private fun dayEventItemId(date: LocalDate, eventId: Long): Long {
     return hash
 }
 
+/**
+ * The 28dp refresh circle every style draws when `showRefreshButton` is on: bumps the
+ * active profile's refresh nonce (see [RefreshWidgetAction]) so the widget re-reads the
+ * calendar. Deliberately smaller than the two 56dp pills.
+ */
 @Composable
-private fun OpenCalendarButton(config: WidgetConfig) {
+internal fun RefreshButton(config: WidgetConfig) {
+    Box(
+        modifier = GlanceModifier
+            .size(28.dp)
+            .background(GlanceTheme.colors.surfaceVariant)
+            .cornerRadius(14.dp)
+            .clickable(actionRunCallback<RefreshWidgetAction>()),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "↺",
+            style = TextStyle(
+                color = GlanceTheme.colors.onSurfaceVariant,
+                fontSize = (14 * config.typographyScale.headerScale).sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = config.glanceFont(FontCategory.MONTH_HEADER)
+            )
+        )
+    }
+}
+
+/**
+ * The quick-add (+) pill every style draws when `showQuickAddFab` is on: opens the system
+ * insert-event screen for a one-hour event starting now. Lives here (not in the density
+ * package) because its accessibility label would trip the density package's content-free
+ * grep.
+ */
+@Composable
+internal fun QuickAddButton() {
+    Box(
+        modifier = GlanceModifier
+            .width(56.dp)
+            .height(36.dp)
+            .background(GlanceTheme.colors.primaryContainer)
+            .cornerRadius(18.dp)
+            .clickable(actionStartActivity(WidgetClickActions.quickAddIntent())),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_widget_add),
+            contentDescription = "Add event",
+            modifier = GlanceModifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+internal fun OpenCalendarButton(config: WidgetConfig) {
     Box(
         modifier = GlanceModifier
             .width(56.dp)
@@ -583,10 +654,10 @@ private fun DayHeader(date: LocalDate, config: WidgetConfig) {
 
 @Composable
 private fun EventChip(event: CalendarEvent, config: WidgetConfig, context: Context) {
-    if (config.widgetStyle == WidgetStyle.GCAL) {
-        EventChipGcal(event, config, context)
-    } else {
-        EventChipAgenda(event, config, context)
+    when (config.widgetStyle) {
+        WidgetStyle.GCAL -> EventChipGcal(event, config, context)
+        WidgetStyle.AGENDA, WidgetStyle.GCAL_LEFT -> EventChipAgenda(event, config, context)
+        WidgetStyle.DENSITY -> error("DENSITY must not reach EventChip")
     }
 }
 
@@ -691,7 +762,7 @@ private fun EventChipAgenda(event: CalendarEvent, config: WidgetConfig, context:
 private fun EventChipGcal(event: CalendarEvent, config: WidgetConfig, context: Context) {
     val intent = WidgetClickActions.eventIntent(event, config)
     val timeLabel = eventTimeLabel(event)
-    val dark = isDarkColor(event.displayColor)
+    val dark = ColorMath.isDark(event.displayColor)
     // Pre-multiplied colors avoid alpha compositing issues in RemoteViews
     val textPrimary = ColorProvider(
         if (dark) androidx.compose.ui.graphics.Color.White
@@ -843,7 +914,7 @@ private fun DayGroupGcalLeft(
 private fun EventChipGcalLeftItem(event: CalendarEvent, config: WidgetConfig, context: Context) {
     val intent = WidgetClickActions.eventIntent(event, config)
     val timeLabel = eventTimeRangeLabel(event)
-    val dark = isDarkColor(event.displayColor)
+    val dark = ColorMath.isDark(event.displayColor)
     val textPrimary = ColorProvider(
         if (dark) androidx.compose.ui.graphics.Color.White
         else androidx.compose.ui.graphics.Color.Black
@@ -932,13 +1003,6 @@ private fun eventTimeRangeLabel(event: CalendarEvent): String {
     val start = java.time.Instant.ofEpochMilli(event.dtStart).atZone(zone).format(fmt)
     val end = java.time.Instant.ofEpochMilli(event.dtEnd).atZone(zone).format(fmt)
     return "$start–$end"
-}
-
-private fun isDarkColor(colorInt: Int): Boolean {
-    val r = (colorInt shr 16 and 0xFF) / 255.0
-    val g = (colorInt shr 8 and 0xFF) / 255.0
-    val b = (colorInt and 0xFF) / 255.0
-    return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
 }
 
 @Composable

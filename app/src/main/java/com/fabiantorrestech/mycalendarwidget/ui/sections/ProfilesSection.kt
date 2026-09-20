@@ -42,9 +42,12 @@ fun ProfilesSection(
     onDelete: (id: String) -> Unit,
     onMoveUp: (id: String) -> Unit,
     onMoveDown: (id: String) -> Unit,
-    onCycleStyleChange: (CycleUiStyle) -> Unit
+    onCycleStyleChange: (CycleUiStyle) -> Unit,
+    /** False greys every control out (the density style locks profiles to the selected one). */
+    enabled: Boolean = true
 ) {
     var renameTarget by remember { mutableStateOf<WidgetProfileEntry?>(null) }
+    val textAlpha = if (enabled) 1f else 0.38f
     var renameText by remember { mutableStateOf("") }
 
     SectionHeader(title = "Profiles")
@@ -69,37 +72,39 @@ fun ProfilesSection(
                     Text(
                         text = profile.name,
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha),
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
                         onClick = { onMoveUp(profile.id) },
-                        enabled = index > 0,
+                        enabled = enabled && index > 0,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up", modifier = Modifier.size(18.dp))
                     }
                     IconButton(
                         onClick = { onMoveDown(profile.id) },
-                        enabled = index < profiles.lastIndex,
+                        enabled = enabled && index < profiles.lastIndex,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down", modifier = Modifier.size(18.dp))
                     }
                     IconButton(
                         onClick = { renameTarget = profile; renameText = profile.name },
+                        enabled = enabled,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = "Rename", modifier = Modifier.size(18.dp))
                     }
                     IconButton(
                         onClick = { onDelete(profile.id) },
-                        enabled = profiles.size > 1,
+                        enabled = enabled && profiles.size > 1,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete",
-                            tint = if (profiles.size > 1)
+                            tint = if (enabled && profiles.size > 1)
                                 MaterialTheme.colorScheme.error
                             else
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
@@ -123,6 +128,7 @@ fun ProfilesSection(
                 Text(
                     text = "Cycle style",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha),
                     modifier = Modifier.weight(1f)
                 )
                 SingleChoiceSegmentedButtonRow {
@@ -134,6 +140,7 @@ fun ProfilesSection(
                             ),
                             onClick = { onCycleStyleChange(style) },
                             selected = cycleUiStyle == style,
+                            enabled = enabled,
                             label = {
                                 Text(style.name.lowercase().replaceFirstChar { it.uppercase() })
                             }

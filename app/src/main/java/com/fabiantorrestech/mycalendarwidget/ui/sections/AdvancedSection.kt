@@ -14,7 +14,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.AutomationProfile
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 
@@ -27,55 +29,71 @@ fun AdvancedSection(
     onImport: () -> Unit
 ) {
     SectionHeader(title = "Advanced")
+    val visible = VisibleSettings.forStyle(config.widgetStyle)
 
-    val syncSteps = listOf(0, 2, 5, 10, 15, 30)
-    val syncIndex = syncSteps.indexOf(config.syncIntervalMinutes).coerceAtLeast(0)
-    StepSliderRow(
-        label = "Sync interval",
-        steps = syncSteps,
-        savedIndex = syncIndex,
-        labelForIndex = { idx ->
-            if (syncSteps[idx] == 0) "Instant (event-driven)"
-            else "Every ${syncSteps[idx]} min"
-        },
-        onIndexChangeFinished = { idx ->
-            onConfigChange(config.copy(syncIntervalMinutes = syncSteps[idx]))
-        }
-    )
+    if (visible.syncInterval) {
+        val syncSteps = listOf(0, 2, 5, 10, 15, 30)
+        val syncIndex = syncSteps.indexOf(config.syncIntervalMinutes).coerceAtLeast(0)
+        StepSliderRow(
+            label = "Sync interval",
+            steps = syncSteps,
+            savedIndex = syncIndex,
+            labelForIndex = { idx ->
+                if (syncSteps[idx] == 0) "Instant (event-driven)"
+                else "Every ${syncSteps[idx]} min"
+            },
+            onIndexChangeFinished = { idx ->
+                onConfigChange(config.copy(syncIntervalMinutes = syncSteps[idx]))
+            }
+        )
+    } else {
+        // The density style's cadence is fixed (WidgetSyncScheduler), so say so instead of
+        // showing a slider that would do nothing.
+        Text(
+            text = stringResource(R.string.advanced_density_sync_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+    }
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-    Text(
-        text = "Layout Profiles",
-        style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier.padding(bottom = 4.dp)
-    )
-    Text(
-        text = "Quickly apply a preset configuration. Also switchable via Tasker/MacroDroid broadcast.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp)
-    )
+    // The presets only write text-line fields; the automation intent below still applies
+    // to every style, so it stays.
+    if (visible.layoutProfiles) {
+        Text(
+            text = "Layout Profiles",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = "Quickly apply a preset configuration. Also switchable via Tasker/MacroDroid broadcast.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        AutomationProfile.entries.forEach { profile ->
-            val isActive = config.activeProfile == profile
-            if (isActive) {
-                Button(
-                    onClick = { onApplyProfile(profile) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(profile.name.lowercase().replaceFirstChar { it.uppercase() })
-                }
-            } else {
-                OutlinedButton(
-                    onClick = { onApplyProfile(profile) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(profile.name.lowercase().replaceFirstChar { it.uppercase() })
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AutomationProfile.entries.forEach { profile ->
+                val isActive = config.activeProfile == profile
+                if (isActive) {
+                    Button(
+                        onClick = { onApplyProfile(profile) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(profile.name.lowercase().replaceFirstChar { it.uppercase() })
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { onApplyProfile(profile) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(profile.name.lowercase().replaceFirstChar { it.uppercase() })
+                    }
                 }
             }
         }
