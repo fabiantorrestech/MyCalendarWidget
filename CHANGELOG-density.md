@@ -32,6 +32,8 @@ than the order it was built in.
 - Two layouts: **Grouped** (a header per day) or **Dated rows** (a date pill on every row).
 - Day headers are bold; today's sits on a filled pill so it stands out in grayscale too.
 - Today's events that have already finished stay on the list, faded, above what is still ahead.
+- An event spanning several days is listed under every day it covers, not only the day it starts, matching the look-ahead bars.
+- On a day an event only carries into, its time reads "→ 2:00p" (when it ends) instead of a start time from another day; a day it fills completely reads "All day".
 - The sheet says "Loading…" until the calendar query answers, instead of claiming there is nothing coming up.
 - The "Upcoming ×" bar stays pinned at the top while the list scrolls, so it can be closed from anywhere.
 - The sheet also closes from any date header, and lapses on its own after five minutes.
@@ -49,6 +51,7 @@ than the order it was built in.
 - "Sticky preview to top" can be turned off to put the preview back into the list; the choice is remembered.
 - Previews run on a scripted sample calendar (a busy today with a collision and an all-day, a light day, an over-capacity day, a medium day), so nothing private is shown and the shapes are always legible.
 - Both preview cards are outlined so their edges read against the settings background.
+- **Tonal calendars** lists only the calendars the widget draws (your calendar filter, or the calendars your calendar app shows when there is no filter), not every calendar on the device.
 - Material You sits directly above **Busy color**, whose description says what it paints, and notes in Detail that the day bar uses calendar colours instead.
 - Under Density the profile chips and Profiles section are hidden, with one red note explaining that Density uses only the selected profile.
 - **Reset all defaults** at the bottom, in red, asks "Are you sure?" and then returns every setting of that widget to defaults: all profiles, the widget name and any sync link.
