@@ -21,7 +21,9 @@ than the order it was built in.
 - An all-day event draws a thin band along the top of that day's bar, on today's bar and on each look-ahead bar, without touching the per-mode colours.
 - Today's bar grows to fit the day: an event earlier or later than your set window extends the bar to the whole hour that covers it, and the axis ticks follow.
 - An event crossing midnight is split at midnight: today's bar ends flush with a small chevron, the next day's begins from the left edge with a matching one.
-- After 19:00 with nothing left today, the widget rolls over and shows tomorrow.
+- Past the "Show tomorrow after" time (19:00 by default) with nothing left today, the widget rolls over and shows tomorrow.
+- With **Don't show tomorrow early** on, a day still busy at that time stays up until midnight instead of rolling over the moment its last event ends.
+- Once today's events are over the headline reads "All done" (Left of total and Total put "all done" on the second line).
 - Chrome on the widget: a small refresh circle, the open-calendar button and a quick-add (+), each following its setting; they move to their own row or collapse to one button as the widget narrows.
 - Density uses only the selected profile, so the widget draws no profile switcher.
 - Density refreshes every five minutes and at local midnight.
@@ -46,7 +48,7 @@ than the order it was built in.
 - Density's look controls (colour scheme, peek layout, header status) sit directly under the style, each with a short explanation.
 - Only controls the selected style actually uses are shown; the rest are hidden rather than left inert.
 - Font-size sliders and per-category fonts are named after what the selected style draws with them (Daily items left, Peek date headers, Following days bars, Peek event names, Date & next-event line).
-- **Widget Behavior** holds Today start/end time, look-ahead bars, load baseline, show-tomorrow-after and peek horizon, each with a description of what it does.
+- **Widget Behavior** holds Today start/end time, look-ahead bars, load baseline, show-tomorrow-after, don't-show-tomorrow-early (off by default) and peek horizon, each with a description of what it does.
 - The preview pins above the settings while you change them, capped at about 40% of the screen; a button in its corner swaps between the widget view and the peek view.
 - "Sticky preview to top" can be turned off to put the preview back into the list; the choice is remembered.
 - Previews run on a scripted sample calendar (a busy today with a collision and an all-day, a light day, an over-capacity day, a medium day), so nothing private is shown and the shapes are always legible.
