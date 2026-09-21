@@ -142,7 +142,7 @@ class CalendarRepository(private val context: Context) {
         // toggle row, which must still show (and let the user re-enable) a calendar the
         // user has hidden in their calendar app. `visible` is carried through instead so
         // callers that need the provider's own "visible" set (the density Tonal rank
-        // fallback) can filter for themselves — see DensitySection's enabledSortedIds.
+        // fallback) can filter for themselves — see TonalCalendarList.rankedIds.
         val cursor = context.contentResolver.query(
             CalendarContract.Calendars.CONTENT_URI,
             projection, null, null, "${CalendarContract.Calendars.CALENDAR_DISPLAY_NAME} ASC"

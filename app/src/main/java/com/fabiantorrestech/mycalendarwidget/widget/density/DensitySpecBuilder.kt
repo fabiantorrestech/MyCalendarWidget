@@ -519,7 +519,7 @@ object DensitySpecBuilder {
      * selection when they have made one; otherwise [visibleCalendarIds] (the provider's
      * own visible-calendar set, queried once per snapshot by
      * `DensityCalendarSource.queryVisibleCalendarIds` — the same rule Settings'
-     * `DensitySection` ranks over), which keeps a calendar's rank stable from one day to
+     * `TonalCalendarList` ranks over), which keeps a calendar's rank stable from one day to
      * the next; otherwise (permission missing, so [visibleCalendarIds] comes back empty)
      * every calendar actually present on the strip today, in id order, so a freshly-seen
      * calendar still ranks somewhere rather than crashing.

@@ -125,9 +125,12 @@ private fun TonalCalendarTones(
         modifier = Modifier.padding(bottom = 6.dp)
     )
 
-    if (calendars.isEmpty()) {
+    // Only the calendars the widget draws: a device with many calendars would otherwise
+    // list every one of them, most never seen on the strip.
+    val shown = TonalCalendarList.shown(calendars, config.enabledCalendarIds)
+    if (shown.isEmpty()) {
         Text(
-            text = "No calendars visible",
+            text = "No calendars enabled",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -150,18 +153,9 @@ private fun TonalCalendarTones(
         )
     }
     val ramp = remember(palette) { TonalRamp.ramp(palette.busy, palette.background) }
-    // Matches the widget's own fallback (DensitySpecBuilder.enabledSortedCalendarIds,
-    // fed from DensityCalendarSource.queryVisibleCalendarIds): when the user hasn't set
-    // an explicit calendar filter, rank over the provider's VISIBLE=1 calendars rather
-    // than every calendar CalendarRepository.getCalendars() returns (that list
-    // deliberately omits the VISIBLE filter so a hidden calendar can still be toggled
-    // back on here) — otherwise this ring can point at a different swatch than the one
-    // the widget actually paints for a calendar with no events today.
-    val enabledSortedIds = config.enabledCalendarIds.ifEmpty {
-        calendars.filter { it.visible }.map { it.id }.toSet()
-    }.sorted()
+    val enabledSortedIds = TonalCalendarList.rankedIds(calendars, config.enabledCalendarIds)
 
-    calendars.forEach { calendar ->
+    shown.forEach { calendar ->
         val assignedTone = config.densityCalendarTones[calendar.id]
             ?: TonalRamp.bucket(calendar.id, emptyMap(), enabledSortedIds)
 
@@ -201,6 +195,30 @@ private fun TonalCalendarTones(
         enabled = config.densityCalendarTones.isNotEmpty()
     ) {
         Text("Reset to automatic")
+    }
+}
+
+/** Which calendars the Tonal tone list offers, and the order Tonal ranks them in. */
+internal object TonalCalendarList {
+    /**
+     * The ids Tonal ranks into shades, sorted: the user's calendar filter when they have
+     * set one, otherwise the calendars their calendar app shows. This matches the
+     * widget's own rule (DensitySpecBuilder.enabledSortedCalendarIds, fed from
+     * DensityCalendarSource.queryVisibleCalendarIds). [calendars] from
+     * CalendarRepository.getCalendars() deliberately skips the VISIBLE filter so a hidden
+     * calendar can still be toggled back on in the filter section. Ranking over all of
+     * them would let this list's ring point at a different shade from the one the widget
+     * paints.
+     */
+    fun rankedIds(calendars: List<CalendarInfo>, enabledCalendarIds: Set<Long>): List<Long> =
+        enabledCalendarIds.ifEmpty {
+            calendars.filter { it.visible }.map { it.id }.toSet()
+        }.sorted()
+
+    /** The calendars the widget draws, in [calendars]' own (display-name) order. */
+    fun shown(calendars: List<CalendarInfo>, enabledCalendarIds: Set<Long>): List<CalendarInfo> {
+        val ranked = rankedIds(calendars, enabledCalendarIds).toSet()
+        return calendars.filter { it.id in ranked }
     }
 }
 
