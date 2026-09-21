@@ -41,13 +41,26 @@ object PeekList {
      * not specify item ids less than -4611686018427387904 in a Glance"), so the obvious
      * `Long.MIN_VALUE` sentinel is not available. The fixed ids sit immediately above
      * that floor instead: far enough from any real id — a negated epoch day is within a
-     * few million of zero, an `Instances._ID` is positive — that a collision is
+     * few million of zero, an [eventItemId] is positive — that a collision is
      * impossible. (`+ 1` was the top bar's id before it moved above the list.)
      */
     const val EMPTY_ITEM_ID = Long.MIN_VALUE / 2 + 2
 
     /** The "loading" row shown until the calendar query has answered; see [EMPTY_ITEM_ID]. */
     const val LOADING_ITEM_ID = Long.MIN_VALUE / 2 + 3
+
+    /** Bits of an [eventItemId] given to the epoch day: 2^20 days runs to the year 4840. */
+    private const val EVENT_ITEM_DAY_BITS = 20
+
+    /**
+     * An event row's item id: the instance's `Instances._ID` in the high bits and the
+     * row's epoch day in the low [EVENT_ITEM_DAY_BITS]. The instance id alone is not
+     * enough — a multi-day event has one row per day it spans — and the pair is stable
+     * across refreshes. It stays positive (an instance id would need 43 bits to reach
+     * the sign), so it never meets the negated-epoch-day ids of the day markers.
+     */
+    internal fun eventItemId(instanceId: Long, date: LocalDate): Long =
+        (instanceId shl EVENT_ITEM_DAY_BITS) or date.toEpochDay()
 
     /**
      * The config the peek queries with. The agenda list's display conveniences are all
@@ -58,8 +71,8 @@ object PeekList {
      * than off: without it a multi-day event is keyed only under its true start day, so
      * a Mon–Fri all-day vacation viewed on Wednesday (or an overnight timed event) would
      * either be missing from the window or show up under a day that has already passed.
-     * Turning it on keys the event on every day it covers instead, and [upcoming]'s
-     * dedupe picks the today-or-later copy. Everything else — the calendar filter, the
+     * Turning it on keys the event on every day it covers instead, and [upcoming] lists
+     * it under each of those from today on. Everything else — the calendar filter, the
      * keyword filter, `daysAheadToLoad` — is exactly what the user asked for and is left
      * alone.
      */
@@ -74,12 +87,13 @@ object PeekList {
      * Every event on today or later, flattened out of the by-day map and paired with the
      * day it belongs to. Today's events that have already ended stay on the list (the
      * sheet fades them; see [PeekItem.passed]) so the day reads whole; events on earlier
-     * days are gone.
+     * days are gone. A multi-day event is listed under every day it covers from today
+     * on, each row labelled for that day by [PeekLabels.timeLabel].
      *
-     * All-day events use a different clock: an all-day instance's `dtStart`/`dtEnd`
-     * come back from the provider in *UTC* midnight terms, so west of UTC today's all-day
-     * event "ends" hours before the local day does — it is judged by its date, which is
-     * also all a timed event is judged by now.
+     * Every event is judged by the day it is keyed under, never by the clock. That
+     * matters most for all-day events: an all-day instance's `dtStart`/`dtEnd` come back
+     * from the provider in *UTC* midnight terms, so west of UTC today's all-day event
+     * "ends" hours before the local day does.
      *
      * The ordering is fully specified rather than inherited from the map: day, then
      * all-day before timed, then start, then id. A map whose keys arrive in a different
@@ -88,24 +102,16 @@ object PeekList {
      */
     fun upcoming(
         eventsByDay: Map<LocalDate, List<CalendarEvent>>,
-        nowMillis: Long,
         today: LocalDate
     ): List<Pair<LocalDate, CalendarEvent>> =
         eventsByDay.entries
             .sortedBy { it.key }
             .flatMap { (date, events) -> events.map { date to it } }
-            // The same instance can appear under every day it spans (peekQueryConfig
-            // forces showSpanningEventsEachDay on). Sorting today-or-later copies ahead
-            // of before-today copies — `sortedBy` is stable, so ascending-date order is
-            // preserved within each group — means the distinctBy below keeps the copy
-            // dated today or later (the earliest such day) instead of whichever day
-            // sorts first, which for an event that started before today would anchor it
-            // in the past.
-            .sortedBy { (date, _) -> if (date.isBefore(today)) 1 else 0 }
-            .distinctBy { it.second.id }
-            .filter { (date, event) ->
-                if (event.allDay) !date.isBefore(today) else !date.isBefore(today) || event.dtEnd > nowMillis
-            }
+            // A multi-day instance is keyed under every day it spans (peekQueryConfig
+            // forces showSpanningEventsEachDay on) and keeps one row per day, the way the
+            // look-ahead bars draw it on each. A copy dated before today can only repeat
+            // today's copy — the query window opens at today — so it goes.
+            .filter { (date, _) -> !date.isBefore(today) }
             .sortedWith(
                 compareBy(
                     { it.first },
@@ -121,8 +127,8 @@ object PeekList {
      * (where every row already carries its own date pill, so a header would be noise).
      *
      * Item ids must be unique across the whole list, so the id spaces are kept apart by
-     * sign: negated epoch days for day markers and the event's own (positive)
-     * `Instances._ID` for event rows.
+     * sign: negated epoch days for day markers and the positive [eventItemId] (instance
+     * and day) for event rows.
      */
     fun items(
         upcoming: List<Pair<LocalDate, CalendarEvent>>,
@@ -149,7 +155,7 @@ object PeekList {
                 lastDate = date
             }
             val passed = !event.allDay && event.dtEnd <= nowMillis
-            items.add(PeekItem(PeekItemKind.EVENT, event.id, date, event, passed = passed))
+            items.add(PeekItem(PeekItemKind.EVENT, eventItemId(event.id, date), date, event, passed = passed))
         }
         return items
     }

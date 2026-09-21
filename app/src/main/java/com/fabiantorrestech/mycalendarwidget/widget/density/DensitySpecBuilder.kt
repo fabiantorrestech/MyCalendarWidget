@@ -221,10 +221,12 @@ object DensityLayout {
     /**
      * The peek row's time column. 12-hour times ("10:30a") need more room than 24-hour
      * ones ("10:30"), and a fixed width per mode keeps every dot and title in the list
-     * on one vertical line rather than ragged behind times of differing length.
+     * on one vertical line rather than ragged behind times of differing length. The
+     * widest label is a carried-over event's end time, "→ 12:30p" / "→ 23:30", which
+     * is what these widths are sized for.
      */
-    const val PEEK_TIME_COL_12H_DP = 44f
-    const val PEEK_TIME_COL_24H_DP = 40f
+    const val PEEK_TIME_COL_12H_DP = 52f
+    const val PEEK_TIME_COL_24H_DP = 46f
 }
 
 /**

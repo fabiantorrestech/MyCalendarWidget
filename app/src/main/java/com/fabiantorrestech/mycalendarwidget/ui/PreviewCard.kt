@@ -473,7 +473,7 @@ fun PeekPreviewCard(
     val locale = Locale.getDefault()
     val (today, items) = remember(eventsByDay, config.densityPeekFormat) {
         val today = LocalDate.now(zone)
-        val upcoming = PeekList.upcoming(eventsByDay, System.currentTimeMillis(), today)
+        val upcoming = PeekList.upcoming(eventsByDay, today)
         today to PeekList.items(upcoming, config.densityPeekFormat, System.currentTimeMillis())
     }
     val timeColumn = if (use24Hour) DensityLayout.PEEK_TIME_COL_24H_DP else DensityLayout.PEEK_TIME_COL_12H_DP
@@ -603,11 +603,13 @@ private fun PreviewPeekEventRow(
     locale: Locale,
     timeColumnDp: Float
 ) {
-    val time = if (event.allDay) {
-        stringResource(R.string.peek_all_day)
-    } else {
-        TimeFormat.compact(event.dtStart, zone, use24Hour)
-    }
+    val time = PeekLabels.timeLabel(
+        event = event,
+        date = date,
+        zone = zone,
+        use24Hour = use24Hour,
+        allDayWord = stringResource(R.string.peek_all_day)
+    )
     val alpha = if (passed) PASSED_ALPHA else 1f
     Row(
         modifier = Modifier.fillMaxWidth().height(DensityLayout.PEEK_ROW_DP.dp),

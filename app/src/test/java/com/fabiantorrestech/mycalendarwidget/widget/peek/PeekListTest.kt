@@ -59,16 +59,26 @@ class PeekListTest {
     // ---- upcoming() ----
 
     @Test
-    fun `duplicated id keeps the first day's copy`() {
-        val e = event(1L, at(0, 9), at(0, 10))
-        val eLater = event(1L, at(1, 9), at(1, 10))
+    fun `an instance keyed under two upcoming days is listed under both`() {
+        // 22:00 today to 06:00 tomorrow, keyed under both days it covers.
+        val e = event(1L, at(0, 22), at(1, 6))
         val map = mapOf(
             TODAY to listOf(e),
-            TODAY.plusDays(1) to listOf(eLater)
+            TODAY.plusDays(1) to listOf(e)
         )
-        val result = PeekList.upcoming(map, at(0, 8), TODAY)
-        assertEquals(1, result.size)
-        assertEquals(TODAY, result[0].first)
+        val result = PeekList.upcoming(map, TODAY)
+        assertEquals(listOf(TODAY to 1L, TODAY.plusDays(1) to 1L), result.map { it.first to it.second.id })
+    }
+
+    @Test
+    fun `all-day event spanning into the coming days is listed under each of them`() {
+        // Yesterday through today+2, keyed under all four days; yesterday's copy goes.
+        val spanStart = TODAY.minusDays(1).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+        val spanEnd = TODAY.plusDays(3).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+        val e = event(1L, spanStart, spanEnd, allDay = true)
+        val map = (-1L..2L).associate { TODAY.plusDays(it) to listOf(e) }
+        val result = PeekList.upcoming(map, TODAY)
+        assertEquals(listOf(TODAY, TODAY.plusDays(1), TODAY.plusDays(2)), result.map { it.first })
     }
 
     @Test
@@ -76,7 +86,7 @@ class PeekListTest {
         val a = event(10L, at(0, 9), at(0, 10), eventId = 99L)
         val b = event(11L, at(1, 9), at(1, 10), eventId = 99L)
         val map = mapOf(TODAY to listOf(a), TODAY.plusDays(1) to listOf(b))
-        val result = PeekList.upcoming(map, at(0, 8), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(listOf(10L, 11L), result.map { it.second.id })
     }
 
@@ -85,7 +95,7 @@ class PeekListTest {
         val done = event(1L, at(0, 7), at(0, 8))
         val running = event(2L, at(0, 8), at(0, 12))
         val map = mapOf(TODAY to listOf(done, running))
-        val result = PeekList.upcoming(map, at(0, 9), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(listOf(1L, 2L), result.map { it.second.id })
     }
 
@@ -93,7 +103,7 @@ class PeekListTest {
     fun `event ending exactly now is kept as passed`() {
         val e = event(1L, at(0, 8), at(0, 9))
         val map = mapOf(TODAY to listOf(e))
-        val items = PeekList.items(PeekList.upcoming(map, at(0, 9), TODAY), DensityPeekFormat.DATED, at(0, 9))
+        val items = PeekList.items(PeekList.upcoming(map, TODAY), DensityPeekFormat.DATED, at(0, 9))
         assertEquals(listOf(true), items.map { it.passed })
     }
 
@@ -104,21 +114,21 @@ class PeekListTest {
         val later = event(3L, at(0, 14), at(0, 15))
         val allDay = event(4L, at(0, 0), at(1, 0), allDay = true)
         val map = mapOf(TODAY to listOf(done, running, later, allDay))
-        val items = PeekList.items(PeekList.upcoming(map, at(0, 9), TODAY), DensityPeekFormat.DATED, at(0, 9))
-        assertEquals(listOf(4L to false, 1L to true, 2L to false, 3L to false), items.map { it.itemId to it.passed })
+        val items = PeekList.items(PeekList.upcoming(map, TODAY), DensityPeekFormat.DATED, at(0, 9))
+        assertEquals(listOf(4L to false, 1L to true, 2L to false, 3L to false), items.map { it.event?.id to it.passed })
     }
 
     @Test
     fun `a finished event from an earlier day is still dropped`() {
         val old = event(1L, at(-1, 7), at(-1, 8))
         val map = mapOf(TODAY.minusDays(1) to listOf(old))
-        assertTrue(PeekList.upcoming(map, at(0, 9), TODAY).isEmpty())
+        assertTrue(PeekList.upcoming(map, TODAY).isEmpty())
     }
 
     @Test
     fun `yesterday's all-day is dropped, today's and tomorrow's are kept`() {
         val yesterday = allDayEvent(1L, TODAY.minusDays(1))
-        // Today's all-day in UTC terms already ended by a late local "now" — the date,
+        // Late in the local evening today's all-day has already ended in UTC terms — the date,
         // not the UTC instant, is what decides an all-day event's fate.
         val today = allDayEvent(2L, TODAY)
         val tomorrow = allDayEvent(3L, TODAY.plusDays(1))
@@ -127,7 +137,7 @@ class PeekListTest {
             TODAY to listOf(today),
             TODAY.plusDays(1) to listOf(tomorrow)
         )
-        val result = PeekList.upcoming(map, at(0, 23), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(listOf(2L, 3L), result.map { it.second.id })
     }
 
@@ -136,7 +146,7 @@ class PeekListTest {
         val timed = event(1L, at(0, 9), at(0, 10))
         val allDay = allDayEvent(2L, TODAY)
         val map = mapOf(TODAY to listOf(timed, allDay))
-        val result = PeekList.upcoming(map, at(0, 8), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(listOf(2L, 1L), result.map { it.second.id })
     }
 
@@ -155,12 +165,11 @@ class PeekListTest {
             TODAY to listOf(d0),
             TODAY.plusDays(1) to listOf(d1)
         )
-        val now = at(0, 8)
         assertEquals(
-            PeekList.upcoming(inOrder, now, TODAY),
-            PeekList.upcoming(shuffled, now, TODAY)
+            PeekList.upcoming(inOrder, TODAY),
+            PeekList.upcoming(shuffled, TODAY)
         )
-        assertEquals(listOf(1L, 2L, 3L), PeekList.upcoming(shuffled, now, TODAY).map { it.second.id })
+        assertEquals(listOf(1L, 2L, 3L), PeekList.upcoming(shuffled, TODAY).map { it.second.id })
     }
 
     @Test
@@ -168,12 +177,12 @@ class PeekListTest {
         val b = event(20L, at(0, 9), at(0, 10))
         val a = event(5L, at(0, 9), at(0, 11))
         val map = mapOf(TODAY to listOf(b, a))
-        val result = PeekList.upcoming(map, at(0, 8), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(listOf(5L, 20L), result.map { it.second.id })
     }
 
     @Test
-    fun `all-day event spanning three days appears once under today, not the earliest day`() {
+    fun `all-day event that started before today drops its earlier days`() {
         // Same instance (id 1) keyed under Mon, Tue, Wed the way
         // showSpanningEventsEachDay = true keys a repository result; today is Wed (TODAY).
         val spanStart = TODAY.minusDays(2).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
@@ -184,13 +193,13 @@ class PeekListTest {
             TODAY.minusDays(1) to listOf(e),
             TODAY to listOf(e)
         )
-        val result = PeekList.upcoming(map, at(0, 8), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(1, result.size)
         assertEquals(TODAY, result[0].first)
     }
 
     @Test
-    fun `overnight timed event keyed under both days appears once under today`() {
+    fun `overnight timed event from yesterday drops yesterday's copy`() {
         // 22:00 yesterday to 06:00 today, keyed under both days it spans; "now" is 02:00
         // today, so the event is still in progress.
         val e = event(2L, at(-1, 22), at(0, 6))
@@ -198,7 +207,7 @@ class PeekListTest {
             TODAY.minusDays(1) to listOf(e),
             TODAY to listOf(e)
         )
-        val result = PeekList.upcoming(map, at(0, 2), TODAY)
+        val result = PeekList.upcoming(map, TODAY)
         assertEquals(1, result.size)
         assertEquals(TODAY, result[0].first)
     }
@@ -238,22 +247,36 @@ class PeekListTest {
     }
 
     @Test
-    fun `event items carry the event and its id`() {
+    fun `event items carry the event and its date`() {
         val items = PeekList.items(twoDaysUpcoming(), DensityPeekFormat.DATED, at(0, 8))
         val events = items.filter { it.kind == PeekItemKind.EVENT }
-        assertEquals(listOf(1L, 2L, 3L), events.map { it.itemId })
         assertEquals(listOf(1L, 2L, 3L), events.map { it.event?.id })
         assertEquals(listOf(TODAY, TODAY, TODAY.plusDays(1)), events.map { it.date })
     }
 
     @Test
+    fun `one instance listed under two days gets two distinct positive item ids`() {
+        val e = event(1L, at(0, 22), at(1, 6))
+        val upcoming = listOf(TODAY to e, TODAY.plusDays(1) to e)
+        val events = PeekList.items(upcoming, DensityPeekFormat.DATED, at(0, 8))
+            .filter { it.kind == PeekItemKind.EVENT }
+        assertEquals(2, events.map { it.itemId }.distinct().size)
+        assertTrue(events.all { it.itemId > 0 })
+    }
+
+    @Test
     fun `every itemId is unique and stable across two calls`() {
-        DensityPeekFormat.entries.forEach { format ->
-            val first = PeekList.items(twoDaysUpcoming(), format, at(0, 8))
-            val second = PeekList.items(twoDaysUpcoming(), format, at(0, 8))
-            val ids = first.map { it.itemId }
-            assertEquals("$format has duplicate itemIds", ids.size, ids.distinct().size)
-            assertEquals(ids, second.map { it.itemId })
+        val spanning = event(9L, at(0, 22), at(1, 6))
+        val withSpan = (twoDaysUpcoming() + listOf(TODAY to spanning, TODAY.plusDays(1) to spanning))
+            .sortedBy { it.first }
+        listOf(twoDaysUpcoming(), withSpan).forEach { upcoming ->
+            DensityPeekFormat.entries.forEach { format ->
+                val first = PeekList.items(upcoming, format, at(0, 8))
+                val second = PeekList.items(upcoming, format, at(0, 8))
+                val ids = first.map { it.itemId }
+                assertEquals("$format has duplicate itemIds", ids.size, ids.distinct().size)
+                assertEquals(ids, second.map { it.itemId })
+            }
         }
     }
 

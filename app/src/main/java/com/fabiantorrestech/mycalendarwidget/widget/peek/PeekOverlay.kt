@@ -94,20 +94,17 @@ fun PeekOverlay(
 ) {
     val zone = ZoneId.systemDefault()
     val locale = Locale.getDefault()
-    // "Now" and "today" are read once per pass and reused for both the cut-off filter
-    // and the day labels: reading System.currentTimeMillis()/LocalDate.now() a second
-    // time later in the same composition could straddle a clock tick and disagree with
-    // itself (an event judged "in progress" by one read and "over" by the other).
+    // "Now" and "today" are read once per pass and reused for the day filter, the faded
+    // "passed" rows and the day labels: reading System.currentTimeMillis()/LocalDate.now()
+    // a second time later in the same composition could straddle a clock tick and
+    // disagree with itself (a row kept for "today" by one read, labelled for tomorrow by
+    // the other).
     // remember(...) also means a recomposition that does not change any of these keys
     // does not re-derive the list at all.
     val (today, upcoming, items) = remember(eventsByDay, config.densityPeekFormat, use24Hour) {
         val nowMillis = System.currentTimeMillis()
         val today = LocalDate.now(zone)
-        val upcoming = PeekList.upcoming(
-            eventsByDay = eventsByDay,
-            nowMillis = nowMillis,
-            today = today
-        )
+        val upcoming = PeekList.upcoming(eventsByDay = eventsByDay, today = today)
         Triple(today, upcoming, PeekList.items(upcoming, config.densityPeekFormat, nowMillis))
     }
 
@@ -303,7 +300,7 @@ private fun DaySeparator() {
 @Composable
 private fun EventRow(
     event: CalendarEvent?,
-    date: LocalDate?,
+    date: LocalDate,
     passed: Boolean,
     config: WidgetConfig,
     context: Context,
@@ -326,11 +323,13 @@ private fun EventRow(
         GlanceTheme.colors.onSurfaceVariant
     }
     val dotColor = Color(event.displayColor).let { if (passed) it.copy(alpha = PASSED_ALPHA) else it }
-    val time = if (event.allDay) {
-        context.getString(R.string.peek_all_day)
-    } else {
-        TimeFormat.compact(event.dtStart, zone, use24Hour)
-    }
+    val time = PeekLabels.timeLabel(
+        event = event,
+        date = date,
+        zone = zone,
+        use24Hour = use24Hour,
+        allDayWord = context.getString(R.string.peek_all_day)
+    )
     val timeColumn = if (use24Hour) {
         DensityLayout.PEEK_TIME_COL_24H_DP
     } else {
@@ -356,7 +355,7 @@ private fun EventRow(
                         .padding(vertical = 1.dp, horizontal = 5.dp)
                 ) {
                     Text(
-                        text = date?.let { TimeFormat.shortDate(it, locale) }.orEmpty(),
+                        text = TimeFormat.shortDate(date, locale),
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurface,
                             fontSize = DensityLayout.PEEK_DATE_PILL_SP.sp,
