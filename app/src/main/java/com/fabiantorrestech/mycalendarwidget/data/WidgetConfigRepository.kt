@@ -88,6 +88,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
         val DENSITY_LOOKAHEAD_DAYS = intPreferencesKey("density_lookahead_days")
         val DENSITY_LOAD_BASELINE = intPreferencesKey("density_load_baseline")
         val DENSITY_ROLLOVER_HOUR = intPreferencesKey("density_rollover_hour")
+        val DENSITY_NO_EARLY_TOMORROW = booleanPreferencesKey("density_no_early_tomorrow")
         val DENSITY_BUSY_COLOR = intPreferencesKey("density_busy_color")
         val DENSITY_STRIP_MODE = stringPreferencesKey("density_strip_mode")
         val DENSITY_PEEK_FORMAT = stringPreferencesKey("density_peek_format")
@@ -160,6 +161,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             densityLookaheadDays = prefs[Keys.DENSITY_LOOKAHEAD_DAYS] ?: 3,
             densityLoadBaselineMinutes = prefs[Keys.DENSITY_LOAD_BASELINE] ?: 480,
             densityRolloverHour = prefs[Keys.DENSITY_ROLLOVER_HOUR] ?: 19,
+            densityNoEarlyTomorrow = prefs[Keys.DENSITY_NO_EARLY_TOMORROW] ?: false,
             densityBusyColor = prefs[Keys.DENSITY_BUSY_COLOR] ?: DensityConstants.DEFAULT_BUSY_COLOR,
             densityStripMode = prefs[Keys.DENSITY_STRIP_MODE]
                 ?.let { runCatching { DensityStripMode.valueOf(it) }.getOrNull() }
@@ -221,6 +223,7 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             prefs[Keys.DENSITY_LOOKAHEAD_DAYS] = config.densityLookaheadDays
             prefs[Keys.DENSITY_LOAD_BASELINE] = config.densityLoadBaselineMinutes
             prefs[Keys.DENSITY_ROLLOVER_HOUR] = config.densityRolloverHour
+            prefs[Keys.DENSITY_NO_EARLY_TOMORROW] = config.densityNoEarlyTomorrow
             prefs[Keys.DENSITY_BUSY_COLOR] = config.densityBusyColor
             prefs[Keys.DENSITY_STRIP_MODE] = config.densityStripMode.name
             prefs[Keys.DENSITY_PEEK_FORMAT] = config.densityPeekFormat.name

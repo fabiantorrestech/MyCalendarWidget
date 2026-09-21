@@ -148,10 +148,19 @@ fun DensitySection(
 
     IntSliderRow(
         label = "Show tomorrow after",
+        description = "Once it's past this time and today's events are over, the main bar " +
+            "switches to tomorrow.",
         savedValue = config.densityRolloverHour,
         range = 0..23,
         valueLabel = { formatRolloverHour(it, use24HourClock) },
         onValueChangeFinished = { onConfigChange(config.copy(densityRolloverHour = it)) }
+    )
+    ToggleRow(
+        label = "Don't show tomorrow early",
+        description = "If you're still busy at the time above, today stays up until midnight " +
+            "instead of switching to tomorrow as soon as your last event ends.",
+        checked = config.densityNoEarlyTomorrow,
+        onCheckedChange = { onConfigChange(config.copy(densityNoEarlyTomorrow = it)) }
     )
 
     IntSliderRow(

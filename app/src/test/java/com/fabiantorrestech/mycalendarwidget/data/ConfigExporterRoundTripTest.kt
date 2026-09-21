@@ -63,6 +63,7 @@ class ConfigExporterRoundTripTest {
         densityLookaheadDays = 5,
         densityLoadBaselineMinutes = 600,
         densityRolloverHour = 22,
+        densityNoEarlyTomorrow = true,
         densityBusyColor = -12345,
         densityStripMode = DensityStripMode.TONAL,
         densityPeekFormat = DensityPeekFormat.DATED,
@@ -98,6 +99,12 @@ class ConfigExporterRoundTripTest {
         val fromEmpty = ConfigExporter.fromJson(org.json.JSONObject("{}"))
         assertEquals(WidgetStyle.DENSITY, fromEmpty.widgetStyle)
         assertEquals(DensityStripMode.TONAL, fromEmpty.densityStripMode)
+    }
+
+    @Test
+    fun `a fresh widget shows tomorrow early`() {
+        assertEquals(false, WidgetConfig().densityNoEarlyTomorrow)
+        assertEquals(false, ConfigExporter.fromJson(org.json.JSONObject("{}")).densityNoEarlyTomorrow)
     }
 
     @Test

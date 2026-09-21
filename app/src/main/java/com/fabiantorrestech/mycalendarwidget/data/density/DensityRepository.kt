@@ -64,7 +64,8 @@ class DensityRepository(context: Context) {
             todayDensity,
             nowMillis,
             config.densityRolloverHour,
-            zone
+            zone,
+            config.densityNoEarlyTomorrow
         )
         val featuredDate = if (featuredIsToday) today else today.plusDays(1)
         val featured = requireNotNull(days[featuredDate])

@@ -358,14 +358,14 @@ object DensityCalculator {
         return when (countMode) {
             DensityCountMode.LEFT ->
                 if (remaining == 0) {
-                    DensityHeadline("Done today", "", countIsSentence = true, dateText = dateText)
+                    DensityHeadline("All done", "", countIsSentence = true, dateText = dateText)
                 } else {
                     DensityHeadline("$remaining left", qualifier, dateText = dateText)
                 }
 
             DensityCountMode.FRACTION ->
                 if (remaining == 0) {
-                    DensityHeadline("0/$total", "done today", dateText = dateText)
+                    DensityHeadline("0/$total", "all done", dateText = dateText)
                 } else {
                     DensityHeadline("$remaining/$total left", qualifier, dateText = dateText)
                 }
@@ -376,16 +376,29 @@ object DensityCalculator {
 
     /**
      * True once the evening has rolled over to tomorrow: past [rolloverHour] locally with
-     * nothing left on today's plate.
+     * nothing left on today's plate. By default a day still busy at [rolloverHour] rolls
+     * over the moment its last event ends; with [noEarlyTomorrow] it rolls over only if it
+     * was already done by [rolloverHour], and otherwise stays on today until midnight.
      */
-    fun shouldRollover(today: DayDensity, nowMillis: Long, rolloverHour: Int, zone: ZoneId): Boolean {
+    fun shouldRollover(
+        today: DayDensity,
+        nowMillis: Long,
+        rolloverHour: Int,
+        zone: ZoneId,
+        noEarlyTomorrow: Boolean = false
+    ): Boolean {
         val hour = Instant.ofEpochMilli(nowMillis).atZone(zone).hour
-        return hour >= rolloverHour && remainingCount(today, nowMillis) == 0
+        if (hour < rolloverHour || remainingCount(today, nowMillis) != 0) return false
+        if (!noEarlyTomorrow) return true
+        // Built on the local time-line, as windowBounds does, so the hour is wall-clock.
+        val rolloverMillis = today.date.atStartOfDay().plusHours(rolloverHour.toLong())
+            .atZone(zone).toInstant().toEpochMilli()
+        return remainingCount(today, rolloverMillis) == 0
     }
 
     /**
      * "ends in 25m" while a block is running, otherwise "next in 40m" for the block after
-     * now, otherwise "nothing else today". Gaps longer than 90 minutes are given as a
+     * now, otherwise "all done". Gaps longer than 90 minutes are given as a
      * clock time instead. Minutes are truncated, so "40m" means at least 40 minutes.
      */
     private fun qualifier(day: DayDensity, nowMillis: Long, zone: ZoneId, use24Hour: Boolean): String {
@@ -409,6 +422,6 @@ object DensityCalculator {
             }
         }
 
-        return "nothing else today"
+        return "all done"
     }
 }

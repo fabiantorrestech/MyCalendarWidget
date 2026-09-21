@@ -52,6 +52,7 @@ object ConfigExporter {
         put("densityLookaheadDays", config.densityLookaheadDays)
         put("densityLoadBaselineMinutes", config.densityLoadBaselineMinutes)
         put("densityRolloverHour", config.densityRolloverHour)
+        put("densityNoEarlyTomorrow", config.densityNoEarlyTomorrow)
         put("densityBusyColor", config.densityBusyColor)
         put("densityStripMode", config.densityStripMode.name)
         put("densityPeekFormat", config.densityPeekFormat.name)
@@ -114,6 +115,7 @@ object ConfigExporter {
             densityLookaheadDays = json.optInt("densityLookaheadDays", 3),
             densityLoadBaselineMinutes = json.optInt("densityLoadBaselineMinutes", 480),
             densityRolloverHour = json.optInt("densityRolloverHour", 19),
+            densityNoEarlyTomorrow = json.optBoolean("densityNoEarlyTomorrow", false),
             densityBusyColor = json.optInt("densityBusyColor", DensityConstants.DEFAULT_BUSY_COLOR),
             densityStripMode = json.optString("densityStripMode")
                 .let { runCatching { DensityStripMode.valueOf(it) }.getOrDefault(DensityStripMode.TONAL) },

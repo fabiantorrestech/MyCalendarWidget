@@ -595,9 +595,9 @@ class DensityCalculatorTest {
     }
 
     @Test
-    fun `LEFT with nothing remaining reads Done today`() {
+    fun `LEFT with nothing remaining reads All done`() {
         val headline = headlineFor(standardDay(), t(17, 20))
-        assertEquals("Done today", headline.countText)
+        assertEquals("All done", headline.countText)
         assertEquals("", headline.qualifierText)
         assertTrue(headline.countIsSentence)
     }
@@ -621,7 +621,7 @@ class DensityCalculatorTest {
     fun `FRACTION with nothing remaining reads zero over total`() {
         val headline = headlineFor(standardDay(), t(17, 20), DensityCountMode.FRACTION)
         assertEquals("0/6", headline.countText)
-        assertEquals("done today", headline.qualifierText)
+        assertEquals("all done", headline.qualifierText)
     }
 
     @Test
@@ -641,10 +641,10 @@ class DensityCalculatorTest {
     }
 
     @Test
-    fun `TOTAL after the last event says nothing else today`() {
+    fun `TOTAL after the last event says all done`() {
         val headline = headlineFor(standardDay(), t(17, 20), DensityCountMode.TOTAL)
         assertEquals("6 today", headline.countText)
-        assertEquals("nothing else today", headline.qualifierText)
+        assertEquals("all done", headline.qualifierText)
     }
 
     // -------------------------------------------------------------- rollover
@@ -671,6 +671,36 @@ class DensityCalculatorTest {
     @Test
     fun `no rollover after the rollover hour while an event is still running`() {
         assertFalse(DensityCalculator.shouldRollover(eveningDay(), t(20, 0), 19, zone))
+    }
+
+    @Test
+    fun `rollover the moment an event past the rollover hour ends`() {
+        assertTrue(DensityCalculator.shouldRollover(eveningDay(), t(21, 0), 19, zone))
+    }
+
+    @Test
+    fun `no early tomorrow keeps a day busy past the rollover hour until midnight`() {
+        assertFalse(DensityCalculator.shouldRollover(eveningDay(), t(21, 0), 19, zone, noEarlyTomorrow = true))
+        assertFalse(DensityCalculator.shouldRollover(eveningDay(), t(23, 59), 19, zone, noEarlyTomorrow = true))
+    }
+
+    @Test
+    fun `no early tomorrow still rolls over at the hour when the day was done before it`() {
+        assertFalse(DensityCalculator.shouldRollover(standardDay(), t(18, 59), 19, zone, noEarlyTomorrow = true))
+        assertTrue(DensityCalculator.shouldRollover(standardDay(), t(19, 0), 19, zone, noEarlyTomorrow = true))
+    }
+
+    @Test
+    fun `no early tomorrow counts an event ending exactly at the rollover hour as done`() {
+        val endsOnTheHour = DensityCalculator.buildDay(
+            date = day,
+            raw = listOf(raw(t(18, 0), t(19, 0))),
+            enabledCalendarIds = emptySet(),
+            windowStartMinutes = 480,
+            windowEndMinutes = 1320,
+            zone = zone
+        )
+        assertTrue(DensityCalculator.shouldRollover(endsOnTheHour, t(19, 0), 19, zone, noEarlyTomorrow = true))
     }
 
     @Test

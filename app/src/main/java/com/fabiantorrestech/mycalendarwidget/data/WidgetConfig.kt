@@ -123,6 +123,7 @@ data class WidgetConfig(
     val densityLookaheadDays: Int = 3,            // 0..7
     val densityLoadBaselineMinutes: Int = 480,
     val densityRolloverHour: Int = 19,            // 0..23
+    val densityNoEarlyTomorrow: Boolean = false,
     val densityBusyColor: Int = DensityConstants.DEFAULT_BUSY_COLOR, // 0 = follow theme
     val densityStripMode: DensityStripMode = DensityStripMode.TONAL,
     val densityPeekFormat: DensityPeekFormat = DensityPeekFormat.GROUPED,

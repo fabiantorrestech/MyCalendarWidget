@@ -88,7 +88,10 @@ data class DayDensity(
 /** One rendered snapshot: the featured day plus the lookahead strip. */
 data class DensitySnapshot(
     val hasPermission: Boolean,
-    /** Today, or tomorrow once the evening rollover has happened. */
+    /**
+     * Today, or tomorrow once the evening rollover has happened (see
+     * [DensityCalculator.shouldRollover] and `WidgetConfig.densityNoEarlyTomorrow`).
+     */
     val featured: DayDensity,
     val featuredIsToday: Boolean,
     /** The N days *after* the featured day. */
@@ -108,7 +111,7 @@ data class DensitySnapshot(
 data class DensityHeadline(
     val countText: String,
     val qualifierText: String,
-    /** True when [countText] reads as a sentence ("Done today") rather than a number. */
+    /** True when [countText] reads as a sentence ("All done") rather than a number. */
     val countIsSentence: Boolean = false,
     /** The featured day as weekday and short date ("Sun (8/16)"): the day the count is about. */
     val dateText: String = ""
