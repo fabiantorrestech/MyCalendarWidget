@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A day header in the expanded notification's agenda ("Today (10/1)"). -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_header_label"
+    style="@style/TextAppearance.Compat.Notification.Info"
+    android:layout_width="match_parent"
+    android:layout_height="20dp"
+    android:gravity="bottom"
+    android:maxLines="1"
+    android:textSize="12sp" />
