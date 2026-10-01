@@ -28,6 +28,17 @@ than the order it was built in.
 - Density uses only the selected profile, so the widget draws no profile switcher.
 - Density refreshes every five minutes and at local midnight.
 
+## Persistent notification
+
+- New **Persistent notification** card on the app's main screen puts the density view in the notification shade. It asks for notification permission the first time on Android 13+.
+- It draws one placed widget's settings (picked on the card; a density widget is picked by default), so its colours, calendars, window and counts match that widget.
+- Collapsed it shows one line ("1 left · Thu (10/1) · next at 6:30") over the bar, caret included.
+- Expanded it adds the hour axis and the next few events grouped by day, with "+N more" when they do not fit. Events that already ended are left out to save room.
+- Tapping the notification opens your calendar app, following the widget's click routing. Tapping an event row opens that event, or the calendar app if you pick that on the card.
+- The lock screen gets the collapsed view only: the count and the bar, never an event title. Android hides silent notifications on the lock screen unless "Show silent notifications" is on.
+- It refreshes every five minutes, when calendars change, at midnight and after a reboot. Swiping it away brings it straight back; turn it off on the card.
+- Removing the widget it follows turns the notification off.
+
 ## Tapping the widget (the peek sheet)
 
 - Tapping anywhere on the bar area opens a scrolling list of what is coming up.
