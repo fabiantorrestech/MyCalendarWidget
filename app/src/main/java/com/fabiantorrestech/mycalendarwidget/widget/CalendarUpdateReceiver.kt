@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.fabiantorrestech.mycalendarwidget.notification.DensityNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +23,7 @@ class CalendarUpdateReceiver : BroadcastReceiver() {
                 val manager = GlanceAppWidgetManager(context)
                 val ids = manager.getGlanceIds(BridgeCalWidget::class.java)
                 ids.forEach { BridgeCalWidget().update(context, it) }
+                DensityNotifier.refresh(context)
             } finally {
                 pendingResult.finish()
             }

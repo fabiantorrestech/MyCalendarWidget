@@ -21,6 +21,7 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSyncLinkRepository
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityRepository
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
+import com.fabiantorrestech.mycalendarwidget.notification.DensityNotifier
 import com.fabiantorrestech.mycalendarwidget.ui.theme.DarkColors
 import com.fabiantorrestech.mycalendarwidget.ui.theme.LightColors
 import kotlinx.coroutines.CoroutineScope
@@ -239,6 +240,16 @@ class BridgeCalWidgetReceiver : GlanceAppWidgetReceiver() {
             WidgetNameRepository.clear(context, it)
             WidgetConfigRepository.clearCache(it)
             WidgetProfileRepository.clearCache(it)
+        }
+        // If the notification followed one of these widgets, refresh finds it no longer
+        // placed and turns the notification off. Same nullable goAsync() as onUpdate.
+        val pendingResult: BroadcastReceiver.PendingResult? = goAsync()
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+            try {
+                DensityNotifier.refresh(context)
+            } finally {
+                pendingResult?.finish()
+            }
         }
     }
 

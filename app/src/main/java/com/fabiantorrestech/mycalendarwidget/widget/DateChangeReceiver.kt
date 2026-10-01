@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.fabiantorrestech.mycalendarwidget.notification.DensityNotifier
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,8 @@ class DateChangeReceiver : BroadcastReceiver() {
                     PeekState.close(context, it)
                     BridgeCalWidget().update(context, it)
                 }
+                // Also re-arms the notification's own tick, which an app update clears.
+                DensityNotifier.refresh(context)
             } finally {
                 pendingResult.finish()
             }

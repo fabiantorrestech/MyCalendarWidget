@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.fabiantorrestech.mycalendarwidget.notification.DensityNotifier
 import com.fabiantorrestech.mycalendarwidget.ui.theme.MyCalendarWidgetTheme
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
 import kotlinx.coroutines.CoroutineScope
@@ -81,6 +82,8 @@ class SettingsActivity : ComponentActivity() {
             val manager = GlanceAppWidgetManager(applicationContext)
             val ids = manager.getGlanceIds(BridgeCalWidget::class.java)
             ids.forEach { BridgeCalWidget().update(applicationContext, it) }
+            // The notification draws a widget's profile, so a save may change it too.
+            DensityNotifier.refresh(applicationContext)
         }
     }
 }
