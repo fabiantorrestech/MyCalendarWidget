@@ -7,6 +7,10 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- Persistent density notification: posting it (asked at runtime on API 33+) and
+         putting it back after a reboot -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Required on API 30+ for package visibility when sending explicit-package intents -->
     <queries>
@@ -102,6 +106,15 @@
         <receiver
             android:name=".widget.WidgetSyncReceiver"
             android:exported="false" />
+
+        <!-- Persistent notification: its refresh tick, re-posting after a swipe, and boot -->
+        <receiver
+            android:name=".notification.NotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 
