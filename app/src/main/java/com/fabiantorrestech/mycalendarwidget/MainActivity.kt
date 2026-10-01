@@ -1,12 +1,23 @@
 package com.fabiantorrestech.mycalendarwidget
 
+import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.core.app.NotificationManagerCompat
+import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
+import com.fabiantorrestech.mycalendarwidget.ui.NotificationSettingsCard
+import com.fabiantorrestech.mycalendarwidget.ui.NotificationSettingsViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +69,46 @@ import com.fabiantorrestech.mycalendarwidget.ui.theme.MyCalendarWidgetTheme
 class MainActivity : ComponentActivity() {
 
     private val widgetListViewModel: WidgetListViewModel by viewModels()
+    private val notificationViewModel: NotificationSettingsViewModel by viewModels()
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) enableNotification() else showNotificationsBlocked()
+    }
+
+    /** Asks for POST_NOTIFICATIONS first on Android 13+, then turns the notification on. */
+    private fun requestNotificationOn() {
+        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        when {
+            needsPermission -> notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            !NotificationManagerCompat.from(this).areNotificationsEnabled() -> showNotificationsBlocked()
+            else -> enableNotification()
+        }
+    }
+
+    /**
+     * Follows the widget already chosen if it is still placed, else the first density
+     * widget, else the first widget of any style.
+     */
+    private fun enableNotification() {
+        val widgets = widgetListViewModel.widgets.value
+        val current = notificationViewModel.prefs.value.followedWidgetId
+        val target = widgets.firstOrNull { it.appWidgetId == current }
+            ?: widgets.firstOrNull { it.style == WidgetStyle.DENSITY }
+            ?: widgets.firstOrNull()
+            ?: return
+        notificationViewModel.enable(target.appWidgetId)
+    }
+
+    private fun showNotificationsBlocked() {
+        Toast.makeText(
+            this,
+            "Notifications are off for BridgeCal. Turn them on in system settings.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,6 +118,7 @@ class MainActivity : ComponentActivity() {
             MyCalendarWidgetTheme {
                 var showWidgetList by rememberSaveable { mutableStateOf(false) }
                 val widgets by widgetListViewModel.widgets.collectAsState()
+                val notificationPrefs by notificationViewModel.prefs.collectAsState()
                 val sheetState = rememberModalBottomSheetState()
                 val context = LocalContext.current
 
@@ -90,7 +142,17 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 ) { innerPadding ->
-                    OnboardingScreen(modifier = Modifier.padding(innerPadding))
+                    OnboardingScreen(modifier = Modifier.padding(innerPadding)) {
+                        NotificationSettingsCard(
+                            prefs = notificationPrefs,
+                            widgets = widgets,
+                            onEnabledChange = { on ->
+                                if (on) requestNotificationOn() else notificationViewModel.disable()
+                            },
+                            onFollow = notificationViewModel::follow,
+                            onRowTapChange = notificationViewModel::setRowTap
+                        )
+                    }
 
                     if (showWidgetList) {
                         ModalBottomSheet(
@@ -198,10 +260,14 @@ private fun WidgetListItem(widget: WidgetSummary, onClick: () -> Unit) {
 }
 
 @Composable
-private fun OnboardingScreen(modifier: Modifier = Modifier) {
+private fun OnboardingScreen(
+    modifier: Modifier = Modifier,
+    belowSteps: @Composable () -> Unit = {}
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -253,6 +319,10 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
                 OnboardingStep(number = "4", text = "Tap Configure to customize it")
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        belowSteps()
     }
 }
 
