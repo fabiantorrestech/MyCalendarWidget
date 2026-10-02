@@ -134,13 +134,13 @@ class NotificationPrefsRepository(context: Context) {
     }
 
     /**
-     * Sets the arrows' offset to [next] of the stored offset and its tap time, and stamps
-     * [nowMillis] as the new tap time. Read and write happen in one edit, so two quick
-     * taps cannot both start from the same offset.
+     * Records an arrow tap: [offset] is the page (or day) the tapped arrow pointed at,
+     * worked out when the notification was drawn, and [nowMillis] restarts the idle
+     * timer that snaps the arrows back.
      */
-    suspend fun movePage(nowMillis: Long, next: (offset: Int, touchedAtMillis: Long) -> Int) {
+    suspend fun setPage(offset: Int, nowMillis: Long) {
         dataStore.edit {
-            it[Keys.PAGE_OFFSET] = next(it[Keys.PAGE_OFFSET] ?: 0, it[Keys.PAGE_TOUCHED_AT] ?: 0L)
+            it[Keys.PAGE_OFFSET] = offset
             it[Keys.PAGE_TOUCHED_AT] = nowMillis
         }
     }

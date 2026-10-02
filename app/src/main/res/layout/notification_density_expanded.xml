@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Expanded persistent notification: the density headline, strip and axis, then the
-     agenda rows (added in code) and a "+N more" line. Fits Android's 252dp cap. -->
+     agenda rows (added in code), a "+N more" line and the ‹ › arrows' row. Sized for
+     Android's 252dp cap: about 84dp of header, six 20dp rows and the 36dp arrow row. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -52,4 +53,55 @@
         android:gravity="center_vertical"
         android:maxLines="1"
         android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/notification_nav"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/notification_nav_prev"
+            style="@style/TextAppearance.Compat.Notification.Title"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/notification_nav_previous"
+            android:gravity="center"
+            android:text="@string/notification_nav_previous_glyph"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/notification_nav_label"
+            style="@style/TextAppearance.Compat.Notification.Info"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/notification_nav_first"
+            style="@style/TextAppearance.Compat.Notification.Info"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingHorizontal="12dp"
+            android:text="@string/peek_today"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/notification_nav_next"
+            style="@style/TextAppearance.Compat.Notification.Title"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/notification_nav_next"
+            android:gravity="center"
+            android:text="@string/notification_nav_next_glyph"
+            android:textSize="22sp" />
+    </LinearLayout>
 </LinearLayout>

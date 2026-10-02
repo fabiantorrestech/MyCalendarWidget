@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityHeadline
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
@@ -26,23 +27,50 @@ import com.fabiantorrestech.mycalendarwidget.widget.density.DensityCanvas
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensityPalette
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import com.fabiantorrestech.mycalendarwidget.widget.density.SECOND_LINE_SEPARATOR
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItem
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItemKind
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekLabels
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
 
 /** The two custom views one notification post needs. */
 class NotificationViews(val collapsed: RemoteViews, val expanded: RemoteViews)
 
+/** What the expanded view shows under its headline, for the paging mode in use. */
+sealed interface ExpandedBody {
+    /**
+     * One page of the upcoming list. The headline and strip stay on the featured day;
+     * only the rows page.
+     */
+    data class AgendaPage(val rows: List<PeekItem>, val pageIndex: Int, val pageCount: Int) : ExpandedBody
+
+    /**
+     * One day: its own headline, strip, axis and events. [offset] counts days from the
+     * featured day, up to [maxOffset].
+     */
+    data class Day(
+        val day: DayDensity,
+        val isToday: Boolean,
+        val rows: AgendaRows,
+        val offset: Int,
+        val maxOffset: Int
+    ) : ExpandedBody
+}
+
+/** What the arrows' row starts; each is a broadcast to the notification's receiver. */
+class NavIntents(val previous: PendingIntent, val next: PendingIntent, val first: PendingIntent)
+
 /**
  * Draws the persistent notification as RemoteViews, from the same pieces the widget
  * uses: [DensityCalculator.headline] for the words, [DensitySpecBuilder] and
  * [DensityCanvas] for the strip bitmap and the axis, [NotificationAgenda] for the rows.
  *
- * The collapsed view carries no event text, so it doubles as the lock-screen public
- * version. Text colours come from the platform's notification text appearances, so they
- * follow the shade; only the strip bitmap needs colours of its own (see [palette]).
+ * The collapsed view always shows the featured day and carries no event text, so it
+ * doubles as the lock-screen public version. Text colours come from the platform's
+ * notification text appearances, so they follow the shade; only the strip bitmap needs
+ * colours of its own (see [palette]).
  */
 object DensityNotificationRenderer {
 
@@ -52,6 +80,9 @@ object DensityNotificationRenderer {
      * close enough that the caret and chevrons keep their proportions.
      */
     private const val SIDE_MARGINS_DP = 48
+
+    /** How faded an arrow at the end of the list is drawn. */
+    private const val DISABLED_ALPHA = 0.38f
 
     /** The calendar-permission prompt in place of the density content. */
     fun noPermission(context: Context): RemoteViews =
@@ -68,13 +99,16 @@ object DensityNotificationRenderer {
         context: Context,
         config: WidgetConfig,
         snapshot: DensitySnapshot,
-        agenda: AgendaRows,
+        body: ExpandedBody,
+        nav: NavIntents,
         use24Hour: Boolean,
         zone: ZoneId,
         rowIntent: (CalendarEvent) -> PendingIntent?
     ): NotificationViews {
         val locale = Locale.getDefault()
-        val headline = DensityCalculator.headline(
+        val today = Instant.ofEpochMilli(snapshot.nowMillis).atZone(zone).toLocalDate()
+        val palette = palette(context, config)
+        val featuredHeadline = DensityCalculator.headline(
             featured = snapshot.featured,
             featuredIsToday = snapshot.featuredIsToday,
             nowMillis = snapshot.nowMillis,
@@ -84,19 +118,77 @@ object DensityNotificationRenderer {
             use24Hour = use24Hour,
             locale = locale
         )
-        val strip = stripBitmap(context, config, snapshot, zone)
+        // The caret means "you are here": only today's strip may carry one.
+        val featuredStrip = stripBitmap(
+            context, config, palette, snapshot.featured,
+            if (snapshot.featuredIsToday) snapshot.nowMillis else null,
+            zone, snapshot.visibleCalendarIds
+        )
 
         val collapsed = RemoteViews(context.packageName, R.layout.notification_density_collapsed).apply {
-            setTextViewText(R.id.notification_headline, oneLineHeadline(headline))
-            setImageViewBitmap(R.id.notification_strip, strip)
+            setTextViewText(R.id.notification_headline, oneLineHeadline(featuredHeadline))
+            setImageViewBitmap(R.id.notification_strip, featuredStrip)
         }
 
-        val expanded = RemoteViews(context.packageName, R.layout.notification_density_expanded).apply {
-            setTextViewText(R.id.notification_count, headline.countText)
-            setTextViewText(R.id.notification_second_line, secondLine(headline))
-            setImageViewBitmap(R.id.notification_strip, strip)
-            fillAxis(context, this, snapshot, zone, use24Hour)
-            fillAgenda(context, this, agenda, snapshot, zone, use24Hour, locale, rowIntent)
+        val expanded = RemoteViews(context.packageName, R.layout.notification_density_expanded)
+        when (body) {
+            is ExpandedBody.AgendaPage -> {
+                fillHeader(expanded, featuredHeadline, featuredStrip)
+                fillAxis(context, expanded, snapshot.featured, zone, use24Hour)
+                fillAgendaRows(context, expanded, body.rows, today, zone, use24Hour, locale, rowIntent)
+                if (body.rows.isEmpty()) {
+                    showMore(expanded, context.getString(R.string.peek_empty))
+                } else {
+                    expanded.setViewVisibility(R.id.notification_more, View.GONE)
+                }
+                if (body.pageCount > 1) {
+                    fillNav(
+                        expanded, nav,
+                        label = context.getString(R.string.notification_page_label, body.pageIndex + 1, body.pageCount),
+                        atStart = body.pageIndex == 0,
+                        atEnd = body.pageIndex >= body.pageCount - 1
+                    )
+                } else {
+                    expanded.setViewVisibility(R.id.notification_nav, View.GONE)
+                }
+            }
+
+            is ExpandedBody.Day -> {
+                val headline = if (body.offset == 0) {
+                    featuredHeadline
+                } else {
+                    NotificationDayHeadline.headline(body.day, zone, use24Hour, locale)
+                }
+                val strip = if (body.offset == 0) {
+                    featuredStrip
+                } else {
+                    stripBitmap(
+                        context, config, palette, body.day,
+                        if (body.isToday) snapshot.nowMillis else null,
+                        zone, snapshot.visibleCalendarIds
+                    )
+                }
+                fillHeader(expanded, headline, strip)
+                fillAxis(context, expanded, body.day, zone, use24Hour)
+                fillAgendaRows(context, expanded, body.rows.rows, today, zone, use24Hour, locale, rowIntent)
+                if (body.rows.moreCount > 0) {
+                    showMore(expanded, context.getString(R.string.notification_more, body.rows.moreCount))
+                } else {
+                    expanded.setViewVisibility(R.id.notification_more, View.GONE)
+                }
+                fillNav(
+                    expanded, nav,
+                    label = PeekLabels.dateHeader(
+                        body.day.date,
+                        today,
+                        context.getString(R.string.peek_today),
+                        context.getString(R.string.peek_tomorrow),
+                        locale
+                    ),
+                    atStart = body.offset == 0,
+                    atEnd = body.offset >= body.maxOffset
+                )
+            }
         }
 
         return NotificationViews(collapsed, expanded)
@@ -117,24 +209,32 @@ object DensityNotificationRenderer {
             headline.dateText + SECOND_LINE_SEPARATOR + headline.qualifierText
         }
 
+    private fun fillHeader(views: RemoteViews, headline: DensityHeadline, strip: Bitmap) {
+        views.setTextViewText(R.id.notification_count, headline.countText)
+        views.setTextViewText(R.id.notification_second_line, secondLine(headline))
+        views.setImageViewBitmap(R.id.notification_strip, strip)
+    }
+
     private fun stripBitmap(
         context: Context,
         config: WidgetConfig,
-        snapshot: DensitySnapshot,
-        zone: ZoneId
+        palette: DensityPalette,
+        day: DayDensity,
+        nowMillis: Long?,
+        zone: ZoneId,
+        visibleCalendarIds: List<Long>
     ): Bitmap {
         val metrics = context.resources.displayMetrics
         val widthPx = ((context.resources.configuration.screenWidthDp - SIDE_MARGINS_DP) * metrics.density).toInt()
         val spec = DensitySpecBuilder.stripSpec(
-            day = snapshot.featured,
+            day = day,
             config = config,
-            palette = palette(context, config),
+            palette = palette,
             widthPx = widthPx,
             density = metrics.density,
-            // The caret means "you are here": only today's strip may carry one.
-            nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
+            nowMillis = nowMillis,
             zone = zone,
-            visibleCalendarIds = snapshot.visibleCalendarIds
+            visibleCalendarIds = visibleCalendarIds
         )
         return DensityCanvas.renderStrip(spec)
     }
@@ -169,33 +269,32 @@ object DensityNotificationRenderer {
     private fun fillAxis(
         context: Context,
         views: RemoteViews,
-        snapshot: DensitySnapshot,
+        day: DayDensity,
         zone: ZoneId,
         use24Hour: Boolean
     ) {
         views.removeAllViews(R.id.notification_axis)
-        DensitySpecBuilder.axisSpec(snapshot.featured, zone, use24Hour).labels.forEach { label ->
+        DensitySpecBuilder.axisSpec(day, zone, use24Hour).labels.forEach { label ->
             val cell = RemoteViews(context.packageName, R.layout.notification_axis_cell)
             cell.setTextViewText(R.id.notification_axis_label, label.orEmpty())
             views.addView(R.id.notification_axis, cell)
         }
     }
 
-    private fun fillAgenda(
+    private fun fillAgendaRows(
         context: Context,
         views: RemoteViews,
-        agenda: AgendaRows,
-        snapshot: DensitySnapshot,
+        rows: List<PeekItem>,
+        today: LocalDate,
         zone: ZoneId,
         use24Hour: Boolean,
         locale: Locale,
         rowIntent: (CalendarEvent) -> PendingIntent?
     ) {
         views.removeAllViews(R.id.notification_agenda)
-        val today = Instant.ofEpochMilli(snapshot.nowMillis).atZone(zone).toLocalDate()
         val allDayWord = context.getString(R.string.peek_all_day)
 
-        agenda.rows.forEach { item ->
+        rows.forEach { item ->
             when (item.kind) {
                 PeekItemKind.HEADER -> {
                     val label = PeekLabels.dateHeader(
@@ -226,21 +325,29 @@ object DensityNotificationRenderer {
                 PeekItemKind.SEPARATOR -> {}
             }
         }
+    }
 
-        when {
-            agenda.moreCount > 0 -> {
-                views.setTextViewText(
-                    R.id.notification_more,
-                    context.getString(R.string.notification_more, agenda.moreCount)
-                )
-                views.setViewVisibility(R.id.notification_more, View.VISIBLE)
-            }
-            agenda.rows.isEmpty() -> {
-                views.setTextViewText(R.id.notification_more, context.getString(R.string.peek_empty))
-                views.setViewVisibility(R.id.notification_more, View.VISIBLE)
-            }
-            else -> views.setViewVisibility(R.id.notification_more, View.GONE)
-        }
+    private fun showMore(views: RemoteViews, text: String) {
+        views.setTextViewText(R.id.notification_more, text)
+        views.setViewVisibility(R.id.notification_more, View.VISIBLE)
+    }
+
+    /**
+     * The ‹ label Today › row. An arrow at the end of the list is faded but keeps its
+     * intent (which just redraws the same page): an arrow with no handler would let the
+     * tap fall through and open the calendar app instead.
+     */
+    private fun fillNav(views: RemoteViews, nav: NavIntents, label: String, atStart: Boolean, atEnd: Boolean) {
+        views.setViewVisibility(R.id.notification_nav, View.VISIBLE)
+        views.setTextViewText(R.id.notification_nav_label, label)
+
+        views.setOnClickPendingIntent(R.id.notification_nav_prev, nav.previous)
+        views.setFloat(R.id.notification_nav_prev, "setAlpha", if (atStart) DISABLED_ALPHA else 1f)
+        views.setOnClickPendingIntent(R.id.notification_nav_next, nav.next)
+        views.setFloat(R.id.notification_nav_next, "setAlpha", if (atEnd) DISABLED_ALPHA else 1f)
+
+        views.setViewVisibility(R.id.notification_nav_first, if (atStart) View.GONE else View.VISIBLE)
+        views.setOnClickPendingIntent(R.id.notification_nav_first, nav.first)
     }
 
     private fun bold(text: String): CharSequence =
