@@ -37,7 +37,8 @@ fun NotificationSettingsCard(
     onFollow: (Int) -> Unit,
     onRowTapChange: (NotificationRowTap) -> Unit,
     onPlacementChange: (NotificationPlacement) -> Unit,
-    onPagingModeChange: (NotificationPagingMode) -> Unit
+    onPagingModeChange: (NotificationPagingMode) -> Unit,
+    onShowAddButtonChange: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -98,6 +99,22 @@ fun NotificationSettingsCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Show + (add event) button",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(checked = prefs.showAddButton, onCheckedChange = onShowAddButtonChange)
+                }
 
                 SectionLabel("The ‹ › arrows move through")
                 NotificationPagingMode.entries.forEach { mode ->

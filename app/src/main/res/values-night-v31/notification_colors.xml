@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tone 30 / tone 90 of the wallpaper accent: Material You's dark primaryContainer pair. -->
+<resources>
+    <color name="notification_accent_container">@android:color/system_accent1_700</color>
+    <color name="notification_on_accent_container">@android:color/system_accent1_100</color>
+</resources>

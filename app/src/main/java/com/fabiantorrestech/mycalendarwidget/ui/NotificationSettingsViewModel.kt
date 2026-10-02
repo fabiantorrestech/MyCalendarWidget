@@ -39,6 +39,8 @@ class NotificationSettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setPagingMode(mode: NotificationPagingMode) = saveAndRefresh { repo.setPagingMode(mode) }
 
+    fun setShowAddButton(show: Boolean) = saveAndRefresh { repo.setShowAddButton(show) }
+
     private fun saveAndRefresh(save: suspend () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             save()

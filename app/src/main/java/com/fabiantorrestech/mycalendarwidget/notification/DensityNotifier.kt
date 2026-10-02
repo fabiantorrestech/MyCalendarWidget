@@ -68,6 +68,7 @@ object DensityNotifier {
     private const val REQUEST_PAGE_PREVIOUS = 0x50
     private const val REQUEST_PAGE_NEXT = 0x51
     private const val REQUEST_PAGE_FIRST = 0x52
+    private const val REQUEST_ADD_EVENT = 0x41
 
     /**
      * One refresh at a time: two quick arrow taps must post their pages in order, never
@@ -234,6 +235,12 @@ object DensityNotifier {
                 next = pageIntent(context, REQUEST_PAGE_NEXT, minOf(lastOffset, current + 1)),
                 first = pageIntent(context, REQUEST_PAGE_FIRST, 0)
             ),
+            // The same "new event" screen the widget's + opens.
+            addIntent = if (prefs.showAddButton) {
+                activityIntent(context, WidgetClickActions.quickAddIntent(), REQUEST_ADD_EVENT)
+            } else {
+                null
+            },
             use24Hour = use24Hour(context),
             zone = zone,
             rowIntent = { event ->
@@ -249,10 +256,12 @@ object DensityNotifier {
 
         val openCalendar = activityIntent(context, WidgetClickActions.headerIntent(config), 0)
 
-        // The lock screen gets the collapsed view only: the density headline and strip,
-        // no event titles.
+        // The redacted lock-screen version: the density headline and strip, no event
+        // titles and no + button. Android only swaps it in when the phone is set to hide
+        // sensitive notification content on the lock screen; an app cannot force that
+        // (a channel's lock-screen visibility is the user's to set, not the app's).
         val publicVersion = baseBuilder(context, prefs.placement, openCalendar)
-            .setCustomContentView(views.collapsed)
+            .setCustomContentView(views.lockScreen)
             .build()
 
         return baseBuilder(context, prefs.placement, openCalendar)

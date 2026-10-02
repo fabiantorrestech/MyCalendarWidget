@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Today's header: the same bold label on a filled accent pill, as on the widget's peek. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="22dp">
+
+    <TextView
+        android:id="@+id/notification_header_label"
+        android:layout_width="wrap_content"
+        android:layout_height="19dp"
+        android:layout_gravity="bottom|start"
+        android:background="@drawable/notification_today_pill"
+        android:gravity="center_vertical"
+        android:maxLines="1"
+        android:paddingHorizontal="6dp"
+        android:textColor="@color/notification_on_accent_container"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+</FrameLayout>

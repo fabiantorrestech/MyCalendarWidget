@@ -35,8 +35,11 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
 
-/** The two custom views one notification post needs. */
-class NotificationViews(val collapsed: RemoteViews, val expanded: RemoteViews)
+/**
+ * The custom views one notification post needs: [lockScreen] is [collapsed] without the
+ * + button, for the public version.
+ */
+class NotificationViews(val collapsed: RemoteViews, val expanded: RemoteViews, val lockScreen: RemoteViews)
 
 /** What the expanded view shows under its headline, for the paging mode in use. */
 sealed interface ExpandedBody {
@@ -94,6 +97,7 @@ object DensityNotificationRenderer {
     /**
      * [rowIntent] is what tapping an event row starts, or null to leave the row without
      * a handler so the tap falls through to the notification's own content intent.
+     * [addIntent] is the + button's "new event" screen, or null to hide the button.
      */
     fun render(
         context: Context,
@@ -101,6 +105,7 @@ object DensityNotificationRenderer {
         snapshot: DensitySnapshot,
         body: ExpandedBody,
         nav: NavIntents,
+        addIntent: PendingIntent?,
         use24Hour: Boolean,
         zone: ZoneId,
         rowIntent: (CalendarEvent) -> PendingIntent?
@@ -125,12 +130,12 @@ object DensityNotificationRenderer {
             zone, snapshot.visibleCalendarIds
         )
 
-        val collapsed = RemoteViews(context.packageName, R.layout.notification_density_collapsed).apply {
-            setTextViewText(R.id.notification_headline, oneLineHeadline(featuredHeadline))
-            setImageViewBitmap(R.id.notification_strip, featuredStrip)
-        }
+        val collapsed = collapsedView(context, featuredHeadline, featuredStrip, addIntent)
+        // The lock screen gets no +: adding an event there would only ask to unlock.
+        val lockScreen = collapsedView(context, featuredHeadline, featuredStrip, addIntent = null)
 
         val expanded = RemoteViews(context.packageName, R.layout.notification_density_expanded)
+        fillAdd(expanded, addIntent)
         when (body) {
             is ExpandedBody.AgendaPage -> {
                 fillHeader(expanded, featuredHeadline, featuredStrip)
@@ -191,7 +196,7 @@ object DensityNotificationRenderer {
             }
         }
 
-        return NotificationViews(collapsed, expanded)
+        return NotificationViews(collapsed, expanded, lockScreen)
     }
 
     /** "3 left · Wed (10/1) · next in 25m", with the count in bold. */
@@ -304,9 +309,14 @@ object DensityNotificationRenderer {
                         context.getString(R.string.peek_tomorrow),
                         locale
                     )
-                    val text = if (PeekLabels.isToday(item.date, today)) bold(label) else label
-                    val header = RemoteViews(context.packageName, R.layout.notification_agenda_header)
-                    header.setTextViewText(R.id.notification_header_label, text)
+                    // Today sits on a filled accent pill, as on the widget's peek.
+                    val layout = if (PeekLabels.isToday(item.date, today)) {
+                        R.layout.notification_agenda_header_today
+                    } else {
+                        R.layout.notification_agenda_header
+                    }
+                    val header = RemoteViews(context.packageName, layout)
+                    header.setTextViewText(R.id.notification_header_label, label)
                     views.addView(R.id.notification_agenda, header)
                 }
                 PeekItemKind.EVENT -> {
@@ -350,8 +360,25 @@ object DensityNotificationRenderer {
         views.setOnClickPendingIntent(R.id.notification_nav_first, nav.first)
     }
 
-    private fun bold(text: String): CharSequence =
-        SpannableString(text).apply {
-            setSpan(StyleSpan(Typeface.BOLD), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    /** The + (add event) button: shown with [addIntent], hidden without one. */
+    private fun fillAdd(views: RemoteViews, addIntent: PendingIntent?) {
+        if (addIntent == null) {
+            views.setViewVisibility(R.id.notification_add, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.notification_add, View.VISIBLE)
+            views.setOnClickPendingIntent(R.id.notification_add, addIntent)
+        }
+    }
+
+    private fun collapsedView(
+        context: Context,
+        headline: DensityHeadline,
+        strip: Bitmap,
+        addIntent: PendingIntent?
+    ): RemoteViews =
+        RemoteViews(context.packageName, R.layout.notification_density_collapsed).apply {
+            setTextViewText(R.id.notification_headline, oneLineHeadline(headline))
+            setImageViewBitmap(R.id.notification_strip, strip)
+            fillAdd(this, addIntent)
         }
 }

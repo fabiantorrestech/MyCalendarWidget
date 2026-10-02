@@ -50,7 +50,8 @@ data class NotificationPrefs(
     val placement: NotificationPlacement = NotificationPlacement.TOP,
     val pagingMode: NotificationPagingMode = NotificationPagingMode.AGENDA_PAGES,
     val pageOffset: Int = 0,
-    val pageTouchedAtMillis: Long = 0L
+    val pageTouchedAtMillis: Long = 0L,
+    val showAddButton: Boolean = true
 )
 
 /**
@@ -81,6 +82,7 @@ class NotificationPrefsRepository(context: Context) {
         val PAGING_MODE = stringPreferencesKey("paging_mode")
         val PAGE_OFFSET = intPreferencesKey("page_offset")
         val PAGE_TOUCHED_AT = longPreferencesKey("page_touched_at")
+        val SHOW_ADD_BUTTON = booleanPreferencesKey("show_add_button")
     }
 
     val prefsFlow: Flow<NotificationPrefs> = dataStore.data.map { prefs ->
@@ -97,7 +99,8 @@ class NotificationPrefsRepository(context: Context) {
                 ?.let { name -> NotificationPagingMode.entries.firstOrNull { it.name == name } }
                 ?: NotificationPagingMode.AGENDA_PAGES,
             pageOffset = prefs[Keys.PAGE_OFFSET] ?: 0,
-            pageTouchedAtMillis = prefs[Keys.PAGE_TOUCHED_AT] ?: 0L
+            pageTouchedAtMillis = prefs[Keys.PAGE_TOUCHED_AT] ?: 0L,
+            showAddButton = prefs[Keys.SHOW_ADD_BUTTON] ?: true
         )
     }
 
@@ -119,6 +122,10 @@ class NotificationPrefsRepository(context: Context) {
 
     suspend fun setRowTap(rowTap: NotificationRowTap) {
         dataStore.edit { it[Keys.ROW_TAP] = rowTap.name }
+    }
+
+    suspend fun setShowAddButton(show: Boolean) {
+        dataStore.edit { it[Keys.SHOW_ADD_BUTTON] = show }
     }
 
     suspend fun setPlacement(placement: NotificationPlacement) {
