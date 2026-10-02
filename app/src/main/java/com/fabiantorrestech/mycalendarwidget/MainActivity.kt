@@ -153,7 +153,8 @@ class MainActivity : ComponentActivity() {
                             onRowTapChange = notificationViewModel::setRowTap,
                             onPlacementChange = notificationViewModel::setPlacement,
                             onPagingModeChange = notificationViewModel::setPagingMode,
-                            onShowAddButtonChange = notificationViewModel::setShowAddButton
+                            onShowAddButtonChange = notificationViewModel::setShowAddButton,
+                            onLockScreenChange = notificationViewModel::setLockScreen
                         )
                     }
 

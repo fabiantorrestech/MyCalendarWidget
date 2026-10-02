@@ -29,6 +29,16 @@ enum class NotificationPlacement(val displayName: String) {
     SILENT("Silent section")
 }
 
+/**
+ * Whether the notification appears on a secure lock screen. Under [SHOW], Android alone
+ * decides how much: the content-free version when the phone hides sensitive content,
+ * the full one (event titles included) otherwise. An app cannot override that.
+ */
+enum class NotificationLockScreen(val displayName: String) {
+    SHOW("Show it (recommended)"),
+    HIDE("Hide it from the lock screen")
+}
+
 /** What the expanded notification's ‹ › arrows move through. */
 enum class NotificationPagingMode(val displayName: String) {
     AGENDA_PAGES("Pages of upcoming events"),
@@ -51,7 +61,8 @@ data class NotificationPrefs(
     val pagingMode: NotificationPagingMode = NotificationPagingMode.AGENDA_PAGES,
     val pageOffset: Int = 0,
     val pageTouchedAtMillis: Long = 0L,
-    val showAddButton: Boolean = true
+    val showAddButton: Boolean = true,
+    val lockScreen: NotificationLockScreen = NotificationLockScreen.SHOW
 )
 
 /**
@@ -83,6 +94,7 @@ class NotificationPrefsRepository(context: Context) {
         val PAGE_OFFSET = intPreferencesKey("page_offset")
         val PAGE_TOUCHED_AT = longPreferencesKey("page_touched_at")
         val SHOW_ADD_BUTTON = booleanPreferencesKey("show_add_button")
+        val LOCK_SCREEN = stringPreferencesKey("lock_screen")
     }
 
     val prefsFlow: Flow<NotificationPrefs> = dataStore.data.map { prefs ->
@@ -100,7 +112,10 @@ class NotificationPrefsRepository(context: Context) {
                 ?: NotificationPagingMode.AGENDA_PAGES,
             pageOffset = prefs[Keys.PAGE_OFFSET] ?: 0,
             pageTouchedAtMillis = prefs[Keys.PAGE_TOUCHED_AT] ?: 0L,
-            showAddButton = prefs[Keys.SHOW_ADD_BUTTON] ?: true
+            showAddButton = prefs[Keys.SHOW_ADD_BUTTON] ?: true,
+            lockScreen = prefs[Keys.LOCK_SCREEN]
+                ?.let { name -> NotificationLockScreen.entries.firstOrNull { it.name == name } }
+                ?: NotificationLockScreen.SHOW
         )
     }
 
@@ -122,6 +137,10 @@ class NotificationPrefsRepository(context: Context) {
 
     suspend fun setRowTap(rowTap: NotificationRowTap) {
         dataStore.edit { it[Keys.ROW_TAP] = rowTap.name }
+    }
+
+    suspend fun setLockScreen(lockScreen: NotificationLockScreen) {
+        dataStore.edit { it[Keys.LOCK_SCREEN] = lockScreen.name }
     }
 
     suspend fun setShowAddButton(show: Boolean) {

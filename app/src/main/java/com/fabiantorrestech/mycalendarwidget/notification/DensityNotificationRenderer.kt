@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Typeface
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.text.SpannableString
 import android.text.Spanned
@@ -112,7 +113,6 @@ object DensityNotificationRenderer {
     ): NotificationViews {
         val locale = Locale.getDefault()
         val today = Instant.ofEpochMilli(snapshot.nowMillis).atZone(zone).toLocalDate()
-        val palette = palette(context, config)
         val featuredHeadline = DensityCalculator.headline(
             featured = snapshot.featured,
             featuredIsToday = snapshot.featuredIsToday,
@@ -124,8 +124,8 @@ object DensityNotificationRenderer {
             locale = locale
         )
         // The caret means "you are here": only today's strip may carry one.
-        val featuredStrip = stripBitmap(
-            context, config, palette, snapshot.featured,
+        val featuredStrip = strip(
+            context, config, snapshot.featured,
             if (snapshot.featuredIsToday) snapshot.nowMillis else null,
             zone, snapshot.visibleCalendarIds
         )
@@ -167,8 +167,8 @@ object DensityNotificationRenderer {
                 val strip = if (body.offset == 0) {
                     featuredStrip
                 } else {
-                    stripBitmap(
-                        context, config, palette, body.day,
+                    strip(
+                        context, config, body.day,
                         if (body.isToday) snapshot.nowMillis else null,
                         zone, snapshot.visibleCalendarIds
                     )
@@ -214,35 +214,73 @@ object DensityNotificationRenderer {
             headline.dateText + SECOND_LINE_SEPARATOR + headline.qualifierText
         }
 
-    private fun fillHeader(views: RemoteViews, headline: DensityHeadline, strip: Bitmap) {
+    private fun fillHeader(views: RemoteViews, headline: DensityHeadline, strip: StripImages) {
         views.setTextViewText(R.id.notification_count, headline.countText)
         views.setTextViewText(R.id.notification_second_line, secondLine(headline))
-        views.setImageViewBitmap(R.id.notification_strip, strip)
+        setStrip(views, strip)
     }
 
-    private fun stripBitmap(
+    /**
+     * One strip bitmap per theme. The strip's colours are baked into the bitmap, unlike
+     * the text (which follows the shade's text appearances), so a single bitmap would
+     * keep the old theme's colours after a light/dark switch until the next refresh.
+     */
+    private class StripImages(val light: Bitmap, val dark: Bitmap)
+
+    /**
+     * Android 12+ draws both and lets the shade pick (see [setStrip]); older versions
+     * only get the theme in use now, in both slots.
+     */
+    private fun strip(
         context: Context,
         config: WidgetConfig,
-        palette: DensityPalette,
         day: DayDensity,
         nowMillis: Long?,
         zone: ZoneId,
         visibleCalendarIds: List<Long>
-    ): Bitmap {
-        val metrics = context.resources.displayMetrics
-        val widthPx = ((context.resources.configuration.screenWidthDp - SIDE_MARGINS_DP) * metrics.density).toInt()
-        val spec = DensitySpecBuilder.stripSpec(
-            day = day,
-            config = config,
-            palette = palette,
-            widthPx = widthPx,
-            density = metrics.density,
-            nowMillis = nowMillis,
-            zone = zone,
-            visibleCalendarIds = visibleCalendarIds
-        )
-        return DensityCanvas.renderStrip(spec)
+    ): StripImages {
+        fun render(night: Boolean): Bitmap {
+            val metrics = context.resources.displayMetrics
+            val widthPx = ((context.resources.configuration.screenWidthDp - SIDE_MARGINS_DP) * metrics.density).toInt()
+            val spec = DensitySpecBuilder.stripSpec(
+                day = day,
+                config = config,
+                palette = palette(context, config, night),
+                widthPx = widthPx,
+                density = metrics.density,
+                nowMillis = nowMillis,
+                zone = zone,
+                visibleCalendarIds = visibleCalendarIds
+            )
+            return DensityCanvas.renderStrip(spec)
+        }
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            StripImages(light = render(night = false), dark = render(night = true))
+        } else {
+            render(isNight(context)).let { StripImages(it, it) }
+        }
     }
+
+    /**
+     * Android 12+'s day/night pair: the shade shows whichever matches its theme at the
+     * time, and swaps it when the theme changes, without a new post from this app.
+     */
+    private fun setStrip(views: RemoteViews, strip: StripImages) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setIcon(
+                R.id.notification_strip,
+                "setImageIcon",
+                Icon.createWithBitmap(strip.light),
+                Icon.createWithBitmap(strip.dark)
+            )
+        } else {
+            views.setImageViewBitmap(R.id.notification_strip, strip.light)
+        }
+    }
+
+    private fun isNight(context: Context): Boolean =
+        (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
 
     /**
      * The strip's colours. The shade's real background cannot be read, so the strip's
@@ -252,9 +290,7 @@ object DensityNotificationRenderer {
      * The busy colour still follows the widget's settings through
      * [DensitySpecBuilder.palette].
      */
-    private fun palette(context: Context, config: WidgetConfig): DensityPalette {
-        val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-            Configuration.UI_MODE_NIGHT_YES
+    private fun palette(context: Context, config: WidgetConfig, night: Boolean): DensityPalette {
         val shade = when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
                 if (night) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -373,12 +409,12 @@ object DensityNotificationRenderer {
     private fun collapsedView(
         context: Context,
         headline: DensityHeadline,
-        strip: Bitmap,
+        strip: StripImages,
         addIntent: PendingIntent?
     ): RemoteViews =
         RemoteViews(context.packageName, R.layout.notification_density_collapsed).apply {
             setTextViewText(R.id.notification_headline, oneLineHeadline(headline))
-            setImageViewBitmap(R.id.notification_strip, strip)
+            setStrip(this, strip)
             fillAdd(this, addIntent)
         }
 }

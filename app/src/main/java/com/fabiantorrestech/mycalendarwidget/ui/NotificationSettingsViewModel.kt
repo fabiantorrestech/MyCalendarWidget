@@ -3,6 +3,7 @@ package com.fabiantorrestech.mycalendarwidget.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.fabiantorrestech.mycalendarwidget.data.NotificationLockScreen
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPagingMode
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPlacement
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPrefs
@@ -40,6 +41,8 @@ class NotificationSettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setPagingMode(mode: NotificationPagingMode) = saveAndRefresh { repo.setPagingMode(mode) }
 
     fun setShowAddButton(show: Boolean) = saveAndRefresh { repo.setShowAddButton(show) }
+
+    fun setLockScreen(lockScreen: NotificationLockScreen) = saveAndRefresh { repo.setLockScreen(lockScreen) }
 
     private fun saveAndRefresh(save: suspend () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {

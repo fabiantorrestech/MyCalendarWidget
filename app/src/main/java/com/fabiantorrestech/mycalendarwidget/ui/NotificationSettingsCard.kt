@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.fabiantorrestech.mycalendarwidget.data.NotificationLockScreen
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPagingMode
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPlacement
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPrefs
@@ -38,7 +39,8 @@ fun NotificationSettingsCard(
     onRowTapChange: (NotificationRowTap) -> Unit,
     onPlacementChange: (NotificationPlacement) -> Unit,
     onPagingModeChange: (NotificationPagingMode) -> Unit,
-    onShowAddButtonChange: (Boolean) -> Unit
+    onShowAddButtonChange: (Boolean) -> Unit,
+    onLockScreenChange: (NotificationLockScreen) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -96,6 +98,22 @@ fun NotificationSettingsCard(
                 }
                 Text(
                     text = "Calls, media, conversations and pop-up alerts can still sit above it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                SectionLabel("On the lock screen")
+                NotificationLockScreen.entries.forEach { lockScreen ->
+                    RadioRow(
+                        label = lockScreen.displayName,
+                        selected = lockScreen == prefs.lockScreen,
+                        onClick = { onLockScreenChange(lockScreen) }
+                    )
+                }
+                Text(
+                    text = "When shown, event titles appear there too unless your phone hides " +
+                        "sensitive notification content on the lock screen (Settings › " +
+                        "Notifications). Then only the count and the bar show.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

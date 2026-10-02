@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.fabiantorrestech.mycalendarwidget.R
 import com.fabiantorrestech.mycalendarwidget.data.CalendarRepository
+import com.fabiantorrestech.mycalendarwidget.data.NotificationLockScreen
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPagingMode
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPlacement
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPrefs
@@ -185,7 +186,7 @@ object DensityNotifier {
             val settings = WidgetClickActions.settingsIntent(context)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, prefs.followedWidgetId)
             val prompt = DensityNotificationRenderer.noPermission(context)
-            return baseBuilder(context, prefs.placement, activityIntent(context, settings, 0))
+            return baseBuilder(context, prefs, activityIntent(context, settings, 0))
                 .setCustomContentView(prompt)
                 .build()
         }
@@ -260,11 +261,11 @@ object DensityNotifier {
         // titles and no + button. Android only swaps it in when the phone is set to hide
         // sensitive notification content on the lock screen; an app cannot force that
         // (a channel's lock-screen visibility is the user's to set, not the app's).
-        val publicVersion = baseBuilder(context, prefs.placement, openCalendar)
+        val publicVersion = baseBuilder(context, prefs, openCalendar)
             .setCustomContentView(views.lockScreen)
             .build()
 
-        return baseBuilder(context, prefs.placement, openCalendar)
+        return baseBuilder(context, prefs, openCalendar)
             .setCustomContentView(views.collapsed)
             .setCustomBigContentView(views.expanded)
             .setPublicVersion(publicVersion)
@@ -287,20 +288,26 @@ object DensityNotifier {
 
     private fun baseBuilder(
         context: Context,
-        placement: NotificationPlacement,
+        prefs: NotificationPrefs,
         contentIntent: PendingIntent
     ): NotificationCompat.Builder {
-        val builder = NotificationCompat.Builder(context, channelFor(placement))
+        val visibility = when (prefs.lockScreen) {
+            // Private: the public version replaces it when the phone hides sensitive content.
+            NotificationLockScreen.SHOW -> NotificationCompat.VISIBILITY_PRIVATE
+            // Secret: nothing of it shows on a secure lock screen.
+            NotificationLockScreen.HIDE -> NotificationCompat.VISIBILITY_SECRET
+        }
+        val builder = NotificationCompat.Builder(context, channelFor(prefs.placement))
             .setSmallIcon(R.drawable.ic_calendar_open)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setLocalOnly(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setVisibility(visibility)
             .setContentIntent(contentIntent)
             .setDeleteIntent(dismissedIntent(context))
-        return when (placement) {
+        return when (prefs.placement) {
             // The top channel already has no sound or vibration. setSilent is left off
             // here because it files the post under a "silent" group of its own.
             NotificationPlacement.TOP -> builder.setPriority(NotificationCompat.PRIORITY_MAX)
