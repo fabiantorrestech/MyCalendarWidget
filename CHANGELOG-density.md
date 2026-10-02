@@ -33,10 +33,13 @@ than the order it was built in.
 - New **Persistent notification** card on the app's main screen puts the density view in the notification shade. It asks for notification permission the first time on Android 13+.
 - It draws one placed widget's settings (picked on the card; a density widget is picked by default), so its colours, calendars, window and counts match that widget.
 - Collapsed it shows one line ("1 left · Thu (10/1) · next at 6:30") over the bar, caret included.
-- Expanded it adds the hour axis and the next few events grouped by day, with "+N more" when they do not fit. Events that already ended are left out to save room.
+- Expanded it adds the hour axis and the upcoming events grouped by day. Events that already ended are left out to save room.
+- ‹ › arrows under the list move through it. By default they page through upcoming events ("2 / 11"). With **One day at a time** on the card, the headline, bar, axis and events all move a day per tap ("1 event · first at 10:00" on later days), and the "now" caret only shows on today. **Today** jumps back, and two minutes without a tap snaps back on the next refresh.
+- **Where it sits**: **Top** (default) puts it in the main Notifications section at the highest priority Android allows, with no sound or vibration, and always on the lock screen. **Silent** moves it to the Silent section. Calls, media, conversations and pop-up alerts can still sit above it.
 - Tapping the notification opens your calendar app, following the widget's click routing. Tapping an event row opens that event, or the calendar app if you pick that on the card.
-- The lock screen gets the collapsed view only: the count and the bar, never an event title. Android hides silent notifications on the lock screen unless "Show silent notifications" is on.
+- The lock screen gets the collapsed view only: the count and the bar, never an event title. In Silent placement, Android only shows it there if "Show silent notifications" is on.
 - It refreshes every five minutes, when calendars change, at midnight and after a reboot. Swiping it away brings it straight back; turn it off on the card.
+- The notification and the widget it follows refresh together: the widget's own refresh, its refresh button and a profile switch update the notification, and the notification's five-minute refresh redraws the widget.
 - Removing the widget it follows turns the notification off.
 
 ## Tapping the widget (the peek sheet)
