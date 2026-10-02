@@ -92,6 +92,23 @@ object DensityNotifier {
     }
 
     /**
+     * The card's "Repost notification" button: takes the notification down and posts it
+     * afresh (re-arming its tick on the way), for when it has gone missing or looks
+     * stuck. Does nothing when the notification is turned off. Never throws.
+     */
+    suspend fun repost(context: Context) {
+        try {
+            refreshLock.withLock {
+                NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+                refreshOrThrow(context.applicationContext)
+            }
+            updateFollowedWidget(context.applicationContext)
+        } catch (e: Exception) {
+            Log.w(TAG, "Notification repost failed", e)
+        }
+    }
+
+    /**
      * A widget refreshed itself: refresh the notification as well when it follows that
      * widget. Cheap when it does not: one preferences read.
      */

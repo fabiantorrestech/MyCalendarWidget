@@ -41,7 +41,8 @@ than the order it was built in.
 - Tapping the notification opens your calendar app, following the widget's click routing. Tapping an event row opens that event, or the calendar app if you pick that on the card.
 - **On the lock screen**: **Show it** (default, recommended) or **Hide it from the lock screen**. When shown, Android decides how much: with the phone set to hide sensitive notification content, only the count and the bar show (no event titles, no +); with it set to show all content, the full notification shows there too. Apps cannot override that setting, and the card says so. In Silent placement, Android only shows it on the lock screen if "Show silent notifications" is on.
 - On Android 12+ the bar is drawn for both light and dark mode, so switching themes recolours it at once instead of at the next refresh.
-- It refreshes every five minutes, when calendars change, at midnight and after a reboot. Swiping it away brings it straight back; turn it off on the card.
+- It refreshes every five minutes, when calendars change, at midnight and after a reboot. Swiping it away brings it straight back; turn it off on the card. Android 14+ lets any notification be swiped, so this is as sticky as an app can make it.
+- A **Repost notification** button on the card puts it back right away (and restarts its five-minute refresh) if it ever goes missing, for example after a battery saver or a force-stop.
 - The notification and the widget it follows refresh together: the widget's own refresh, its refresh button and a profile switch update the notification, and the notification's five-minute refresh redraws the widget.
 - Removing the widget it follows turns the notification off.
 

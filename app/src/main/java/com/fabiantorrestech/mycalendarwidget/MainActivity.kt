@@ -102,6 +102,16 @@ class MainActivity : ComponentActivity() {
         notificationViewModel.enable(target.appWidgetId)
     }
 
+    /** The card's "Repost notification": only possible while notifications are allowed. */
+    private fun repostNotification() {
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            showNotificationsBlocked()
+            return
+        }
+        notificationViewModel.repost()
+        Toast.makeText(this, "Notification reposted", Toast.LENGTH_SHORT).show()
+    }
+
     private fun showNotificationsBlocked() {
         Toast.makeText(
             this,
@@ -154,7 +164,8 @@ class MainActivity : ComponentActivity() {
                             onPlacementChange = notificationViewModel::setPlacement,
                             onPagingModeChange = notificationViewModel::setPagingMode,
                             onShowAddButtonChange = notificationViewModel::setShowAddButton,
-                            onLockScreenChange = notificationViewModel::setLockScreen
+                            onLockScreenChange = notificationViewModel::setLockScreen,
+                            onRepost = ::repostNotification
                         )
                     }
 

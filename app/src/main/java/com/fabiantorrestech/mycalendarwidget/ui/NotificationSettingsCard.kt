@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -40,7 +41,8 @@ fun NotificationSettingsCard(
     onPlacementChange: (NotificationPlacement) -> Unit,
     onPagingModeChange: (NotificationPagingMode) -> Unit,
     onShowAddButtonChange: (Boolean) -> Unit,
-    onLockScreenChange: (NotificationLockScreen) -> Unit
+    onLockScreenChange: (NotificationLockScreen) -> Unit,
+    onRepost: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -79,6 +81,15 @@ fun NotificationSettingsCard(
             }
 
             if (prefs.enabled && widgets.isNotEmpty()) {
+                // Swiping it away already brings it straight back; this is for when it
+                // is missing anyway (a battery saver, a cleared app, a launcher hiccup).
+                OutlinedButton(
+                    onClick = onRepost,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Repost notification")
+                }
+
                 SectionLabel("Uses the settings of")
                 widgets.forEach { widget ->
                     RadioRow(

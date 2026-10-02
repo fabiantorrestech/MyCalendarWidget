@@ -44,6 +44,11 @@ class NotificationSettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setLockScreen(lockScreen: NotificationLockScreen) = saveAndRefresh { repo.setLockScreen(lockScreen) }
 
+    /** Puts the notification back up now, for when it has gone missing. */
+    fun repost() {
+        viewModelScope.launch(Dispatchers.IO) { DensityNotifier.repost(getApplication()) }
+    }
+
     private fun saveAndRefresh(save: suspend () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             save()
