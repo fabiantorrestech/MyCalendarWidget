@@ -83,4 +83,27 @@ class DensityRepository(context: Context) {
             visibleCalendarIds = source.queryVisibleCalendarIds()
         )
     }
+
+    /**
+     * One [DayDensity] for any [date], for the notification's day-by-day arrows: the
+     * same [DensityCalculator.buildDay] as [load], from a query covering just that day
+     * (which still catches instances straddling either midnight). Off the main thread,
+     * like [load].
+     */
+    fun loadDay(
+        config: WidgetConfig,
+        date: LocalDate,
+        zone: ZoneId = ZoneId.systemDefault()
+    ): DayDensity {
+        val startMillis = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val endMillisExclusive = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return DensityCalculator.buildDay(
+            date = date,
+            raw = source.queryRawInstances(startMillis, endMillisExclusive),
+            enabledCalendarIds = config.enabledCalendarIds,
+            windowStartMinutes = config.densityWindowStartMinutes,
+            windowEndMinutes = config.densityWindowEndMinutes,
+            zone = zone
+        )
+    }
 }
