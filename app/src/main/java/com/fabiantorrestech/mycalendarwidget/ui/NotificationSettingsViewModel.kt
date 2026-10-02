@@ -3,6 +3,8 @@ package com.fabiantorrestech.mycalendarwidget.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.fabiantorrestech.mycalendarwidget.data.NotificationPagingMode
+import com.fabiantorrestech.mycalendarwidget.data.NotificationPlacement
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPrefs
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPrefsRepository
 import com.fabiantorrestech.mycalendarwidget.data.NotificationRowTap
@@ -32,6 +34,10 @@ class NotificationSettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun follow(widgetId: Int) = saveAndRefresh { repo.setFollowedWidgetId(widgetId) }
 
     fun setRowTap(rowTap: NotificationRowTap) = saveAndRefresh { repo.setRowTap(rowTap) }
+
+    fun setPlacement(placement: NotificationPlacement) = saveAndRefresh { repo.setPlacement(placement) }
+
+    fun setPagingMode(mode: NotificationPagingMode) = saveAndRefresh { repo.setPagingMode(mode) }
 
     private fun saveAndRefresh(save: suspend () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {

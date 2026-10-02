@@ -150,7 +150,9 @@ class MainActivity : ComponentActivity() {
                                 if (on) requestNotificationOn() else notificationViewModel.disable()
                             },
                             onFollow = notificationViewModel::follow,
-                            onRowTapChange = notificationViewModel::setRowTap
+                            onRowTapChange = notificationViewModel::setRowTap,
+                            onPlacementChange = notificationViewModel::setPlacement,
+                            onPagingModeChange = notificationViewModel::setPagingMode
                         )
                     }
 

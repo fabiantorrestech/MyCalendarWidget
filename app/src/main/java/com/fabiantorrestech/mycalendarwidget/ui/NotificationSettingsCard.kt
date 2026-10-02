@@ -18,13 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.fabiantorrestech.mycalendarwidget.data.NotificationPagingMode
+import com.fabiantorrestech.mycalendarwidget.data.NotificationPlacement
 import com.fabiantorrestech.mycalendarwidget.data.NotificationPrefs
 import com.fabiantorrestech.mycalendarwidget.data.NotificationRowTap
 import com.fabiantorrestech.mycalendarwidget.data.WidgetSummary
 
 /**
- * On/off for the persistent density notification, which placed widget it draws, and
- * what tapping an agenda row does. The switch is disabled until a widget is placed,
+ * On/off for the persistent density notification, which placed widget it draws, where
+ * it sits, what its arrows move through, and what tapping an agenda row does. The switch is disabled until a widget is placed,
  * because the notification has no settings of its own to draw from.
  */
 @Composable
@@ -33,7 +35,9 @@ fun NotificationSettingsCard(
     widgets: List<WidgetSummary>,
     onEnabledChange: (Boolean) -> Unit,
     onFollow: (Int) -> Unit,
-    onRowTapChange: (NotificationRowTap) -> Unit
+    onRowTapChange: (NotificationRowTap) -> Unit,
+    onPlacementChange: (NotificationPlacement) -> Unit,
+    onPagingModeChange: (NotificationPagingMode) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -78,6 +82,29 @@ fun NotificationSettingsCard(
                         label = widget.name.ifBlank { "Widget ${widget.displayIndex}" },
                         selected = widget.appWidgetId == prefs.followedWidgetId,
                         onClick = { onFollow(widget.appWidgetId) }
+                    )
+                }
+
+                SectionLabel("Where it sits")
+                NotificationPlacement.entries.forEach { placement ->
+                    RadioRow(
+                        label = placement.displayName,
+                        selected = placement == prefs.placement,
+                        onClick = { onPlacementChange(placement) }
+                    )
+                }
+                Text(
+                    text = "Calls, media, conversations and pop-up alerts can still sit above it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                SectionLabel("The ‹ › arrows move through")
+                NotificationPagingMode.entries.forEach { mode ->
+                    RadioRow(
+                        label = mode.displayName,
+                        selected = mode == prefs.pagingMode,
+                        onClick = { onPagingModeChange(mode) }
                     )
                 }
 
