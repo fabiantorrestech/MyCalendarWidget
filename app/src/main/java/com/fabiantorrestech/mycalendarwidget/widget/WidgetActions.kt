@@ -7,6 +7,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.ActionCallback
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfigRepository
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
+import com.fabiantorrestech.mycalendarwidget.notification.DensityNotifier
 import kotlinx.coroutines.flow.first
 
 val targetOffsetKey = ActionParameters.Key<Int>("targetOffset")
@@ -40,6 +41,7 @@ class RefreshWidgetAction : ActionCallback {
         val active = profiles.activeConfigFlow.first()
         profiles.updateProfileConfig(activeId, active.copy(refreshNonce = active.refreshNonce + 1))
         BridgeCalWidget().update(context, glanceId)
+        DensityNotifier.refreshIfFollowing(context, appWidgetId)
     }
 }
 
@@ -52,6 +54,7 @@ class CycleProfileAction : ActionCallback {
         val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
         WidgetProfileRepository(context, appWidgetId).cycleProfile(direction)
         BridgeCalWidget().update(context, glanceId)
+        DensityNotifier.refreshIfFollowing(context, appWidgetId)
     }
 }
 
@@ -61,5 +64,6 @@ class JumpToProfileAction : ActionCallback {
         val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
         WidgetProfileRepository(context, appWidgetId).setActiveProfile(profileId)
         BridgeCalWidget().update(context, glanceId)
+        DensityNotifier.refreshIfFollowing(context, appWidgetId)
     }
 }

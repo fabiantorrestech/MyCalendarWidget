@@ -59,6 +59,7 @@ class WidgetSyncReceiver : BroadcastReceiver() {
                     PeekState.close(context, glanceId)
                     BridgeCalWidget().update(context, glanceId)
                 }
+                DensityNotifier.refreshIfFollowing(context, appWidgetId)
             } finally {
                 pendingResult.finish()
             }
