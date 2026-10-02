@@ -1,6 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.notification
 
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItem
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItemKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -37,37 +38,33 @@ private fun event(id: Long, startMillis: Long, endMillis: Long, allDay: Boolean 
     mapsQuery = null
 )
 
+/** "H" for a header, the event id for an event: a page read at a glance. */
+private fun shape(page: List<PeekItem>): List<String> =
+    page.map { if (it.kind == PeekItemKind.HEADER) "H" else it.event!!.id.toString() }
+
 class NotificationAgendaTest {
 
-    private fun kinds(agenda: AgendaRows) = agenda.rows.map { it.kind }
+    // ---- pages() ----
 
     @Test
-    fun `everything fits - headers and events, nothing more`() {
+    fun `everything fits on one page`() {
         val byDay = mapOf(
             TODAY to listOf(event(1, at(0, 14), at(0, 15))),
             TODAY.plusDays(1) to listOf(event(2, at(1, 9), at(1, 10)))
         )
-        val agenda = NotificationAgenda.rows(byDay, TODAY, nowMillis = at(0, 8), maxRows = 7)
+        val pages = NotificationAgenda.pages(byDay, TODAY, nowMillis = at(0, 8), rowsPerPage = 6)
 
-        assertEquals(
-            listOf(PeekItemKind.HEADER, PeekItemKind.EVENT, PeekItemKind.HEADER, PeekItemKind.EVENT),
-            kinds(agenda)
-        )
-        assertEquals(0, agenda.moreCount)
+        assertEquals(listOf(listOf("H", "1", "H", "2")), pages.map(::shape))
     }
 
     @Test
     fun `events that already ended today are left out`() {
         val byDay = mapOf(
-            TODAY to listOf(
-                event(1, at(0, 7), at(0, 8)),
-                event(2, at(0, 14), at(0, 15))
-            )
+            TODAY to listOf(event(1, at(0, 7), at(0, 8)), event(2, at(0, 14), at(0, 15)))
         )
-        val agenda = NotificationAgenda.rows(byDay, TODAY, nowMillis = at(0, 9), maxRows = 7)
+        val pages = NotificationAgenda.pages(byDay, TODAY, nowMillis = at(0, 9), rowsPerPage = 6)
 
-        assertEquals(listOf(2L), agenda.rows.mapNotNull { it.event?.id })
-        assertEquals(0, agenda.moreCount)
+        assertEquals(listOf(listOf("H", "2")), pages.map(::shape))
     }
 
     @Test
@@ -80,9 +77,9 @@ class NotificationAgendaTest {
             allDay = true
         )
         // 20:00 in Chicago is after the all-day instance's UTC midnight end.
-        val agenda = NotificationAgenda.rows(mapOf(TODAY to listOf(allDay)), TODAY, at(0, 20), maxRows = 7)
+        val pages = NotificationAgenda.pages(mapOf(TODAY to listOf(allDay)), TODAY, at(0, 20), rowsPerPage = 6)
 
-        assertEquals(listOf(1L), agenda.rows.mapNotNull { it.event?.id })
+        assertEquals(listOf(listOf("H", "1")), pages.map(::shape))
     }
 
     @Test
@@ -91,41 +88,69 @@ class NotificationAgendaTest {
             TODAY to listOf(event(1, at(0, 7), at(0, 8))),
             TODAY.plusDays(1) to listOf(event(2, at(1, 9), at(1, 10)))
         )
-        val agenda = NotificationAgenda.rows(byDay, TODAY, nowMillis = at(0, 9), maxRows = 7)
+        val pages = NotificationAgenda.pages(byDay, TODAY, nowMillis = at(0, 9), rowsPerPage = 6)
 
-        assertEquals(listOf(PeekItemKind.HEADER, PeekItemKind.EVENT), kinds(agenda))
-        assertEquals(TODAY.plusDays(1), agenda.rows.first().date)
+        assertEquals(listOf(listOf("H", "2")), pages.map(::shape))
+        assertEquals(TODAY.plusDays(1), pages[0][0].date)
     }
 
     @Test
-    fun `overflow keeps one slot for the more line and counts what was cut`() {
-        val events = (1L..8L).map { event(it, at(0, 9 + it.toInt()), at(0, 10 + it.toInt())) }
-        val agenda = NotificationAgenda.rows(mapOf(TODAY to events), TODAY, nowMillis = at(0, 8), maxRows = 5)
+    fun `a day that runs onto the next page repeats its header there`() {
+        val events = (1L..7L).map { event(it, at(0, 9 + it.toInt()), at(0, 10 + it.toInt())) }
+        val pages = NotificationAgenda.pages(mapOf(TODAY to events), TODAY, nowMillis = at(0, 8), rowsPerPage = 4)
 
-        // Header + 3 events = 4 rows, leaving the fifth for "+5 more".
-        assertEquals(4, agenda.rows.size)
-        assertEquals(5, agenda.moreCount)
+        assertEquals(
+            listOf(listOf("H", "1", "2", "3"), listOf("H", "4", "5", "6"), listOf("H", "7")),
+            pages.map(::shape)
+        )
     }
 
     @Test
-    fun `a cut never leaves a header with no event under it`() {
+    fun `a page never ends on a header`() {
         val byDay = mapOf(
             TODAY to listOf(event(1, at(0, 10), at(0, 11)), event(2, at(0, 12), at(0, 13))),
             TODAY.plusDays(1) to listOf(event(3, at(1, 9), at(1, 10)))
         )
-        // Rows would be H E E H E (5); with maxRows 4 the cap is 3 slots: H E E.
-        val agenda = NotificationAgenda.rows(byDay, TODAY, nowMillis = at(0, 8), maxRows = 4)
+        // H 1 2 leaves one slot on a four-row page: too small for a header and its event.
+        val pages = NotificationAgenda.pages(byDay, TODAY, nowMillis = at(0, 8), rowsPerPage = 4)
 
-        assertEquals(listOf(PeekItemKind.HEADER, PeekItemKind.EVENT, PeekItemKind.EVENT), kinds(agenda))
-        assertEquals(1, agenda.moreCount)
-        assertTrue(agenda.rows.last().kind != PeekItemKind.HEADER)
+        assertEquals(listOf(listOf("H", "1", "2"), listOf("H", "3")), pages.map(::shape))
+        pages.forEach { assertTrue(it.last().kind != PeekItemKind.HEADER) }
     }
 
     @Test
-    fun `nothing coming up gives no rows`() {
-        val agenda = NotificationAgenda.rows(emptyMap(), TODAY, nowMillis = at(0, 8), maxRows = 7)
+    fun `nothing coming up gives no pages`() {
+        assertTrue(NotificationAgenda.pages(emptyMap(), TODAY, nowMillis = at(0, 8)).isEmpty())
+    }
 
-        assertTrue(agenda.rows.isEmpty())
-        assertEquals(0, agenda.moreCount)
+    // ---- dayRows() ----
+
+    @Test
+    fun `one day's events without headers`() {
+        val byDay = mapOf(
+            TODAY to listOf(event(1, at(0, 14), at(0, 15))),
+            TODAY.plusDays(2) to listOf(event(2, at(2, 9), at(2, 10)), event(3, at(2, 11), at(2, 12)))
+        )
+        val day = NotificationAgenda.dayRows(byDay, TODAY.plusDays(2), nowMillis = at(0, 8), maxRows = 6)
+
+        assertEquals(listOf("2", "3"), shape(day.rows))
+        assertEquals(0, day.moreCount)
+    }
+
+    @Test
+    fun `a busy day keeps its last row for the more line`() {
+        val events = (1L..8L).map { event(it, at(1, 8 + it.toInt()), at(1, 9 + it.toInt())) }
+        val day = NotificationAgenda.dayRows(mapOf(TODAY.plusDays(1) to events), TODAY.plusDays(1), at(0, 8), maxRows = 6)
+
+        assertEquals(listOf("1", "2", "3", "4", "5"), shape(day.rows))
+        assertEquals(3, day.moreCount)
+    }
+
+    @Test
+    fun `today's day rows leave out what already ended`() {
+        val byDay = mapOf(TODAY to listOf(event(1, at(0, 7), at(0, 8)), event(2, at(0, 14), at(0, 15))))
+        val day = NotificationAgenda.dayRows(byDay, TODAY, nowMillis = at(0, 9), maxRows = 6)
+
+        assertEquals(listOf("2"), shape(day.rows))
     }
 }

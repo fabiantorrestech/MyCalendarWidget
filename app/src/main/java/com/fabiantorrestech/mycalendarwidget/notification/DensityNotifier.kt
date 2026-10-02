@@ -20,6 +20,7 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileRepository
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityRepository
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidgetReceiver
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetClickActions
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekItemKind
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
 import kotlinx.coroutines.Dispatchers
@@ -124,7 +125,12 @@ object DensityNotifier {
 
         val eventsByDay = CalendarRepository(context).getEventsByDay(PeekList.peekQueryConfig(config))
         val today = Instant.ofEpochMilli(snapshot.nowMillis).atZone(zone).toLocalDate()
-        val agenda = NotificationAgenda.rows(eventsByDay, today, snapshot.nowMillis)
+        val pages = NotificationAgenda.pages(eventsByDay, today, snapshot.nowMillis)
+        val firstPage = pages.firstOrNull().orEmpty()
+        val agenda = AgendaRows(
+            firstPage,
+            moreCount = pages.drop(1).flatten().count { it.kind == PeekItemKind.EVENT }
+        )
 
         val views = DensityNotificationRenderer.render(
             context = context,
