@@ -42,6 +42,8 @@ class NotificationSettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setShowAddButton(show: Boolean) = saveAndRefresh { repo.setShowAddButton(show) }
 
+    fun setShowRefreshButton(show: Boolean) = saveAndRefresh { repo.setShowRefreshButton(show) }
+
     fun setLockScreen(lockScreen: NotificationLockScreen) = saveAndRefresh { repo.setLockScreen(lockScreen) }
 
     /** Puts the notification back up now, for when it has gone missing. */

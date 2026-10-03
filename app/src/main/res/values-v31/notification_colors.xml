@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tone 90 / tone 10 of the wallpaper accent: Material You's light primaryContainer pair. -->
+<!-- Light: tones 90 / 10 of the wallpaper accent (primaryContainer pair) for the pill and +,
+     the neutral-variant pair for the refresh circle. -->
 <resources>
     <color name="notification_accent_container">@android:color/system_accent1_100</color>
     <color name="notification_on_accent_container">@android:color/system_accent1_900</color>
+    <color name="notification_neutral_container">@android:color/system_neutral2_100</color>
+    <color name="notification_on_neutral_container">@android:color/system_neutral2_700</color>
 </resources>

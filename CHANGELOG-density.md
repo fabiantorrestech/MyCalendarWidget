@@ -36,6 +36,7 @@ than the order it was built in.
 - Expanded it adds the hour axis and the upcoming events grouped by day. Events that already ended are left out to save room.
 - Each day's date is bold in the main text colour so it stands apart from the times under it, and today's sits on a filled accent pill, as on the widget's peek.
 - A round **+** beside the headline (collapsed and expanded) opens your calendar app's new-event screen, like the widget's +. The card's **Show + (add event) button** switch turns it off.
+- A quieter round **↻** just left of the + refreshes the notification and the widget it follows straight away. **Show ↻ (refresh) button** on the card turns it off. Neither button appears on the lock screen's redacted version.
 - ‹ › arrows under the list move through it. By default they page through upcoming events ("2 / 11"). With **One day at a time** on the card, the headline, bar, axis and events all move a day per tap ("1 event · first at 10:00" on later days), and the "now" caret only shows on today. **Today** jumps back, and two minutes without a tap snaps back on the next refresh.
 - **Where it sits**: **Top** (default) puts it in the main Notifications section at the highest priority Android allows, with no sound or vibration, and always on the lock screen. **Silent** moves it to the Silent section. Calls, media, conversations and pop-up alerts can still sit above it.
 - Tapping the notification opens your calendar app, following the widget's click routing. Tapping an event row opens that event, or the calendar app if you pick that on the card.

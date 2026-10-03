@@ -164,6 +164,7 @@ class MainActivity : ComponentActivity() {
                             onPlacementChange = notificationViewModel::setPlacement,
                             onPagingModeChange = notificationViewModel::setPagingMode,
                             onShowAddButtonChange = notificationViewModel::setShowAddButton,
+                            onShowRefreshButtonChange = notificationViewModel::setShowRefreshButton,
                             onLockScreenChange = notificationViewModel::setLockScreen,
                             onRepost = ::repostNotification
                         )

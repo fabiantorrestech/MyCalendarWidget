@@ -70,6 +70,7 @@ object DensityNotifier {
     private const val REQUEST_PAGE_NEXT = 0x51
     private const val REQUEST_PAGE_FIRST = 0x52
     private const val REQUEST_ADD_EVENT = 0x41
+    private const val REQUEST_REFRESH = 0x53
 
     /**
      * One refresh at a time: two quick arrow taps must post their pages in order, never
@@ -253,12 +254,15 @@ object DensityNotifier {
                 next = pageIntent(context, REQUEST_PAGE_NEXT, minOf(lastOffset, current + 1)),
                 first = pageIntent(context, REQUEST_PAGE_FIRST, 0)
             ),
-            // The same "new event" screen the widget's + opens.
-            addIntent = if (prefs.showAddButton) {
-                activityIntent(context, WidgetClickActions.quickAddIntent(), REQUEST_ADD_EVENT)
-            } else {
-                null
-            },
+            chrome = ChromeIntents(
+                refresh = if (prefs.showRefreshButton) refreshIntent(context) else null,
+                // The same "new event" screen the widget's + opens.
+                add = if (prefs.showAddButton) {
+                    activityIntent(context, WidgetClickActions.quickAddIntent(), REQUEST_ADD_EVENT)
+                } else {
+                    null
+                }
+            ),
             use24Hour = use24Hour(context),
             zone = zone,
             rowIntent = { event ->
@@ -360,6 +364,15 @@ object DensityNotifier {
             Intent(context, NotificationReceiver::class.java)
                 .setAction(NotificationReceiver.ACTION_PAGE)
                 .putExtra(NotificationReceiver.EXTRA_TARGET, target),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+    /** The ↻ button: redraws the notification and its widget at once. */
+    private fun refreshIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            REQUEST_REFRESH,
+            Intent(context, NotificationReceiver::class.java).setAction(NotificationReceiver.ACTION_REFRESH),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

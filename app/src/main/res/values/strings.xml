@@ -17,6 +17,7 @@
     <string name="notification_more">+%1$d more</string>
     <string name="notification_page_label">%1$d / %2$d</string>
     <string name="notification_add_event">Add event</string>
+    <string name="notification_refresh">Refresh</string>
     <string name="notification_nav_previous">Previous</string>
     <string name="notification_nav_next">Next</string>
     <string name="notification_nav_previous_glyph" translatable="false">‹</string>

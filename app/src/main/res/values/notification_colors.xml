@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The persistent notification's accent pieces (the Today pill, the + button): Material's
-     baseline primaryContainer / onPrimaryContainer before Android 12. From Android 12 on,
-     values-v31 swaps in the system's own Material You accent so they match the shade. -->
+<!-- The persistent notification's accent pieces (the Today pill, the + button) and the
+     quieter neutral circle behind its refresh button, as on the widget: Material's
+     baseline container colours before Android 12. From Android 12 on,
+     values-v31 swaps in the system's own Material You tones so they match the shade. -->
 <resources>
     <color name="notification_accent_container">#FFEADDFF</color>
     <color name="notification_on_accent_container">#FF21005D</color>
+    <color name="notification_neutral_container">#FFE7E0EC</color>
+    <color name="notification_on_neutral_container">#FF49454F</color>
 </resources>

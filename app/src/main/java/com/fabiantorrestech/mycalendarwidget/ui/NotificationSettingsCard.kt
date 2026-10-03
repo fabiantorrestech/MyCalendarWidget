@@ -41,6 +41,7 @@ fun NotificationSettingsCard(
     onPlacementChange: (NotificationPlacement) -> Unit,
     onPagingModeChange: (NotificationPagingMode) -> Unit,
     onShowAddButtonChange: (Boolean) -> Unit,
+    onShowRefreshButtonChange: (Boolean) -> Unit,
     onLockScreenChange: (NotificationLockScreen) -> Unit,
     onRepost: () -> Unit
 ) {
@@ -129,21 +130,16 @@ fun NotificationSettingsCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .heightIn(min = 48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Show + (add event) button",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(checked = prefs.showAddButton, onCheckedChange = onShowAddButtonChange)
-                }
+                SwitchRow(
+                    label = "Show ↻ (refresh) button",
+                    checked = prefs.showRefreshButton,
+                    onCheckedChange = onShowRefreshButtonChange
+                )
+                SwitchRow(
+                    label = "Show + (add event) button",
+                    checked = prefs.showAddButton,
+                    onCheckedChange = onShowAddButtonChange
+                )
 
                 SectionLabel("The ‹ › arrows move through")
                 NotificationPagingMode.entries.forEach { mode ->
@@ -164,6 +160,25 @@ fun NotificationSettingsCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

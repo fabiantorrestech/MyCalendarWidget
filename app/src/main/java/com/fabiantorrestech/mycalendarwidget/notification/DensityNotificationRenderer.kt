@@ -37,8 +37,8 @@ import java.time.ZoneId
 import java.util.Locale
 
 /**
- * The custom views one notification post needs: [lockScreen] is [collapsed] without the
- * + button, for the public version.
+ * The custom views one notification post needs: [lockScreen] is [collapsed] without its
+ * buttons, for the public version.
  */
 class NotificationViews(val collapsed: RemoteViews, val expanded: RemoteViews, val lockScreen: RemoteViews)
 
@@ -65,6 +65,12 @@ sealed interface ExpandedBody {
 
 /** What the arrows' row starts; each is a broadcast to the notification's receiver. */
 class NavIntents(val previous: PendingIntent, val next: PendingIntent, val first: PendingIntent)
+
+/**
+ * The buttons beside the headline: [refresh] redraws the notification and its widget,
+ * [add] opens the calendar's new-event screen. Null hides that button.
+ */
+class ChromeIntents(val refresh: PendingIntent?, val add: PendingIntent?)
 
 /**
  * Draws the persistent notification as RemoteViews, from the same pieces the widget
@@ -98,7 +104,7 @@ object DensityNotificationRenderer {
     /**
      * [rowIntent] is what tapping an event row starts, or null to leave the row without
      * a handler so the tap falls through to the notification's own content intent.
-     * [addIntent] is the + button's "new event" screen, or null to hide the button.
+     * [chrome] holds the refresh and + buttons' intents; a null one hides that button.
      */
     fun render(
         context: Context,
@@ -106,7 +112,7 @@ object DensityNotificationRenderer {
         snapshot: DensitySnapshot,
         body: ExpandedBody,
         nav: NavIntents,
-        addIntent: PendingIntent?,
+        chrome: ChromeIntents,
         use24Hour: Boolean,
         zone: ZoneId,
         rowIntent: (CalendarEvent) -> PendingIntent?
@@ -130,12 +136,13 @@ object DensityNotificationRenderer {
             zone, snapshot.visibleCalendarIds
         )
 
-        val collapsed = collapsedView(context, featuredHeadline, featuredStrip, addIntent)
-        // The lock screen gets no +: adding an event there would only ask to unlock.
-        val lockScreen = collapsedView(context, featuredHeadline, featuredStrip, addIntent = null)
+        val collapsed = collapsedView(context, featuredHeadline, featuredStrip, chrome)
+        // The lock screen gets no buttons: adding an event there would only ask to unlock,
+        // and the redacted version should stay a plain read-out.
+        val lockScreen = collapsedView(context, featuredHeadline, featuredStrip, ChromeIntents(null, null))
 
         val expanded = RemoteViews(context.packageName, R.layout.notification_density_expanded)
-        fillAdd(expanded, addIntent)
+        fillChrome(expanded, chrome)
         when (body) {
             is ExpandedBody.AgendaPage -> {
                 fillHeader(expanded, featuredHeadline, featuredStrip)
@@ -396,13 +403,18 @@ object DensityNotificationRenderer {
         views.setOnClickPendingIntent(R.id.notification_nav_first, nav.first)
     }
 
-    /** The + (add event) button: shown with [addIntent], hidden without one. */
-    private fun fillAdd(views: RemoteViews, addIntent: PendingIntent?) {
-        if (addIntent == null) {
-            views.setViewVisibility(R.id.notification_add, View.GONE)
+    /** The refresh and + buttons: each shown with its intent, hidden without one. */
+    private fun fillChrome(views: RemoteViews, chrome: ChromeIntents) {
+        fillButton(views, R.id.notification_refresh, chrome.refresh)
+        fillButton(views, R.id.notification_add, chrome.add)
+    }
+
+    private fun fillButton(views: RemoteViews, viewId: Int, intent: PendingIntent?) {
+        if (intent == null) {
+            views.setViewVisibility(viewId, View.GONE)
         } else {
-            views.setViewVisibility(R.id.notification_add, View.VISIBLE)
-            views.setOnClickPendingIntent(R.id.notification_add, addIntent)
+            views.setViewVisibility(viewId, View.VISIBLE)
+            views.setOnClickPendingIntent(viewId, intent)
         }
     }
 
@@ -410,11 +422,11 @@ object DensityNotificationRenderer {
         context: Context,
         headline: DensityHeadline,
         strip: StripImages,
-        addIntent: PendingIntent?
+        chrome: ChromeIntents
     ): RemoteViews =
         RemoteViews(context.packageName, R.layout.notification_density_collapsed).apply {
             setTextViewText(R.id.notification_headline, oneLineHeadline(headline))
             setStrip(this, strip)
-            fillAdd(this, addIntent)
+            fillChrome(this, chrome)
         }
 }

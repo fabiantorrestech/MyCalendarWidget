@@ -40,6 +40,18 @@
         </LinearLayout>
 
         <ImageView
+            android:id="@+id/notification_refresh"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/notification_refresh_circle"
+            android:contentDescription="@string/notification_refresh"
+            android:padding="8dp"
+            android:src="@drawable/ic_notification_refresh"
+            android:tint="@color/notification_on_neutral_container"
+            android:visibility="gone" />
+
+        <ImageView
             android:id="@+id/notification_add"
             android:layout_width="36dp"
             android:layout_height="36dp"

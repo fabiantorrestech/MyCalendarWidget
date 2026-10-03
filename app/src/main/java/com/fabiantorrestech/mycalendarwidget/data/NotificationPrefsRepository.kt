@@ -62,6 +62,7 @@ data class NotificationPrefs(
     val pageOffset: Int = 0,
     val pageTouchedAtMillis: Long = 0L,
     val showAddButton: Boolean = true,
+    val showRefreshButton: Boolean = true,
     val lockScreen: NotificationLockScreen = NotificationLockScreen.SHOW
 )
 
@@ -94,6 +95,7 @@ class NotificationPrefsRepository(context: Context) {
         val PAGE_OFFSET = intPreferencesKey("page_offset")
         val PAGE_TOUCHED_AT = longPreferencesKey("page_touched_at")
         val SHOW_ADD_BUTTON = booleanPreferencesKey("show_add_button")
+        val SHOW_REFRESH_BUTTON = booleanPreferencesKey("show_refresh_button")
         val LOCK_SCREEN = stringPreferencesKey("lock_screen")
     }
 
@@ -113,6 +115,7 @@ class NotificationPrefsRepository(context: Context) {
             pageOffset = prefs[Keys.PAGE_OFFSET] ?: 0,
             pageTouchedAtMillis = prefs[Keys.PAGE_TOUCHED_AT] ?: 0L,
             showAddButton = prefs[Keys.SHOW_ADD_BUTTON] ?: true,
+            showRefreshButton = prefs[Keys.SHOW_REFRESH_BUTTON] ?: true,
             lockScreen = prefs[Keys.LOCK_SCREEN]
                 ?.let { name -> NotificationLockScreen.entries.firstOrNull { it.name == name } }
                 ?: NotificationLockScreen.SHOW
@@ -141,6 +144,10 @@ class NotificationPrefsRepository(context: Context) {
 
     suspend fun setLockScreen(lockScreen: NotificationLockScreen) {
         dataStore.edit { it[Keys.LOCK_SCREEN] = lockScreen.name }
+    }
+
+    suspend fun setShowRefreshButton(show: Boolean) {
+        dataStore.edit { it[Keys.SHOW_REFRESH_BUTTON] = show }
     }
 
     suspend fun setShowAddButton(show: Boolean) {

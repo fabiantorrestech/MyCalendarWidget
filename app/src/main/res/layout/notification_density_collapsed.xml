@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Collapsed persistent notification: one headline line over the strip, with the +
-     (add event) button beside them. Android 12+ gives a decorated custom view about 48dp
+<!-- Collapsed persistent notification: one headline line over the strip, with the refresh
+     and + (add event) buttons beside them. Android 12+ gives a decorated custom view about 48dp
      here, so nothing else fits. The + keeps a 16dp gap on its right so a thumb reaching
      for the system's expand chevron does not land on it. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -32,6 +32,18 @@
             android:importantForAccessibility="no"
             android:scaleType="fitXY" />
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/notification_refresh"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/notification_refresh_circle"
+        android:contentDescription="@string/notification_refresh"
+        android:padding="7dp"
+        android:src="@drawable/ic_notification_refresh"
+        android:tint="@color/notification_on_neutral_container"
+        android:visibility="gone" />
 
     <ImageView
         android:id="@+id/notification_add"
