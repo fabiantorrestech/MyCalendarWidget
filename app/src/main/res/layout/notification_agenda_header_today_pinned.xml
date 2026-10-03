@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Today's header on the pinned card: the pill in the stronger accent, since the card
+     itself is the accent container colour. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="22dp">
+
+    <TextView
+        android:id="@+id/notification_header_label"
+        android:layout_width="wrap_content"
+        android:layout_height="19dp"
+        android:layout_gravity="bottom|start"
+        android:background="@drawable/notification_today_pill_pinned"
+        android:gravity="center_vertical"
+        android:maxLines="1"
+        android:paddingHorizontal="6dp"
+        android:textColor="@color/notification_on_accent_strong"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+</FrameLayout>

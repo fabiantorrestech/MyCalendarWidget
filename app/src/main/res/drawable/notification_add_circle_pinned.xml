@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The + button's circle on the pinned card, in the stronger accent for the same reason as
+     notification_today_pill_pinned. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/notification_accent_strong" />
+</shape>

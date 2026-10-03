@@ -11,6 +11,9 @@
          putting it back after a reboot -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- The Pinned placement holds it as a foreground-service notification (doc/adr/0003) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- Required on API 30+ for package visibility when sending explicit-package intents -->
     <queries>
@@ -106,6 +109,16 @@
         <receiver
             android:name=".widget.WidgetSyncReceiver"
             android:exported="false" />
+
+        <!-- Persistent notification, Pinned placement: holds it as its foreground notification -->
+        <service
+            android:name=".notification.PinnedNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's day-at-a-glance calendar notification pinned above other notifications" />
+        </service>
 
         <!-- Persistent notification: its refresh tick, re-posting after a swipe, and boot -->
         <receiver

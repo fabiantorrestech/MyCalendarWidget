@@ -21,12 +21,25 @@ enum class NotificationRowTap(val displayName: String) {
 }
 
 /**
- * Where the notification sits. Android lets no app pin itself above everything; [TOP]
- * is the main Notifications section at the highest priority it allows, without sound.
+ * Where the notification sits. [PINNED] makes it a colorized foreground-service
+ * notification, which Pixel sorts above conversations and every ordinary notification,
+ * below only calls (see doc/adr/0003). [TOP] is the main Notifications section at the
+ * highest priority an ordinary notification may ask for, without sound.
  */
-enum class NotificationPlacement(val displayName: String) {
-    TOP("Top of the shade and lock screen"),
-    SILENT("Silent section")
+enum class NotificationPlacement(val displayName: String, val hint: String) {
+    PINNED(
+        "Pinned above messages (recommended)",
+        "Only phone calls, and an alert for its first few seconds, sit above it. " +
+            "BridgeCal shows under Active apps while pinned."
+    ),
+    TOP(
+        "Top of the notifications",
+        "Calls, media, conversations and pop-up alerts can still sit above it."
+    ),
+    SILENT(
+        "Silent section",
+        "With the quiet notifications at the bottom of the shade."
+    )
 }
 
 /**
@@ -57,7 +70,7 @@ data class NotificationPrefs(
     val enabled: Boolean = false,
     val followedWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID,
     val rowTap: NotificationRowTap = NotificationRowTap.OPEN_EVENT,
-    val placement: NotificationPlacement = NotificationPlacement.TOP,
+    val placement: NotificationPlacement = NotificationPlacement.PINNED,
     val pagingMode: NotificationPagingMode = NotificationPagingMode.AGENDA_PAGES,
     val pageOffset: Int = 0,
     val pageTouchedAtMillis: Long = 0L,
@@ -90,7 +103,10 @@ class NotificationPrefsRepository(context: Context) {
         val ENABLED = booleanPreferencesKey("enabled")
         val FOLLOWED_WIDGET_ID = intPreferencesKey("followed_widget_id")
         val ROW_TAP = stringPreferencesKey("row_tap")
-        val PLACEMENT = stringPreferencesKey("placement")
+        // A new key rather than "placement": Pinned became the default after Top/Silent
+        // shipped, and the user wanted existing setups moved onto it too, so any choice
+        // stored under the old key is deliberately left unread.
+        val PLACEMENT = stringPreferencesKey("placement_v2")
         val PAGING_MODE = stringPreferencesKey("paging_mode")
         val PAGE_OFFSET = intPreferencesKey("page_offset")
         val PAGE_TOUCHED_AT = longPreferencesKey("page_touched_at")
@@ -108,7 +124,7 @@ class NotificationPrefsRepository(context: Context) {
                 ?: NotificationRowTap.OPEN_EVENT,
             placement = prefs[Keys.PLACEMENT]
                 ?.let { name -> NotificationPlacement.entries.firstOrNull { it.name == name } }
-                ?: NotificationPlacement.TOP,
+                ?: NotificationPlacement.PINNED,
             pagingMode = prefs[Keys.PAGING_MODE]
                 ?.let { name -> NotificationPagingMode.entries.firstOrNull { it.name == name } }
                 ?: NotificationPagingMode.AGENDA_PAGES,

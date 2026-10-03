@@ -109,7 +109,7 @@ fun NotificationSettingsCard(
                     )
                 }
                 Text(
-                    text = "Calls, media, conversations and pop-up alerts can still sit above it.",
+                    text = prefs.placement.hint,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

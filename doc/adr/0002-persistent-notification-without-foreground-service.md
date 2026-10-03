@@ -4,7 +4,7 @@ Date: 2026-10-01
 
 ## Status
 
-Accepted
+Superseded by [3. Pin the notification with a colorized foreground service](0003-pin-the-notification-with-a-colorized-foreground-service.md)
 
 ## Context
 

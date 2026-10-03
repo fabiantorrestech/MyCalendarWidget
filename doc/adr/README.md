@@ -5,7 +5,8 @@
 
 | ADR | Title | Status | Supersedes |
 | --- | --- | --- | --- |
-| [0002](0002-persistent-notification-without-foreground-service.md) | Persistent notification without a foreground service | Accepted | — |
+| [0003](0003-pin-the-notification-with-a-colorized-foreground-service.md) | Pin the notification with a colorized foreground service | Accepted | [2](0002-persistent-notification-without-foreground-service.md) |
+| [0002](0002-persistent-notification-without-foreground-service.md) | ~~Persistent notification without a foreground service~~ | Superseded by [3](0003-pin-the-notification-with-a-colorized-foreground-service.md) | — |
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted | — |
 
 <!-- END GENERATED ADR INDEX -->

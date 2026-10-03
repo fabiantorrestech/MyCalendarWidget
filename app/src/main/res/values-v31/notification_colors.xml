@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Light: tones 90 / 10 of the wallpaper accent (primaryContainer pair) for the pill and +,
-     the neutral-variant pair for the refresh circle. -->
+     the neutral-variant pair for the refresh circle, the primary pair for the pinned card. -->
 <resources>
     <color name="notification_accent_container">@android:color/system_accent1_100</color>
     <color name="notification_on_accent_container">@android:color/system_accent1_900</color>
     <color name="notification_neutral_container">@android:color/system_neutral2_100</color>
     <color name="notification_on_neutral_container">@android:color/system_neutral2_700</color>
+    <color name="notification_accent_strong">@android:color/system_accent1_600</color>
+    <color name="notification_on_accent_strong">@android:color/system_accent1_0</color>
 </resources>

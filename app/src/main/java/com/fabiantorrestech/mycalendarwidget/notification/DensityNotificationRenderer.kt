@@ -105,6 +105,7 @@ object DensityNotificationRenderer {
      * [rowIntent] is what tapping an event row starts, or null to leave the row without
      * a handler so the tap falls through to the notification's own content intent.
      * [chrome] holds the refresh and + buttons' intents; a null one hides that button.
+     * [pinned] draws for the colorized foreground-service card (see doc/adr/0003).
      */
     fun render(
         context: Context,
@@ -113,6 +114,7 @@ object DensityNotificationRenderer {
         body: ExpandedBody,
         nav: NavIntents,
         chrome: ChromeIntents,
+        pinned: Boolean,
         use24Hour: Boolean,
         zone: ZoneId,
         rowIntent: (CalendarEvent) -> PendingIntent?
@@ -133,21 +135,21 @@ object DensityNotificationRenderer {
         val featuredStrip = strip(
             context, config, snapshot.featured,
             if (snapshot.featuredIsToday) snapshot.nowMillis else null,
-            zone, snapshot.visibleCalendarIds
+            zone, snapshot.visibleCalendarIds, pinned
         )
 
-        val collapsed = collapsedView(context, featuredHeadline, featuredStrip, chrome)
+        val collapsed = collapsedView(context, featuredHeadline, featuredStrip, chrome, pinned)
         // The lock screen gets no buttons: adding an event there would only ask to unlock,
         // and the redacted version should stay a plain read-out.
-        val lockScreen = collapsedView(context, featuredHeadline, featuredStrip, ChromeIntents(null, null))
+        val lockScreen = collapsedView(context, featuredHeadline, featuredStrip, ChromeIntents(null, null), pinned)
 
         val expanded = RemoteViews(context.packageName, R.layout.notification_density_expanded)
-        fillChrome(expanded, chrome)
+        fillChrome(expanded, chrome, pinned, context)
         when (body) {
             is ExpandedBody.AgendaPage -> {
                 fillHeader(expanded, featuredHeadline, featuredStrip)
                 fillAxis(context, expanded, snapshot.featured, zone, use24Hour)
-                fillAgendaRows(context, expanded, body.rows, today, zone, use24Hour, locale, rowIntent)
+                fillAgendaRows(context, expanded, body.rows, today, zone, use24Hour, locale, pinned, rowIntent)
                 if (body.rows.isEmpty()) {
                     showMore(expanded, context.getString(R.string.peek_empty))
                 } else {
@@ -177,12 +179,12 @@ object DensityNotificationRenderer {
                     strip(
                         context, config, body.day,
                         if (body.isToday) snapshot.nowMillis else null,
-                        zone, snapshot.visibleCalendarIds
+                        zone, snapshot.visibleCalendarIds, pinned
                     )
                 }
                 fillHeader(expanded, headline, strip)
                 fillAxis(context, expanded, body.day, zone, use24Hour)
-                fillAgendaRows(context, expanded, body.rows.rows, today, zone, use24Hour, locale, rowIntent)
+                fillAgendaRows(context, expanded, body.rows.rows, today, zone, use24Hour, locale, pinned, rowIntent)
                 if (body.rows.moreCount > 0) {
                     showMore(expanded, context.getString(R.string.notification_more, body.rows.moreCount))
                 } else {
@@ -244,7 +246,8 @@ object DensityNotificationRenderer {
         day: DayDensity,
         nowMillis: Long?,
         zone: ZoneId,
-        visibleCalendarIds: List<Long>
+        visibleCalendarIds: List<Long>,
+        pinned: Boolean
     ): StripImages {
         fun render(night: Boolean): Bitmap {
             val metrics = context.resources.displayMetrics
@@ -252,7 +255,7 @@ object DensityNotificationRenderer {
             val spec = DensitySpecBuilder.stripSpec(
                 day = day,
                 config = config,
-                palette = palette(context, config, night),
+                palette = palette(context, config, night, pinned),
                 widthPx = widthPx,
                 density = metrics.density,
                 nowMillis = nowMillis,
@@ -295,9 +298,10 @@ object DensityNotificationRenderer {
      * dynamic `surfaceContainerHigh` on Android 12+ (the shade follows the wallpaper
      * whatever the widget's own Material You setting), else the app's static scheme.
      * The busy colour still follows the widget's settings through
-     * [DensitySpecBuilder.palette].
+     * [DensitySpecBuilder.palette]. A [pinned] card is the accent container colour
+     * (see [accentContainer]), so its strip is matched to that instead.
      */
-    private fun palette(context: Context, config: WidgetConfig, night: Boolean): DensityPalette {
+    private fun palette(context: Context, config: WidgetConfig, night: Boolean, pinned: Boolean): DensityPalette {
         val shade = when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
                 if (night) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -308,10 +312,24 @@ object DensityNotificationRenderer {
         return DensitySpecBuilder.palette(
             config = config,
             isDark = night,
-            background = shade.surfaceContainerHigh.toArgb(),
+            background = if (pinned) accentContainer(context, night) else shade.surfaceContainerHigh.toArgb(),
             onSurface = shade.onSurface.toArgb(),
             primary = themed.primary.toArgb()
         )
+    }
+
+    /**
+     * The pinned card's colour for [night] or day, read from the same resource as the
+     * Today pill (`notification_accent_container`, Material You's primaryContainer on
+     * Android 12+) through a context forced to that theme, so the strip drawn for each
+     * theme matches the card the shade colours for it.
+     */
+    fun accentContainer(context: Context, night: Boolean): Int {
+        val configuration = Configuration(context.resources.configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                (if (night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
+        }
+        return context.createConfigurationContext(configuration).getColor(R.color.notification_accent_container)
     }
 
     private fun fillAxis(
@@ -337,6 +355,7 @@ object DensityNotificationRenderer {
         zone: ZoneId,
         use24Hour: Boolean,
         locale: Locale,
+        pinned: Boolean,
         rowIntent: (CalendarEvent) -> PendingIntent?
     ) {
         views.removeAllViews(R.id.notification_agenda)
@@ -352,11 +371,12 @@ object DensityNotificationRenderer {
                         context.getString(R.string.peek_tomorrow),
                         locale
                     )
-                    // Today sits on a filled accent pill, as on the widget's peek.
-                    val layout = if (PeekLabels.isToday(item.date, today)) {
-                        R.layout.notification_agenda_header_today
-                    } else {
-                        R.layout.notification_agenda_header
+                    // Today sits on a filled accent pill, as on the widget's peek; on the
+                    // pinned card, itself the accent container, the pill steps up a tone.
+                    val layout = when {
+                        !PeekLabels.isToday(item.date, today) -> R.layout.notification_agenda_header
+                        pinned -> R.layout.notification_agenda_header_today_pinned
+                        else -> R.layout.notification_agenda_header_today
                     }
                     val header = RemoteViews(context.packageName, layout)
                     header.setTextViewText(R.id.notification_header_label, label)
@@ -403,10 +423,18 @@ object DensityNotificationRenderer {
         views.setOnClickPendingIntent(R.id.notification_nav_first, nav.first)
     }
 
-    /** The refresh and + buttons: each shown with its intent, hidden without one. */
-    private fun fillChrome(views: RemoteViews, chrome: ChromeIntents) {
+    /**
+     * The refresh and + buttons: each shown with its intent, hidden without one. On the
+     * pinned card the + switches to the stronger accent, since its usual accent
+     * container would vanish into the card.
+     */
+    private fun fillChrome(views: RemoteViews, chrome: ChromeIntents, pinned: Boolean, context: Context) {
         fillButton(views, R.id.notification_refresh, chrome.refresh)
         fillButton(views, R.id.notification_add, chrome.add)
+        if (pinned && chrome.add != null) {
+            views.setInt(R.id.notification_add, "setBackgroundResource", R.drawable.notification_add_circle_pinned)
+            views.setInt(R.id.notification_add, "setColorFilter", context.getColor(R.color.notification_on_accent_strong))
+        }
     }
 
     private fun fillButton(views: RemoteViews, viewId: Int, intent: PendingIntent?) {
@@ -422,11 +450,12 @@ object DensityNotificationRenderer {
         context: Context,
         headline: DensityHeadline,
         strip: StripImages,
-        chrome: ChromeIntents
+        chrome: ChromeIntents,
+        pinned: Boolean
     ): RemoteViews =
         RemoteViews(context.packageName, R.layout.notification_density_collapsed).apply {
             setTextViewText(R.id.notification_headline, oneLineHeadline(headline))
             setStrip(this, strip)
-            fillChrome(this, chrome)
+            fillChrome(this, chrome, pinned, context)
         }
 }

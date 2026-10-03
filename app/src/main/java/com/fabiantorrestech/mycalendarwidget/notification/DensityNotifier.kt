@@ -8,6 +8,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -45,10 +46,12 @@ import java.time.temporal.ChronoUnit
  * of its own beyond [NotificationPrefsRepository]: it draws the followed widget's active
  * profile, the same config that widget composes from.
  *
- * It is an ordinary ongoing notification, not a foreground service (see
- * doc/adr/0002): every trigger — its tick, the widgets' calendar-change, date-change and
- * midnight paths, a widget's own tick and refresh button, a settings save, boot, an
- * arrow tap and being swiped away — calls [refresh] or [refreshIfFollowing].
+ * In the Top and Silent placements it is an ordinary ongoing notification; in Pinned it
+ * is the foreground notification of [PinnedNotificationService] (see doc/adr/0003),
+ * which only holds it. Either way every trigger — its tick, the widgets' calendar-change,
+ * date-change and midnight paths, a widget's own tick and refresh button, a settings
+ * save, boot, an arrow tap and being swiped away — calls [refresh] or
+ * [refreshIfFollowing], and the same code builds it.
  */
 object DensityNotifier {
 
@@ -62,7 +65,8 @@ object DensityNotifier {
      */
     const val CHANNEL_TOP = "density_top"
 
-    private const val NOTIFICATION_ID = 0x44454E53
+    /** The notification's ID, shared with [PinnedNotificationService]'s startForeground. */
+    const val NOTIFICATION_ID = 0x44454E53
     private const val TAG = "DensityNotifier"
 
     /** Distinct request codes for the arrows' broadcasts, so each keeps its own target. */
@@ -118,8 +122,11 @@ object DensityNotifier {
         if (prefs.enabled && prefs.followedWidgetId == appWidgetId) refresh(context)
     }
 
-    /** Removes the notification and stops its tick. */
+    /** Removes the notification and stops its tick (and the pinning service, if running). */
     fun cancel(context: Context) {
+        // The service goes first: Android ignores an app's cancel of a notification that
+        // still belongs to a running foreground service.
+        PinnedNotificationService.stop(context, removeNotification = true)
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
         NotificationScheduler.cancel(context)
     }
@@ -130,41 +137,70 @@ object DensityNotifier {
             .getAppWidgetIds(ComponentName(context, BridgeCalWidgetReceiver::class.java))
             .contains(widgetId)
 
-    // notify() is only reached after areNotificationsEnabled(), which is false whenever
-    // POST_NOTIFICATIONS has not been granted on Android 13+.
-    @SuppressLint("MissingPermission")
-    private suspend fun refreshOrThrow(context: Context) {
+    /** What a post needs once [prepare] has found the notification on and postable. */
+    private class Ready(val prefs: NotificationPrefs, val config: WidgetConfig)
+
+    /**
+     * The checks every post shares, or null when there is nothing to post: turned off
+     * (the notification is taken down), the followed widget gone (turned off too),
+     * or notifications blocked. Re-arms the tick and makes sure the channels exist.
+     */
+    private suspend fun prepare(context: Context): Ready? {
         val prefsRepo = NotificationPrefsRepository(context)
         val prefs = prefsRepo.prefsFlow.first()
         if (!prefs.enabled) {
             cancel(context)
-            return
+            return null
         }
         if (!isPlaced(context, prefs.followedWidgetId)) {
             prefsRepo.disable()
             cancel(context)
-            return
+            return null
         }
 
         // Re-arm the tick before the work below, so a failure never loses the next one.
         NotificationScheduler.schedule(context)
 
-        val manager = NotificationManagerCompat.from(context)
-        if (!manager.areNotificationsEnabled()) return
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return null
         ensureChannels(context)
 
-        val channelId = channelFor(prefs.placement)
-        // Moving between placements: take the old post down first, so the new one lands
-        // in its new section with a fresh ranking rather than as an update in place.
-        if (postedChannel(context) != channelId) manager.cancel(NOTIFICATION_ID)
-
         val config = WidgetProfileRepository(context, prefs.followedWidgetId).activeConfigFlow.first()
-        val notification = withContext(Dispatchers.IO) { build(context, config, prefs) }
-        manager.notify(NOTIFICATION_ID, notification)
+        return Ready(prefs, config)
     }
 
+    // notify() is only reached after prepare()'s areNotificationsEnabled(), which is false
+    // whenever POST_NOTIFICATIONS has not been granted on Android 13+.
+    @SuppressLint("MissingPermission")
+    private suspend fun refreshOrThrow(context: Context) {
+        val ready = prepare(context) ?: return
+        val prefs = ready.prefs
+        val manager = NotificationManagerCompat.from(context)
+
+        if (prefs.placement == NotificationPlacement.PINNED) {
+            // Running: update the card in place; it stays the service's foreground one.
+            if (PinnedNotificationService.isRunning) {
+                manager.notify(NOTIFICATION_ID, withContext(Dispatchers.IO) { build(context, ready.config, prefs, pinned = true) })
+                return
+            }
+            // Not running: starting it goes foreground and refreshes, which lands here.
+            // Android refuses that from the background outside a few exempt moments;
+            // the card is posted unpinned until the next chance to start it.
+            if (PinnedNotificationService.tryStart(context)) return
+        } else {
+            // Moving off Pinned: let go of the card without removing it; the post below
+            // replaces it with the unpinned one.
+            PinnedNotificationService.stop(context, removeNotification = false)
+        }
+
+        // Moving between placements: take the old post down first, so the new one lands
+        // in its new section with a fresh ranking rather than as an update in place.
+        if (postedChannel(context) != channelFor(prefs.placement)) manager.cancel(NOTIFICATION_ID)
+        manager.notify(NOTIFICATION_ID, withContext(Dispatchers.IO) { build(context, ready.config, prefs, pinned = false) })
+    }
+
+    /** Pinned shares the Top channel: its place comes from the service, not the channel. */
     private fun channelFor(placement: NotificationPlacement): String = when (placement) {
-        NotificationPlacement.TOP -> CHANNEL_TOP
+        NotificationPlacement.PINNED, NotificationPlacement.TOP -> CHANNEL_TOP
         NotificationPlacement.SILENT -> CHANNEL_SILENT
     }
 
@@ -194,8 +230,11 @@ object DensityNotifier {
         NotificationManagerCompat.from(context).createNotificationChannelsCompat(listOf(top, silent))
     }
 
-    /** Off the main thread: the repositories query the calendar provider synchronously. */
-    private fun build(context: Context, config: WidgetConfig, prefs: NotificationPrefs): Notification {
+    /**
+     * Off the main thread: the repositories query the calendar provider synchronously.
+     * [pinned] draws the colorized card the pinning service holds.
+     */
+    private fun build(context: Context, config: WidgetConfig, prefs: NotificationPrefs, pinned: Boolean): Notification {
         val zone = ZoneId.systemDefault()
         val densityRepo = DensityRepository(context)
         val snapshot = densityRepo.load(config, zone = zone)
@@ -204,7 +243,7 @@ object DensityNotifier {
             val settings = WidgetClickActions.settingsIntent(context)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, prefs.followedWidgetId)
             val prompt = DensityNotificationRenderer.noPermission(context)
-            return baseBuilder(context, prefs, activityIntent(context, settings, 0))
+            return baseBuilder(context, prefs, activityIntent(context, settings, 0), pinned)
                 .setCustomContentView(prompt)
                 .build()
         }
@@ -263,6 +302,7 @@ object DensityNotifier {
                     null
                 }
             ),
+            pinned = pinned,
             use24Hour = use24Hour(context),
             zone = zone,
             rowIntent = { event ->
@@ -282,11 +322,11 @@ object DensityNotifier {
         // titles and no + button. Android only swaps it in when the phone is set to hide
         // sensitive notification content on the lock screen; an app cannot force that
         // (a channel's lock-screen visibility is the user's to set, not the app's).
-        val publicVersion = baseBuilder(context, prefs, openCalendar)
+        val publicVersion = baseBuilder(context, prefs, openCalendar, pinned)
             .setCustomContentView(views.lockScreen)
             .build()
 
-        return baseBuilder(context, prefs, openCalendar)
+        return baseBuilder(context, prefs, openCalendar, pinned)
             .setCustomContentView(views.collapsed)
             .setCustomBigContentView(views.expanded)
             .setPublicVersion(publicVersion)
@@ -310,7 +350,8 @@ object DensityNotifier {
     private fun baseBuilder(
         context: Context,
         prefs: NotificationPrefs,
-        contentIntent: PendingIntent
+        contentIntent: PendingIntent,
+        pinned: Boolean
     ): NotificationCompat.Builder {
         val visibility = when (prefs.lockScreen) {
             // Private: the public version replaces it when the phone hides sensitive content.
@@ -328,10 +369,21 @@ object DensityNotifier {
             .setVisibility(visibility)
             .setContentIntent(contentIntent)
             .setDeleteIntent(dismissedIntent(context))
+        if (pinned) {
+            // Colorized is what earns a foreground-service notification its section
+            // above conversations (doc/adr/0003); Android ignores it on any other
+            // notification. The colour is the accent container of the theme in use now;
+            // the service reposts on a theme switch so it follows.
+            val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+            builder.setColorized(true)
+                .setColor(DensityNotificationRenderer.accentContainer(context, night))
+        }
         return when (prefs.placement) {
             // The top channel already has no sound or vibration. setSilent is left off
             // here because it files the post under a "silent" group of its own.
-            NotificationPlacement.TOP -> builder.setPriority(NotificationCompat.PRIORITY_MAX)
+            NotificationPlacement.PINNED, NotificationPlacement.TOP ->
+                builder.setPriority(NotificationCompat.PRIORITY_MAX)
             NotificationPlacement.SILENT -> builder.setSilent(true)
         }
     }

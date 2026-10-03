@@ -4,4 +4,6 @@
     <color name="notification_on_accent_container">#FFEADDFF</color>
     <color name="notification_neutral_container">#FF49454F</color>
     <color name="notification_on_neutral_container">#FFCAC4D0</color>
+    <color name="notification_accent_strong">#FFD0BCFF</color>
+    <color name="notification_on_accent_strong">#FF381E72</color>
 </resources>
