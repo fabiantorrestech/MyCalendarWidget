@@ -38,9 +38,9 @@ import java.util.Locale
 
 /**
  * The custom views one notification post needs: [lockScreen] is [collapsed] without its
- * buttons, for the public version.
+ * buttons, for the public version, or null when none was asked for.
  */
-class NotificationViews(val collapsed: RemoteViews, val expanded: RemoteViews, val lockScreen: RemoteViews)
+class NotificationViews(val collapsed: RemoteViews, val expanded: RemoteViews, val lockScreen: RemoteViews?)
 
 /** What the expanded view shows under its headline, for the paging mode in use. */
 sealed interface ExpandedBody {
@@ -106,6 +106,7 @@ object DensityNotificationRenderer {
      * a handler so the tap falls through to the notification's own content intent.
      * [chrome] holds the refresh and + buttons' intents; a null one hides that button.
      * [pinned] draws for the colorized foreground-service card (see doc/adr/0003).
+     * [withLockScreen] false skips the lock-screen view, for a notification hidden there.
      */
     fun render(
         context: Context,
@@ -115,6 +116,7 @@ object DensityNotificationRenderer {
         nav: NavIntents,
         chrome: ChromeIntents,
         pinned: Boolean,
+        withLockScreen: Boolean,
         use24Hour: Boolean,
         zone: ZoneId,
         rowIntent: (CalendarEvent) -> PendingIntent?
@@ -141,7 +143,11 @@ object DensityNotificationRenderer {
         val collapsed = collapsedView(context, featuredHeadline, featuredStrip, chrome, pinned)
         // The lock screen gets no buttons: adding an event there would only ask to unlock,
         // and the redacted version should stay a plain read-out.
-        val lockScreen = collapsedView(context, featuredHeadline, featuredStrip, ChromeIntents(null, null), pinned)
+        val lockScreen = if (withLockScreen) {
+            collapsedView(context, featuredHeadline, featuredStrip, ChromeIntents(null, null), pinned)
+        } else {
+            null
+        }
 
         val expanded = RemoteViews(context.packageName, R.layout.notification_density_expanded)
         fillChrome(expanded, chrome, pinned, context)

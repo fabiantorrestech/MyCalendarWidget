@@ -14,17 +14,22 @@ import kotlinx.coroutines.launch
  * refresh: its own tick ([NotificationScheduler]), the user swiping it away (Android 14+
  * allows that even for an ongoing notification, so it is simply posted again), an
  * arrow tap, the ↻ button, and boot. Each runs [DensityNotifier.refresh], which also
- * re-arms the tick and does nothing when the notification is turned off.
+ * arms the tick and does nothing when the notification is turned off.
  *
  * The tick, boot and the ↻ button redraw the followed widget as well, so the widget
  * refreshes as often as the notification does. A swipe or an arrow tap changes nothing
- * the widget shows, so those leave it alone.
+ * the widget shows, so those leave it alone. The tick first asks [TickGate] whether it
+ * would only repeat a refresh just done, or could wait for the screen to come on.
  */
 class NotificationReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val alsoWidget = when (intent.action) {
-            NotificationScheduler.ACTION_TICK, Intent.ACTION_BOOT_COMPLETED, ACTION_REFRESH -> true
+            NotificationScheduler.ACTION_TICK -> {
+                if (!TickGate.admitNotificationTick(context)) return
+                true
+            }
+            Intent.ACTION_BOOT_COMPLETED, ACTION_REFRESH -> true
             ACTION_DISMISSED, ACTION_PAGE -> false
             else -> return
         }

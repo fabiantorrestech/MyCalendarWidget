@@ -30,6 +30,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidget
 import com.fabiantorrestech.mycalendarwidget.widget.BridgeCalWidgetReceiver
 import com.fabiantorrestech.mycalendarwidget.widget.WidgetClickActions
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
+import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -83,14 +84,34 @@ object DensityNotifier {
     private val refreshLock = Mutex()
 
     /**
+     * Set up once per process rather than on every refresh: the channels never change,
+     * and the tick is a repeating alarm that only a force-stop (which also ends the
+     * process) or [cancel] takes away. [repost] arms it again anyway.
+     */
+    @Volatile
+    private var channelsReady = false
+
+    @Volatile
+    private var tickArmed = false
+
+    /**
      * Brings the notification up to date, or removes it if it is off. With [alsoWidget]
      * the followed widget is redrawn too, so the two never disagree; the widget-side
      * paths pass false, since they have just redrawn it themselves. Never throws.
      */
     suspend fun refresh(context: Context, alsoWidget: Boolean = false) {
+        refreshAndMark(context, alsoWidget, widgetAlreadyDrawn = false)
+    }
+
+    /**
+     * [refresh], noting for [TickGate] when the followed widget was redrawn with it
+     * (here, or by the caller just before), so the other tick can skip the pair.
+     */
+    private suspend fun refreshAndMark(context: Context, alsoWidget: Boolean, widgetAlreadyDrawn: Boolean) {
         try {
             refreshLock.withLock { refreshOrThrow(context.applicationContext) }
             if (alsoWidget) updateFollowedWidget(context.applicationContext)
+            if (alsoWidget || widgetAlreadyDrawn) TickGate.markPairRefreshed()
         } catch (e: Exception) {
             Log.w(TAG, "Notification refresh failed", e)
         }
@@ -105,9 +126,11 @@ object DensityNotifier {
         try {
             refreshLock.withLock {
                 NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+                tickArmed = false
                 refreshOrThrow(context.applicationContext)
             }
             updateFollowedWidget(context.applicationContext)
+            TickGate.markPairRefreshed()
         } catch (e: Exception) {
             Log.w(TAG, "Notification repost failed", e)
         }
@@ -118,8 +141,15 @@ object DensityNotifier {
      * widget. Cheap when it does not: one preferences read.
      */
     suspend fun refreshIfFollowing(context: Context, appWidgetId: Int) {
+        if (isFollowing(context, appWidgetId)) {
+            refreshAndMark(context, alsoWidget = false, widgetAlreadyDrawn = true)
+        }
+    }
+
+    /** True when the notification is on and follows [appWidgetId]. One preferences read. */
+    suspend fun isFollowing(context: Context, appWidgetId: Int): Boolean {
         val prefs = NotificationPrefsRepository(context.applicationContext).prefsFlow.first()
-        if (prefs.enabled && prefs.followedWidgetId == appWidgetId) refresh(context)
+        return prefs.enabled && prefs.followedWidgetId == appWidgetId
     }
 
     /** Removes the notification and stops its tick (and the pinning service, if running). */
@@ -129,6 +159,7 @@ object DensityNotifier {
         PinnedNotificationService.stop(context, removeNotification = true)
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
         NotificationScheduler.cancel(context)
+        tickArmed = false
     }
 
     /** True when [widgetId] is still a placed BridgeCal widget. */
@@ -143,7 +174,7 @@ object DensityNotifier {
     /**
      * The checks every post shares, or null when there is nothing to post: turned off
      * (the notification is taken down), the followed widget gone (turned off too),
-     * or notifications blocked. Re-arms the tick and makes sure the channels exist.
+     * or notifications blocked. Arms the tick and creates the channels, once per process.
      */
     private suspend fun prepare(context: Context): Ready? {
         val prefsRepo = NotificationPrefsRepository(context)
@@ -158,11 +189,17 @@ object DensityNotifier {
             return null
         }
 
-        // Re-arm the tick before the work below, so a failure never loses the next one.
-        NotificationScheduler.schedule(context)
+        // Arm the tick before the work below, so a failure never loses the next one.
+        if (!tickArmed) {
+            NotificationScheduler.schedule(context)
+            tickArmed = true
+        }
 
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return null
-        ensureChannels(context)
+        if (!channelsReady) {
+            ensureChannels(context)
+            channelsReady = true
+        }
 
         val config = WidgetProfileRepository(context, prefs.followedWidgetId).activeConfigFlow.first()
         return Ready(prefs, config)
@@ -303,6 +340,8 @@ object DensityNotifier {
                 }
             ),
             pinned = pinned,
+            // Hidden from the lock screen: no public version is ever shown, so none is built.
+            withLockScreen = prefs.lockScreen == NotificationLockScreen.SHOW,
             use24Hour = use24Hour(context),
             zone = zone,
             rowIntent = { event ->
@@ -322,15 +361,17 @@ object DensityNotifier {
         // titles and no + button. Android only swaps it in when the phone is set to hide
         // sensitive notification content on the lock screen; an app cannot force that
         // (a channel's lock-screen visibility is the user's to set, not the app's).
-        val publicVersion = baseBuilder(context, prefs, openCalendar, pinned)
-            .setCustomContentView(views.lockScreen)
-            .build()
-
-        return baseBuilder(context, prefs, openCalendar, pinned)
+        val builder = baseBuilder(context, prefs, openCalendar, pinned)
             .setCustomContentView(views.collapsed)
             .setCustomBigContentView(views.expanded)
-            .setPublicVersion(publicVersion)
-            .build()
+        views.lockScreen?.let { lockScreen ->
+            builder.setPublicVersion(
+                baseBuilder(context, prefs, openCalendar, pinned)
+                    .setCustomContentView(lockScreen)
+                    .build()
+            )
+        }
+        return builder.build()
     }
 
     /** The snapshot already holds the featured day and its look-ahead; query the rest. */
@@ -388,7 +429,11 @@ object DensityNotifier {
         }
     }
 
-    /** Redraws the followed widget, found the same way WidgetSyncReceiver finds one. */
+    /**
+     * Redraws the followed widget, found the same way WidgetSyncReceiver finds one. Its
+     * peek closes first, as on the widget's own tick: this redraw can stand in for that
+     * tick (see [TickGate]).
+     */
     private suspend fun updateFollowedWidget(context: Context) {
         val prefs = NotificationPrefsRepository(context).prefsFlow.first()
         if (!prefs.enabled) return
@@ -396,6 +441,7 @@ object DensityNotifier {
         val glanceId = manager.getGlanceIds(BridgeCalWidget::class.java)
             .firstOrNull { manager.getAppWidgetId(it) == prefs.followedWidgetId }
             ?: return
+        PeekState.close(context, glanceId)
         BridgeCalWidget().update(context, glanceId)
     }
 

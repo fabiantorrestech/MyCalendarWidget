@@ -3,8 +3,11 @@ package com.fabiantorrestech.mycalendarwidget.notification
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.os.Build
@@ -35,11 +38,32 @@ class PinnedNotificationService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    /** The configuration the card was last drawn for, to tell which changes matter. */
+    private lateinit var lastConfig: Configuration
+
+    /**
+     * Ticks are held while the screen is off (see [TickGate]); this runs them as it
+     * comes back on. Only a running app can hear the screen come on, which is why
+     * holding ticks is limited to the Pinned placement.
+     */
+    private val screenOnReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            scope.launch(Dispatchers.IO) { TickGate.catchUp(applicationContext) }
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         isRunning = true
+        lastConfig = Configuration(resources.configuration)
+        ContextCompat.registerReceiver(
+            this,
+            screenOnReceiver,
+            IntentFilter(Intent.ACTION_SCREEN_ON),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -66,14 +90,22 @@ class PinnedNotificationService : Service() {
             .firstOrNull { it.id == DensityNotifier.NOTIFICATION_ID }
             ?.notification
 
-    /** The card's colour is the theme's accent container, so a theme switch reposts it. */
+    /**
+     * The card's colour is the theme's accent container and the strip is drawn at the
+     * screen's width, so a theme, wallpaper-colour or rotation change reposts it. Changes
+     * that cannot alter anything drawn are ignored.
+     */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        val changes = lastConfig.diff(newConfig)
+        lastConfig = Configuration(newConfig)
+        if (changes and IRRELEVANT_CONFIG_CHANGES.inv() == 0) return
         scope.launch { DensityNotifier.refresh(this@PinnedNotificationService) }
     }
 
     override fun onDestroy() {
         isRunning = false
+        unregisterReceiver(screenOnReceiver)
         ServiceCompat.stopForeground(
             this,
             if (removeOnStop) ServiceCompat.STOP_FOREGROUND_REMOVE else ServiceCompat.STOP_FOREGROUND_DETACH
@@ -100,6 +132,20 @@ class PinnedNotificationService : Service() {
 
     companion object {
         private const val TAG = "PinnedNotification"
+
+        /**
+         * Configuration changes that cannot alter the card: input hardware, font size
+         * (the bitmaps hold no text; the shade lays out the text itself) and the SIM's
+         * country and network codes.
+         */
+        private const val IRRELEVANT_CONFIG_CHANGES =
+            ActivityInfo.CONFIG_KEYBOARD or
+                ActivityInfo.CONFIG_KEYBOARD_HIDDEN or
+                ActivityInfo.CONFIG_NAVIGATION or
+                ActivityInfo.CONFIG_TOUCHSCREEN or
+                ActivityInfo.CONFIG_FONT_SCALE or
+                ActivityInfo.CONFIG_MCC or
+                ActivityInfo.CONFIG_MNC
 
         /** True between this process's onCreate and onDestroy of the service. */
         @Volatile

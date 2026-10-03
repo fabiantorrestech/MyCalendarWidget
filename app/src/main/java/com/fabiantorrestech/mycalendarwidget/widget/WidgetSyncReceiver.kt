@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.fabiantorrestech.mycalendarwidget.notification.DensityNotifier
+import com.fabiantorrestech.mycalendarwidget.notification.TickGate
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,17 +53,33 @@ class WidgetSyncReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
-                val manager = GlanceAppWidgetManager(context)
-                val glanceId = manager.getGlanceIds(BridgeCalWidget::class.java)
-                    .firstOrNull { manager.getAppWidgetId(it) == appWidgetId }
-                if (glanceId != null) {
-                    PeekState.close(context, glanceId)
-                    BridgeCalWidget().update(context, glanceId)
+                // A tick that would only repeat the notification's refresh of this widget,
+                // or that no one could see with the screen off, is skipped (see TickGate).
+                val followed = DensityNotifier.isFollowing(context, appWidgetId)
+                if (TickGate.admitWidgetTick(context, appWidgetId, followed)) {
+                    syncWidget(context, appWidgetId)
                 }
-                DensityNotifier.refreshIfFollowing(context, appWidgetId)
             } finally {
                 pendingResult.finish()
             }
+        }
+    }
+
+    companion object {
+        /**
+         * One widget's tick: close its peek, redraw it, and refresh the notification if
+         * it follows this widget. Also run by TickGate for a tick held while the screen
+         * was off.
+         */
+        suspend fun syncWidget(context: Context, appWidgetId: Int) {
+            val manager = GlanceAppWidgetManager(context)
+            val glanceId = manager.getGlanceIds(BridgeCalWidget::class.java)
+                .firstOrNull { manager.getAppWidgetId(it) == appWidgetId }
+            if (glanceId != null) {
+                PeekState.close(context, glanceId)
+                BridgeCalWidget().update(context, glanceId)
+            }
+            DensityNotifier.refreshIfFollowing(context, appWidgetId)
         }
     }
 }

@@ -46,6 +46,11 @@ than the order it was built in.
 - A **Repost notification** button on the card puts it back right away (and restarts its five-minute refresh) if it ever goes missing, for example after a battery saver or a force-stop.
 - The notification and the widget it follows refresh together: the widget's own refresh, its refresh button and a profile switch update the notification, and the notification's five-minute refresh redraws the widget.
 - Removing the widget it follows turns the notification off.
+- Lighter on the battery, with nothing you see changed:
+  - The notification and its widget used to each run their own five-minute refresh, redrawing both seconds apart. Now whichever refresh comes second is skipped when both were redrawn under four minutes earlier.
+  - While Pinned, the five-minute refreshes wait while the screen is off, since no one can see the shade or the home screen then, and run the moment the screen comes back on, before the lock screen is read.
+  - A pinned card is no longer redrawn for display changes that can't alter it (keyboard, font size, SIM country). Rotation, light/dark and wallpaper colours still redraw it.
+  - With **Hide it from the lock screen**, the lock-screen version is no longer drawn at all.
 
 ## Tapping the widget (the peek sheet)
 
