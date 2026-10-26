@@ -6,4 +6,8 @@
     <color name="notification_on_neutral_container">#FFCAC4D0</color>
     <color name="notification_accent_strong">#FFD0BCFF</color>
     <color name="notification_on_accent_strong">#FF381E72</color>
+    <color name="notification_gray_container">#FF3A3A3A</color>
+    <color name="notification_on_gray_container">#FFE6E6E6</color>
+    <color name="notification_gray_strong">#FFC6C6C6</color>
+    <color name="notification_on_gray_strong">#FF1F1F1F</color>
 </resources>

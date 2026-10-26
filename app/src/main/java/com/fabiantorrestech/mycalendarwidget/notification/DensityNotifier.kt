@@ -41,6 +41,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
+import com.fabiantorrestech.mycalendarwidget.data.DisplayModes
 
 /**
  * Posts, refreshes and removes the persistent density notification. It has no settings
@@ -273,6 +275,7 @@ object DensityNotifier {
      */
     private fun build(context: Context, config: WidgetConfig, prefs: NotificationPrefs, pinned: Boolean): Notification {
         val zone = ZoneId.systemDefault()
+        val display = DisplayModes.effective(context, config)
         val densityRepo = DensityRepository(context)
         val snapshot = densityRepo.load(config, zone = zone)
 
@@ -280,7 +283,7 @@ object DensityNotifier {
             val settings = WidgetClickActions.settingsIntent(context)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, prefs.followedWidgetId)
             val prompt = DensityNotificationRenderer.noPermission(context)
-            return baseBuilder(context, prefs, activityIntent(context, settings, 0), pinned)
+            return baseBuilder(context, prefs, activityIntent(context, settings, 0), pinned, display)
                 .setCustomContentView(prompt)
                 .build()
         }
@@ -361,12 +364,12 @@ object DensityNotifier {
         // titles and no + button. Android only swaps it in when the phone is set to hide
         // sensitive notification content on the lock screen; an app cannot force that
         // (a channel's lock-screen visibility is the user's to set, not the app's).
-        val builder = baseBuilder(context, prefs, openCalendar, pinned)
+        val builder = baseBuilder(context, prefs, openCalendar, pinned, display)
             .setCustomContentView(views.collapsed)
             .setCustomBigContentView(views.expanded)
         views.lockScreen?.let { lockScreen ->
             builder.setPublicVersion(
-                baseBuilder(context, prefs, openCalendar, pinned)
+                baseBuilder(context, prefs, openCalendar, pinned, display)
                     .setCustomContentView(lockScreen)
                     .build()
             )
@@ -392,7 +395,8 @@ object DensityNotifier {
         context: Context,
         prefs: NotificationPrefs,
         contentIntent: PendingIntent,
-        pinned: Boolean
+        pinned: Boolean,
+        display: DisplayMode
     ): NotificationCompat.Builder {
         val visibility = when (prefs.lockScreen) {
             // Private: the public version replaces it when the phone hides sensitive content.
@@ -413,12 +417,12 @@ object DensityNotifier {
         if (pinned) {
             // Colorized is what earns a foreground-service notification its section
             // above conversations (doc/adr/0003); Android ignores it on any other
-            // notification. The colour is the accent container of the theme in use now;
-            // the service reposts on a theme switch so it follows.
+            // notification. The colour is the card colour of the theme and display mode
+            // in use now; the service reposts on a theme switch so it follows.
             val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
             builder.setColorized(true)
-                .setColor(DensityNotificationRenderer.accentContainer(context, night))
+                .setColor(DensityNotificationRenderer.cardColor(context, night, display))
         }
         return when (prefs.placement) {
             // The top channel already has no sound or vibration. setSilent is left off

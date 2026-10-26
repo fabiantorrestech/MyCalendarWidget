@@ -12,4 +12,11 @@
     <color name="notification_on_neutral_container">#FF49454F</color>
     <color name="notification_accent_strong">#FF6750A4</color>
     <color name="notification_on_accent_strong">#FFFFFFFF</color>
+    <!-- Grayscale / E-ink display modes: true grays for the pill and buttons (the
+         neutral2 tones above carry a little of the wallpaper's hue). The strong pair is
+         for the pinned card, which is itself the gray container in Grayscale. -->
+    <color name="notification_gray_container">#FFE0E0E0</color>
+    <color name="notification_on_gray_container">#FF1F1F1F</color>
+    <color name="notification_gray_strong">#FF5E5E5E</color>
+    <color name="notification_on_gray_strong">#FFFFFFFF</color>
 </resources>

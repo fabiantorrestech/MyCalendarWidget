@@ -22,6 +22,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import com.fabiantorrestech.mycalendarwidget.data.DisplayModes
+import com.fabiantorrestech.mycalendarwidget.widget.DisplayModeRefresh
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 /**
  * Holds the persistent notification as its foreground notification while the placement
@@ -52,6 +60,24 @@ class PinnedNotificationService : Service() {
         }
     }
 
+    /**
+     * The phone's grayscale switch flipped: a widget or card on the Auto display mode
+     * must redraw to follow it. Only a running app can hear the change, so outside the
+     * Pinned placement Auto catches up on the next tick instead. The two daltonizer keys
+     * usually change together, so the redraw waits a moment and runs once.
+     */
+    private val grayscaleObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            grayscaleRedraw?.cancel()
+            grayscaleRedraw = scope.launch {
+                delay(GRAYSCALE_SETTLE_MS)
+                DensityNotifier.refresh(this@PinnedNotificationService)
+                DisplayModeRefresh.redrawAll(this@PinnedNotificationService)
+            }
+        }
+    }
+    private var grayscaleRedraw: Job? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -64,6 +90,9 @@ class PinnedNotificationService : Service() {
             IntentFilter(Intent.ACTION_SCREEN_ON),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        listOf(DisplayModes.DALTONIZER_ENABLED, DisplayModes.DALTONIZER).forEach { key ->
+            contentResolver.registerContentObserver(Settings.Secure.getUriFor(key), false, grayscaleObserver)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -106,6 +135,7 @@ class PinnedNotificationService : Service() {
     override fun onDestroy() {
         isRunning = false
         unregisterReceiver(screenOnReceiver)
+        contentResolver.unregisterContentObserver(grayscaleObserver)
         ServiceCompat.stopForeground(
             this,
             if (removeOnStop) ServiceCompat.STOP_FOREGROUND_REMOVE else ServiceCompat.STOP_FOREGROUND_DETACH
@@ -131,6 +161,9 @@ class PinnedNotificationService : Service() {
         }
 
     companion object {
+        /** How long to wait for the second daltonizer key before redrawing. */
+        private const val GRAYSCALE_SETTLE_MS = 500L
+
         private const val TAG = "PinnedNotification"
 
         /**

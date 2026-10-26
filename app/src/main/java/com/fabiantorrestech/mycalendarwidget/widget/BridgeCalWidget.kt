@@ -147,8 +147,10 @@ class BridgeCalWidget : GlanceAppWidget() {
                 LightColors to DarkColors
             }
             // Only the density style has a display mode; Auto reads the system grayscale
-            // switch, which is re-checked whenever the widget recomposes.
-            val displayMode = remember(config) {
+            // switch, re-checked when the config changes or DisplayModeRefresh bumps the
+            // epoch after the switch flips.
+            val displayEpoch = currentState<Preferences>()[DisplayModeRefresh.EPOCH] ?: 0
+            val displayMode = remember(config, displayEpoch) {
                 if (isDensity) DisplayModes.effective(context, config) else DisplayMode.COLOR
             }
             val colors = ColorProviders(
