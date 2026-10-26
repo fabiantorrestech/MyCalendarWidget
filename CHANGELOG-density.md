@@ -27,6 +27,10 @@ than the order it was built in.
 - Chrome on the widget: a small refresh circle, the open-calendar button and a quick-add (+), each following its setting; they move to their own row or collapse to one button as the widget narrows.
 - Density uses only the selected profile, so the widget draws no profile switcher.
 - Density refreshes every five minutes and at local midnight.
+- The "now" caret has a dark outline (light in dark mode) inside its gap, so it stands out on a busy block and on an empty bar alike. The notification's bar gets the same outline.
+- **Display mode**: **Auto** (default) is the normal colours until the phone's grayscale setting is on (Grayscaler or Android's own colour correction), then Grayscale. **Grayscale** draws everything in true grays picked to stay apart in brightness, with a heavier black (or white) caret; Detail uses Tonal's ranked grays there, since calendar colours collapse into look-alike grays. **E-ink** is black on white (white on black at night) with only three grays, an outlined bar, an ink border round the widget and no blur behind the peek, for low-resolution e-paper.
+- **Show the agenda on wake**: every Nth time the screen turns on (every other wake by default, up to every 10th), the widget opens on the agenda so you see it without a tap; the other wakes show the bar. The agenda stays up until the next wake or five minutes, and the five-minute refresh no longer closes it early. It needs the notification on **Pinned**, the only time BridgeCal can hear the screen turn on.
+- **Flip to the agenda on a timer**: while the widget is on screen it swaps between the bar and the agenda every 5–120 seconds (15 by default); the launcher does the flipping, so it costs no battery, and it pauses while the widget is out of sight. The agenda page shows as many of the coming events as fit (it cannot scroll; tap the bar for the full list), and tapping its top bar goes back to the bar. With it on, the widget reads event titles all the time. On E-ink it swaps without the fade, and each flip refreshes the screen.
 
 ## Persistent notification
 
@@ -51,6 +55,7 @@ than the order it was built in.
   - While Pinned, the five-minute refreshes wait while the screen is off, since no one can see the shade or the home screen then, and run the moment the screen comes back on, before the lock screen is read.
   - A pinned card is no longer redrawn for display changes that can't alter it (keyboard, font size, SIM country). Rotation, light/dark and wallpaper colours still redraw it.
   - With **Hide it from the lock screen**, the lock-screen version is no longer drawn at all.
+- The notification follows the widget's display mode: a gray card, pill and buttons in Grayscale; a white (or black) card with gray buttons in E-ink. On Auto, switching the phone's grayscale on or off repaints the notification and the widgets within a second while Pinned, or at the next refresh otherwise.
 
 ## Tapping the widget (the peek sheet)
 
@@ -67,6 +72,8 @@ than the order it was built in.
 
 ## Settings
 
+- Appearance has a **Display Mode** row (Auto / Color / Grayscale / E-ink) right under the widget style; the previews and Tonal swatches redraw in the chosen mode.
+- Widget Behavior adds **Show the agenda on wake** (with how often) and **Flip to the agenda on a timer** (with the interval).
 - **Widget Style** is the first control in Appearance for every style.
 - Choosing Density starts it on the Tonal scheme; switching away and back keeps whatever you picked.
 - Density's look controls (colour scheme, peek layout, header status) sit directly under the style, each with a short explanation.
