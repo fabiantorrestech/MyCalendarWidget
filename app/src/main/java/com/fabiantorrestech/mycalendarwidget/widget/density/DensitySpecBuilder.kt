@@ -489,9 +489,13 @@ object DensitySpecBuilder {
     fun ghostFor(palette: DensityPalette, peekOpen: Boolean): GhostSpec? =
         if (!peekOpen || palette.display == DisplayMode.EINK) null else GhostSpec(palette.background)
 
-    /** A calendar-colour dot (peek and notification rows) as [display] draws it. */
-    fun dotColor(display: DisplayMode, calendarColor: Int, onSurface: Int): Int = when (display) {
-        DisplayMode.GRAYSCALE -> ColorMath.toGray(calendarColor)
+    /**
+     * A calendar-colour dot (peek and notification rows) as [display] draws it on
+     * [background]. Grayscale keeps the busy colour's luminance floor: a light calendar
+     * colour (yellow) grays to nearly the ground and would vanish otherwise.
+     */
+    fun dotColor(display: DisplayMode, calendarColor: Int, onSurface: Int, background: Int): Int = when (display) {
+        DisplayMode.GRAYSCALE -> withLuminanceFloor(ColorMath.toGray(calendarColor), background, onSurface)
         DisplayMode.EINK -> onSurface
         else -> calendarColor
     }

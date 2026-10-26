@@ -32,8 +32,9 @@ object DisplayModes {
      */
     fun systemGrayscaleOn(context: Context): Boolean = try {
         val resolver = context.contentResolver
-        Settings.Secure.getInt(resolver, DALTONIZER_ENABLED, 0) == 1 &&
-            Settings.Secure.getInt(resolver, DALTONIZER, -1) == MONOCHROMACY
+        (Settings.Secure.getInt(resolver, DALTONIZER_ENABLED, 0) == 1 &&
+            Settings.Secure.getInt(resolver, DALTONIZER, -1) == MONOCHROMACY)
+            .also { Log.d(TAG, "System grayscale is ${if (it) "on" else "off"}") }
     } catch (e: SecurityException) {
         Log.w(TAG, "System grayscale setting is not readable; Auto stays on Color", e)
         false

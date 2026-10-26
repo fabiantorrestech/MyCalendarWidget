@@ -47,6 +47,7 @@ import com.fabiantorrestech.mycalendarwidget.widget.glanceFont
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 
 /** The peek sheet's base text sizes, shared with the settings preview's mirror of it. */
 internal object PeekTypography {
@@ -322,7 +323,8 @@ private fun EventRow(
     } else {
         GlanceTheme.colors.onSurfaceVariant
     }
-    val dotColor = Color(event.displayColor).let { if (passed) it.copy(alpha = PASSED_ALPHA) else it }
+    val dotColor = Color(DensitySpecBuilder.dotColor(palette.display, event.displayColor, palette.onSurface, palette.background))
+        .let { if (passed) it.copy(alpha = PASSED_ALPHA) else it }
     val time = PeekLabels.timeLabel(
         event = event,
         date = date,

@@ -38,6 +38,7 @@ import com.fabiantorrestech.mycalendarwidget.data.HeaderNavStyle
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetFont
 import kotlin.math.roundToInt
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +72,18 @@ fun AppearanceSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
+        )
+        LabeledIntro(
+            title = "Display Mode",
+            body = "Auto follows the phone's grayscale setting. " +
+                "Grayscale uses grays that stay apart in brightness. " +
+                "E-ink is black and white with heavier marks, for low-resolution e-paper."
+        )
+        EnumSegmentedRow(
+            options = DisplayMode.entries,
+            selected = config.displayMode,
+            label = { it.displayName },
+            onSelect = { onConfigChange(config.copy(displayMode = it)) }
         )
         LabeledIntro(
             title = "Density Color Scheme",

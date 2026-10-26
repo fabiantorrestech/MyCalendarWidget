@@ -19,6 +19,7 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.WidgetProfileEntry
 import com.fabiantorrestech.mycalendarwidget.data.WidgetStyle
 import com.fabiantorrestech.mycalendarwidget.data.density.DensitySnapshot
+import com.fabiantorrestech.mycalendarwidget.ui.theme.DisplayModeTheme
 import java.time.LocalDate
 
 /** Which face the preview pane shows; the peek only exists for the density style. */
@@ -83,6 +84,7 @@ fun PreviewPane(
             }
         }
         val cardModifier = if (scrollInside) Modifier.verticalScroll(rememberScrollState()) else Modifier
+        DisplayModeTheme(config) {
         when (shown) {
             PreviewView.WIDGET -> PreviewCard(
                 config = config,
@@ -100,6 +102,7 @@ fun PreviewPane(
                 use24Hour = use24Hour,
                 modifier = Modifier.padding(bottom = 4.dp)
             )
+        }
         }
     }
 }

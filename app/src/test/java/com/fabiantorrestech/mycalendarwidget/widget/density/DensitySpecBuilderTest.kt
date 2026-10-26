@@ -500,9 +500,18 @@ class DensitySpecBuilderTest {
     @Test
     fun dotColorFollowsTheDisplayMode() {
         val red = 0xFFFF0000.toInt()
-        assertEquals(red, DensitySpecBuilder.dotColor(DisplayMode.COLOR, red, ON_SURFACE))
-        assertEquals(0xFF363636.toInt(), DensitySpecBuilder.dotColor(DisplayMode.GRAYSCALE, red, ON_SURFACE))
-        assertEquals(ON_SURFACE, DensitySpecBuilder.dotColor(DisplayMode.EINK, red, ON_SURFACE))
+        assertEquals(red, DensitySpecBuilder.dotColor(DisplayMode.COLOR, red, ON_SURFACE, BACKGROUND))
+        assertEquals(0xFF363636.toInt(), DensitySpecBuilder.dotColor(DisplayMode.GRAYSCALE, red, ON_SURFACE, BACKGROUND))
+        assertEquals(ON_SURFACE, DensitySpecBuilder.dotColor(DisplayMode.EINK, red, ON_SURFACE, BACKGROUND))
+    }
+
+    @Test
+    fun grayscaleDotsKeepTheLuminanceFloor() {
+        // Yellow's gray is nearly white: on a white ground it would vanish.
+        val dot = DensitySpecBuilder.dotColor(DisplayMode.GRAYSCALE, 0xFFFFEB3B.toInt(), ON_SURFACE, BACKGROUND)
+        assertTrue(isNeutral(dot))
+        val delta = abs(ColorMath.luminance(dot) - ColorMath.luminance(BACKGROUND))
+        assertTrue("delta was $delta", delta >= DensityConstants.BUSY_MIN_LUMINANCE_DELTA - 0.01f)
     }
 
     @Test

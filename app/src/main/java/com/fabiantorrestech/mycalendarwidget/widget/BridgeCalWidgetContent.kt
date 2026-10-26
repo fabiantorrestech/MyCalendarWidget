@@ -57,6 +57,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
 
 internal fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
     fontConfig.resolve(category).glanceFamilyName?.let { androidx.glance.text.FontFamily(it) }
@@ -78,6 +79,7 @@ fun BridgeCalWidgetContent(
     activeProfileId: String = "",
     cycleUiStyle: CycleUiStyle = CycleUiStyle.PILL,
     densitySnapshot: DensitySnapshot? = null,
+    displayMode: DisplayMode = DisplayMode.COLOR,
     use24Hour: Boolean = false,
     peekOpen: Boolean = false,
     /** True while the peek's calendar query has not answered yet (density only). */
@@ -104,7 +106,8 @@ fun BridgeCalWidgetContent(
                 isDark = isDark,
                 background = GlanceTheme.colors.widgetBackground.getColor(context).toArgb(),
                 onSurface = GlanceTheme.colors.onSurface.getColor(context).toArgb(),
-                primary = GlanceTheme.colors.primary.getColor(context).toArgb()
+                primary = GlanceTheme.colors.primary.getColor(context).toArgb(),
+                display = displayMode
             )
             Box(modifier = GlanceModifier.fillMaxSize()) {
                 DensityWidgetContent(
@@ -575,7 +578,7 @@ internal fun RefreshButton(config: WidgetConfig) {
  * grep.
  */
 @Composable
-internal fun QuickAddButton() {
+internal fun QuickAddButton(iconTint: ColorProvider? = null) {
     Box(
         modifier = GlanceModifier
             .width(56.dp)
@@ -588,7 +591,8 @@ internal fun QuickAddButton() {
         Image(
             provider = ImageProvider(R.drawable.ic_widget_add),
             contentDescription = "Add event",
-            modifier = GlanceModifier.size(20.dp)
+            modifier = GlanceModifier.size(20.dp),
+            colorFilter = iconTint?.let { ColorFilter.tint(it) }
         )
     }
 }

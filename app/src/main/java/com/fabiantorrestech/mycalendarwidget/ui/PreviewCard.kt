@@ -20,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import com.fabiantorrestech.mycalendarwidget.ui.theme.rememberDisplayMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -648,7 +649,16 @@ private fun PreviewPeekEventRow(
             modifier = Modifier
                 .size(DensityLayout.PEEK_DOT_DP.dp)
                 .clip(RoundedCornerShape((DensityLayout.PEEK_DOT_DP / 2f).dp))
-                .background(Color(event.displayColor).copy(alpha = alpha))
+                .background(
+                    Color(
+                        DensitySpecBuilder.dotColor(
+                            rememberDisplayMode(config),
+                            event.displayColor,
+                            MaterialTheme.colorScheme.onSurface.toArgb(),
+                            MaterialTheme.colorScheme.surface.toArgb()
+                        )
+                    ).copy(alpha = alpha)
+                )
         )
         Spacer(modifier = Modifier.width(7.dp))
         Text(
@@ -720,7 +730,8 @@ private fun PreviewDensityContent(
                 isDark = isSystemInDarkTheme(),
                 background = MaterialTheme.colorScheme.surface.toArgb(),
                 onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
-                primary = MaterialTheme.colorScheme.primary.toArgb()
+                primary = MaterialTheme.colorScheme.primary.toArgb(),
+                display = rememberDisplayMode(config)
             )
             val density = LocalDensity.current.density
             val spec = DensitySpecBuilder.stripSpec(

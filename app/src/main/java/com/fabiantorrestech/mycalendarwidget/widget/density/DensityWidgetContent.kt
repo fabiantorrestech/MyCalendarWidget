@@ -33,6 +33,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.fabiantorrestech.mycalendarwidget.R
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
 import com.fabiantorrestech.mycalendarwidget.data.FontCategory
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.density.DensityCalculator
@@ -49,6 +50,10 @@ import java.util.Locale
 private const val COUNT_SIZE_SP = 24
 private const val COUNT_SENTENCE_SIZE_SP = 17
 private const val QUALIFIER_SIZE_SP = 13
+private const val WIDGET_CORNER_DP = 16f
+
+/** The ink outline drawn round the widget in E-ink mode. */
+private const val EINK_BORDER_DP = 2f
 
 /** Between the date and the qualifier on the second line. */
 internal const val SECOND_LINE_SEPARATOR = " \u00b7 "
@@ -92,200 +97,226 @@ fun DensityWidgetContent(
         showRefresh = config.showRefreshButton
     )
 
-    Box(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(16.dp)
-            .padding(DensityLayout.WIDGET_PADDING_DP.dp)
-    ) {
-        if (snapshot != null) {
-            Column(modifier = GlanceModifier.fillMaxWidth()) {
-                if (!snapshot.hasPermission) {
-                    Text(
-                        text = context.getString(R.string.density_no_permission),
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
-                        ),
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .clickable(actionStartActivity(WidgetClickActions.settingsIntent(context)))
-                    )
-                    return@Column
-                }
-
-                val zone = ZoneId.systemDefault()
-
-                val density = context.resources.displayMetrics.density
-                val widthPx = ((size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt()
-                val spec = DensitySpecBuilder.stripSpec(
-                    day = snapshot.featured,
-                    config = config,
-                    palette = palette,
-                    widthPx = widthPx,
-                    density = density,
-                    // The caret means "you are here": only today's strip may carry one.
-                    nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
-                    zone = zone,
-                    visibleCalendarIds = snapshot.visibleCalendarIds
-                ).copy(
-                    ghost = if (peekOpen) GhostSpec(palette.background) else null
-                )
-
-                if (peekOpen) {
-                    // The peek's backdrop and nothing else: no headline, no axis, no
-                    // bars, no chrome, and no click target — the sheet layered over this
-                    // owns every touch, so a mis-tap can never fall through to the strip
-                    // and re-open what the user is already looking at.
-                    Image(
-                        ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
-                        null,
-                        GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
-                        ContentScale.FillBounds
-                    )
-                    return@Column
-                }
-
-                val headline = DensityCalculator.headline(
-                    featured = snapshot.featured,
-                    featuredIsToday = snapshot.featuredIsToday,
-                    nowMillis = snapshot.nowMillis,
-                    rolloverHour = config.densityRolloverHour,
-                    countMode = config.densityCountMode,
-                    zone = zone,
-                    use24Hour = use24Hour,
-                    locale = Locale.getDefault()
-                )
-                val countSize = if (headline.countIsSentence) {
-                    COUNT_SENTENCE_SIZE_SP
-                } else {
-                    COUNT_SIZE_SP
-                }
-
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // An all-day event shows as the band along the top of the strip
-                    // (DensityCanvas.allDayBandRect), not as a mark beside the count.
-                    // The count carries the weight so it yields width to the chrome (an
-                    // ellipsis on a sentence headline) rather than pushing a button off
-                    // the row.
-                    Text(
-                        text = headline.countText,
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurface,
-                            fontSize = (countSize * config.typographyScale.headerScale).sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = config.glanceFont(FontCategory.DATE_HEADER)
-                        ),
-                        maxLines = 1,
-                        modifier = GlanceModifier.defaultWeight()
-                    )
-
-                    // Wide enough: everything stays inline. Narrow and short: one button
-                    // fits. Narrow and tall: the chrome gets its own row below the body.
-                    when (placement) {
-                        ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> DensityChrome(placement, config)
-                        ChromePlacement.BOTTOM_ROW -> {}
-                    }
-                }
-
-                // The second line ("Wed (9/17) \u00b7 next in 25m": the featured day, then the
-                // qualifier when there is one) sits under the count, full width, so the
-                // chrome never squeezes it to an ellipsis. Two Texts rather than one
-                // because Glance cannot mix weights in a string, and only today's date
-                // is bold: after the rollover, tomorrow's date stays regular.
-                Row(
-                    modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = headline.dateText,
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
-                            fontWeight = if (snapshot.featuredIsToday) FontWeight.Bold else FontWeight.Normal,
-                            fontFamily = config.glanceFont(FontCategory.DETAIL)
-                        ),
-                        maxLines = 1
-                    )
-                    if (headline.qualifierText.isNotBlank()) {
+    // E-ink: a launcher on e-paper is usually as white as the widget, so the widget
+    // gets an ink outline; the padding inside shrinks to match, so nothing moves.
+    val inkBorder = palette.display == DisplayMode.EINK
+    InkBorder(inkBorder) {
+        Box(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .background(GlanceTheme.colors.widgetBackground)
+                .cornerRadius(if (inkBorder) (WIDGET_CORNER_DP - EINK_BORDER_DP).dp else WIDGET_CORNER_DP.dp)
+                .padding((DensityLayout.WIDGET_PADDING_DP - if (inkBorder) EINK_BORDER_DP else 0f).dp)
+        ) {
+            if (snapshot != null) {
+                Column(modifier = GlanceModifier.fillMaxWidth()) {
+                    if (!snapshot.hasPermission) {
                         Text(
-                            text = SECOND_LINE_SEPARATOR + headline.qualifierText,
+                            text = context.getString(R.string.density_no_permission),
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurfaceVariant,
                                 fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
                                 fontFamily = config.glanceFont(FontCategory.DETAIL)
                             ),
+                            modifier = GlanceModifier
+                                .fillMaxWidth()
+                                .clickable(actionStartActivity(WidgetClickActions.settingsIntent(context)))
+                        )
+                        return@Column
+                    }
+
+                    val zone = ZoneId.systemDefault()
+
+                    val density = context.resources.displayMetrics.density
+                    val widthPx = ((size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP) * density).toInt()
+                    val spec = DensitySpecBuilder.stripSpec(
+                        day = snapshot.featured,
+                        config = config,
+                        palette = palette,
+                        widthPx = widthPx,
+                        density = density,
+                        // The caret means "you are here": only today's strip may carry one.
+                        nowMillis = if (snapshot.featuredIsToday) snapshot.nowMillis else null,
+                        zone = zone,
+                        visibleCalendarIds = snapshot.visibleCalendarIds
+                    ).copy(
+                        ghost = DensitySpecBuilder.ghostFor(palette, peekOpen)
+                    )
+
+                    if (peekOpen) {
+                        // E-ink has no ghost (a blur is noise on e-paper), and a full-contrast
+                        // strip would fight the sheet's text, so the sheet sits on plain paper.
+                        if (spec.ghost == null) return@Column
+                        // The peek's backdrop and nothing else: no headline, no axis, no
+                        // bars, no chrome, and no click target — the sheet layered over this
+                        // owns every touch, so a mis-tap can never fall through to the strip
+                        // and re-open what the user is already looking at.
+                        Image(
+                            ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
+                            null,
+                            GlanceModifier.fillMaxWidth().height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
+                            ContentScale.FillBounds
+                        )
+                        return@Column
+                    }
+
+                    val headline = DensityCalculator.headline(
+                        featured = snapshot.featured,
+                        featuredIsToday = snapshot.featuredIsToday,
+                        nowMillis = snapshot.nowMillis,
+                        rolloverHour = config.densityRolloverHour,
+                        countMode = config.densityCountMode,
+                        zone = zone,
+                        use24Hour = use24Hour,
+                        locale = Locale.getDefault()
+                    )
+                    val countSize = if (headline.countIsSentence) {
+                        COUNT_SENTENCE_SIZE_SP
+                    } else {
+                        COUNT_SIZE_SP
+                    }
+
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // An all-day event shows as the band along the top of the strip
+                        // (DensityCanvas.allDayBandRect), not as a mark beside the count.
+                        // The count carries the weight so it yields width to the chrome (an
+                        // ellipsis on a sentence headline) rather than pushing a button off
+                        // the row.
+                        Text(
+                            text = headline.countText,
+                            style = TextStyle(
+                                color = GlanceTheme.colors.onSurface,
+                                fontSize = (countSize * config.typographyScale.headerScale).sp,
+                                fontWeight = FontWeight.Medium,
+                                fontFamily = config.glanceFont(FontCategory.DATE_HEADER)
+                            ),
                             maxLines = 1,
                             modifier = GlanceModifier.defaultWeight()
                         )
-                    }
-                }
 
-                // The whole body below the headline and above the chrome row is the peek
-                // tap target (not just the strip image): the strip, the axis row and,
-                // when present, the look-ahead divider/labels/bars block. The headline
-                // row and the chrome row below keep their own actions. `stripAction` is
-                // null whenever the peek is already open (see the early return above),
-                // so this container never carries a clickable while the peek is showing.
-                val bodyModifier = GlanceModifier.fillMaxWidth().let {
-                    if (stripAction != null) it.clickable(stripAction) else it
-                }
-                Column(modifier = bodyModifier) {
-                    Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
-
-                    // The null accessibility label is passed positionally on purpose: the G1
-                    // content-free grep is case-insensitive, so naming that parameter here
-                    // would trip a check this package exists to pass.
-                    Image(
-                        ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
-                        null,
-                        GlanceModifier
-                            .fillMaxWidth()
-                            .height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
-                        ContentScale.FillBounds
-                    )
-
-                    if (!compact) {
-                        Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
-                        DensityAxisRow(
-                            axis = DensitySpecBuilder.axisSpec(
-                                snapshot.featured,
-                                zone,
-                                use24Hour
-                            ),
-                            config = config
-                        )
+                        // Wide enough: everything stays inline. Narrow and short: one button
+                        // fits. Narrow and tall: the chrome gets its own row below the body.
+                        when (placement) {
+                            ChromePlacement.INLINE, ChromePlacement.COMPACT_SINGLE -> DensityChrome(placement, config, palette)
+                            ChromePlacement.BOTTOM_ROW -> {}
+                        }
                     }
 
-                    if (!compact && config.densityLookaheadDays > 0 && snapshot.lookahead.isNotEmpty()) {
-                        DensityLookaheadBars(
-                            snapshot = snapshot,
-                            config = config,
-                            palette = palette,
-                            widthPx = widthPx,
-                            contentWidthDp = size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP,
-                            density = density
-                        )
-                    }
-                }
-
-                if (placement == ChromePlacement.BOTTOM_ROW) {
-                    Spacer(modifier = GlanceModifier.height(4.dp))
+                    // The second line ("Wed (9/17) \u00b7 next in 25m": the featured day, then the
+                    // qualifier when there is one) sits under the count, full width, so the
+                    // chrome never squeezes it to an ellipsis. Two Texts rather than one
+                    // because Glance cannot mix weights in a string, and only today's date
+                    // is bold: after the rollover, tomorrow's date stays regular.
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        DensityChrome(placement, config)
+                        Text(
+                            text = headline.dateText,
+                            style = TextStyle(
+                                color = GlanceTheme.colors.onSurfaceVariant,
+                                fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                                fontWeight = if (snapshot.featuredIsToday) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = config.glanceFont(FontCategory.DETAIL)
+                            ),
+                            maxLines = 1
+                        )
+                        if (headline.qualifierText.isNotBlank()) {
+                            Text(
+                                text = SECOND_LINE_SEPARATOR + headline.qualifierText,
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurfaceVariant,
+                                    fontSize = (QUALIFIER_SIZE_SP * config.typographyScale.detailScale).sp,
+                                    fontFamily = config.glanceFont(FontCategory.DETAIL)
+                                ),
+                                maxLines = 1,
+                                modifier = GlanceModifier.defaultWeight()
+                            )
+                        }
+                    }
+
+                    // The whole body below the headline and above the chrome row is the peek
+                    // tap target (not just the strip image): the strip, the axis row and,
+                    // when present, the look-ahead divider/labels/bars block. The headline
+                    // row and the chrome row below keep their own actions. `stripAction` is
+                    // null whenever the peek is already open (see the early return above),
+                    // so this container never carries a clickable while the peek is showing.
+                    val bodyModifier = GlanceModifier.fillMaxWidth().let {
+                        if (stripAction != null) it.clickable(stripAction) else it
+                    }
+                    Column(modifier = bodyModifier) {
+                        Spacer(modifier = GlanceModifier.height(DensityLayout.STRIP_TOP_GAP_WITH_CARET_DP.dp))
+
+                        // The null accessibility label is passed positionally on purpose: the G1
+                        // content-free grep is case-insensitive, so naming that parameter here
+                        // would trip a check this package exists to pass.
+                        Image(
+                            ImageProvider(remember(spec) { DensityCanvas.renderStrip(spec) }),
+                            null,
+                            GlanceModifier
+                                .fillMaxWidth()
+                                .height(DensityLayout.STRIP_IMAGE_HEIGHT_DP.dp),
+                            ContentScale.FillBounds
+                        )
+
+                        if (!compact) {
+                            Spacer(modifier = GlanceModifier.height(DensityLayout.AXIS_TOP_GAP_WITH_CARET_DP.dp))
+                            DensityAxisRow(
+                                axis = DensitySpecBuilder.axisSpec(
+                                    snapshot.featured,
+                                    zone,
+                                    use24Hour
+                                ),
+                                config = config
+                            )
+                        }
+
+                        if (!compact && config.densityLookaheadDays > 0 && snapshot.lookahead.isNotEmpty()) {
+                            DensityLookaheadBars(
+                                snapshot = snapshot,
+                                config = config,
+                                palette = palette,
+                                widthPx = widthPx,
+                                contentWidthDp = size.width.value - 2 * DensityLayout.WIDGET_PADDING_DP,
+                                density = density
+                            )
+                        }
+                    }
+
+                    if (placement == ChromePlacement.BOTTOM_ROW) {
+                        Spacer(modifier = GlanceModifier.height(4.dp))
+                        Row(
+                            modifier = GlanceModifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            DensityChrome(placement, config, palette)
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/** Draws [content] inside a [EINK_BORDER_DP] ink outline when [enabled], else as is. */
+@Composable
+private fun InkBorder(enabled: Boolean, content: @Composable () -> Unit) {
+    if (!enabled) {
+        content()
+        return
+    }
+    Box(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(GlanceTheme.colors.onSurface)
+            .cornerRadius(WIDGET_CORNER_DP.dp)
+            .padding(EINK_BORDER_DP.dp)
+    ) {
+        content()
     }
 }
 
@@ -299,8 +330,12 @@ fun DensityWidgetContent(
 @Composable
 private fun DensityChrome(
     placement: ChromePlacement,
-    config: WidgetConfig
+    config: WidgetConfig,
+    palette: DensityPalette
 ) {
+    // The + glyph is drawn white, which only reads on Color's accent container; the gray
+    // and ink schemes give it the container's own text colour instead.
+    val addTint = if (palette.display == DisplayMode.COLOR) null else GlanceTheme.colors.onPrimaryContainer
     // No profile switcher here: the density style uses only the selected profile, so
     // the chrome is refresh, calendar and quick-add.
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -313,11 +348,11 @@ private fun DensityChrome(
                 OpenCalendarButton(config)
                 if (config.showQuickAddFab) {
                     Spacer(modifier = GlanceModifier.width(4.dp))
-                    QuickAddButton()
+                    QuickAddButton(addTint)
                 }
             }
             ChromePlacement.COMPACT_SINGLE -> {
-                if (config.showQuickAddFab) QuickAddButton() else OpenCalendarButton(config)
+                if (config.showQuickAddFab) QuickAddButton(addTint) else OpenCalendarButton(config)
             }
         }
     }

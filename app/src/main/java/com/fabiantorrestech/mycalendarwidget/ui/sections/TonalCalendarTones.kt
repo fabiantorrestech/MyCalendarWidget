@@ -41,6 +41,8 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
+import com.fabiantorrestech.mycalendarwidget.ui.theme.rememberDisplayMode
 
 /** The eight busy-color presets offered alongside "Follow theme" (0 = follow theme). */
 private val BUSY_COLOR_PRESETS = listOf(
@@ -143,16 +145,22 @@ private fun TonalCalendarTones(
     val backgroundArgb = MaterialTheme.colorScheme.background.toArgb()
     val onSurfaceArgb = MaterialTheme.colorScheme.onSurface.toArgb()
     val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
-    val palette = remember(config.densityBusyColor, config.dynamicColor, isDark, backgroundArgb, onSurfaceArgb, primaryArgb) {
+    val display = rememberDisplayMode(config)
+    val palette = remember(config.densityBusyColor, config.dynamicColor, isDark, backgroundArgb, onSurfaceArgb, primaryArgb, display) {
         DensitySpecBuilder.palette(
             config = config,
             isDark = isDark,
             background = backgroundArgb,
             onSurface = onSurfaceArgb,
-            primary = primaryArgb
+            primary = primaryArgb,
+            display = display
         )
     }
-    val ramp = remember(palette) { TonalRamp.ramp(palette.busy, palette.background) }
+    val ramp = remember(palette) {
+        TonalRamp.ramp(palette.busy, palette.background).let {
+            if (palette.display == DisplayMode.EINK) DensitySpecBuilder.einkTones(it) else it
+        }
+    }
     val enabledSortedIds = TonalCalendarList.rankedIds(calendars, config.enabledCalendarIds)
 
     shown.forEach { calendar ->

@@ -49,6 +49,9 @@ import androidx.glance.LocalSize
 import androidx.glance.appwidget.LocalAppWidgetOptions
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekList
 import com.fabiantorrestech.mycalendarwidget.widget.peek.PeekState
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
+import com.fabiantorrestech.mycalendarwidget.data.DisplayModes
+import com.fabiantorrestech.mycalendarwidget.ui.theme.DisplaySchemes
 
 class BridgeCalWidget : GlanceAppWidget() {
 
@@ -138,14 +141,20 @@ class BridgeCalWidget : GlanceAppWidget() {
                 }
             }
 
-            val colors = if (config.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ColorProviders(
-                    light = dynamicLightColorScheme(context),
-                    dark = dynamicDarkColorScheme(context)
-                )
+            val (baseLight, baseDark) = if (config.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                dynamicLightColorScheme(context) to dynamicDarkColorScheme(context)
             } else {
-                ColorProviders(light = LightColors, dark = DarkColors)
+                LightColors to DarkColors
             }
+            // Only the density style has a display mode; Auto reads the system grayscale
+            // switch, which is re-checked whenever the widget recomposes.
+            val displayMode = remember(config) {
+                if (isDensity) DisplayModes.effective(context, config) else DisplayMode.COLOR
+            }
+            val colors = ColorProviders(
+                light = DisplaySchemes.scheme(displayMode, isDark = false, base = baseLight),
+                dark = DisplaySchemes.scheme(displayMode, isDark = true, base = baseDark)
+            )
 
             // A launcher that never reports a size (see HostSize) leaves Glance composing
             // for the provider minimum, 180x40dp, however big the launcher actually draws
@@ -188,7 +197,8 @@ class BridgeCalWidget : GlanceAppWidget() {
                         cycleUiStyle = cycleUiStyle,
                         densitySnapshot = densitySnapshot,
                         use24Hour = remember(context) { use24Hour(context) },
-                        peekOpen = peekOpen
+                        peekOpen = peekOpen,
+                        displayMode = displayMode
                     )
                 }
             }
