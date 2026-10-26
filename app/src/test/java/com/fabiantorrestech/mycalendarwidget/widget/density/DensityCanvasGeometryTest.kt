@@ -24,7 +24,8 @@ class DensityCanvasGeometryTest {
         haloPx: Int = 4,
         cutAtStart: Boolean = false,
         cutAtEnd: Boolean = false,
-        allDayBandColor: Int? = null
+        allDayBandColor: Int? = null,
+        ringPx: Int = 0
     ) = StripSpec(
         widthPx = 600,
         trackHeightPx = 56,
@@ -39,7 +40,9 @@ class DensityCanvasGeometryTest {
         pxPerDp = 4f,
         cutAtStart = cutAtStart,
         cutAtEnd = cutAtEnd,
-        allDayBandColor = allDayBandColor
+        allDayBandColor = allDayBandColor,
+        ringPx = ringPx,
+        ringColor = if (ringPx > 0) 1 else null
     )
 
     // --- all-day band: the top overhang rows, full width, one pixel clear of the track ---
@@ -192,6 +195,46 @@ class DensityCanvasGeometryTest {
         val (_, high) = DensityCanvas.markerRects(spec(1.5f))!!
         assertEquals(4, low.left)
         assertEquals(596, high.right)
+    }
+
+    // --- now-marker ring: an outline around the caret, inside the halo ---------------
+
+    @Test
+    fun ringOutlinesTheCaretOnAllSides() {
+        val (halo, caret, ring) = DensityCanvas.markerRects(spec(0.5f, haloPx = 4, ringPx = 4))!!
+        ring!!
+        assertEquals(caret.left - 4, ring.left)
+        assertEquals(caret.right + 4, ring.right)
+        assertEquals(4, caret.top)
+        assertEquals(68, caret.bottom)
+        assertEquals(0, ring.top)
+        assertEquals(72, ring.bottom)
+        assertEquals(ring.left - 4, halo.left)
+        assertEquals(ring.right + 4, halo.right)
+    }
+
+    @Test
+    fun ringAtWindowStartKeepsHaloOnScreen() {
+        val (halo, caret, ring) = DensityCanvas.markerRects(spec(0f, haloPx = 4, ringPx = 4))!!
+        assertEquals(0, halo.left)
+        assertEquals(4, ring!!.left)
+        assertEquals(8, caret.left)
+    }
+
+    @Test
+    fun ringAtWindowEndKeepsHaloOnScreen() {
+        val (halo, caret, ring) = DensityCanvas.markerRects(spec(1f, haloPx = 4, ringPx = 4))!!
+        assertEquals(600, halo.right)
+        assertEquals(596, ring!!.right)
+        assertEquals(592, caret.right)
+    }
+
+    @Test
+    fun noRingWhenRingPxIsZero() {
+        val rects = DensityCanvas.markerRects(spec(0.5f))!!
+        assertNull(rects.ring)
+        assertEquals(0, rects.caret.top)
+        assertEquals(72, rects.caret.bottom)
     }
 
     // --- Look-ahead bars geometry ----------------------------------------------------

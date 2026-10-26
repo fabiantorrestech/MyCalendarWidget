@@ -389,6 +389,35 @@ class DensitySpecBuilderTest {
     }
 
     @Test
+    fun colorPaletteRingIsOnSurface() {
+        val p = DensitySpecBuilder.palette(
+            config = WidgetConfig(),
+            isDark = false,
+            background = BACKGROUND,
+            onSurface = ON_SURFACE_MD,
+            primary = PRIMARY
+        )
+        assertEquals(ON_SURFACE_MD, p.ring)
+        assertEquals(DensityConstants.NOW_MARKER_COLOR, p.now)
+    }
+
+    @Test
+    fun stripSpecCarriesTheRingAtOneDp() {
+        val day = singleEventDay(9, 10)
+        val spec = DensitySpecBuilder.stripSpec(day, config, palette(), 1000, 2f, null, zone)
+        assertEquals(2, spec.ringPx)
+        assertEquals(ON_SURFACE, spec.ringColor)
+    }
+
+    @Test
+    fun stripSpecHasNoRingWhenThePaletteHasNone() {
+        val day = singleEventDay(9, 10)
+        val spec = DensitySpecBuilder.stripSpec(day, config, palette().copy(ring = null), 1000, 2f, null, zone)
+        assertEquals(0, spec.ringPx)
+        assertNull(spec.ringColor)
+    }
+
+    @Test
     fun stripSpecNowFractionIsNullWhenFeaturedIsNotToday() {
         // The caller (widget/preview) passes nowMillis = null whenever
         // `featuredIsToday` is false; stripSpec itself must then omit nowFraction.

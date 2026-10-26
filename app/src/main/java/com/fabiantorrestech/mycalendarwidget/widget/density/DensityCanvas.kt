@@ -67,6 +67,13 @@ data class GhostSpec(
 )
 
 /**
+ * The now-marker's rects, outermost first in drawing order: the background-coloured
+ * [halo], then the [ring] (null when the spec has none), then the [caret] on top. The
+ * caret is the second component so `val (halo, caret) = …` still reads naturally.
+ */
+data class MarkerRects(val halo: IntRect, val caret: IntRect, val ring: IntRect?)
+
+/**
  * Everything [DensityCanvas.renderStrip] needs, in device pixels.
  *
  * [overhangPx] is the caret's break-out above and below the track (0 until the caret
@@ -92,7 +99,11 @@ data class StripSpec(
     /** A busy block runs on into the next day: draw the closing chevron. */
     val cutAtEnd: Boolean = false,
     /** Colour of the all-day band across the top overhang, or null when the day has none. */
-    val allDayBandColor: Int? = null
+    val allDayBandColor: Int? = null,
+    /** Width of the contrasting outline drawn round the caret, inside the halo (0 = none). */
+    val ringPx: Int = 0,
+    /** Colour of that outline; null draws no ring whatever [ringPx] says. */
+    val ringColor: Int? = null
 ) {
     val heightPx: Int get() = trackHeightPx + 2 * overhangPx
 }
@@ -146,24 +157,39 @@ object DensityCanvas {
         IntRect(0, spec.overhangPx, spec.widthPx, spec.overhangPx + spec.trackHeightPx)
 
     /**
-     * The now-marker as `(halo, caret)`, both spanning the full bitmap height, or null
-     * when now is outside the window. The caret is nudged inwards at the very edges so
-     * its halo never falls off the bitmap.
+     * The now-marker as `(halo, caret, ring)`, or null when now is outside the window.
+     * The halo spans the full bitmap height. Without a ring the caret does too; with one,
+     * the caret is inset [StripSpec.ringPx] top and bottom and the ring is the caret grown
+     * by that much on every side, so the caret reads as outlined. The marker is nudged
+     * inwards at the very edges so its ring and halo never fall off the bitmap.
      */
-    fun markerRects(spec: StripSpec): Pair<IntRect, IntRect>? {
+    fun markerRects(spec: StripSpec): MarkerRects? {
         val fraction = spec.nowFraction?.coerceIn(0f, 1f) ?: return null
         val marker = max(1, spec.nowMarkerWidthPx)
+        val ringPx = if (spec.ringColor != null) max(0, spec.ringPx) else 0
+        val margin = spec.haloPx + ringPx
         val centre = fraction * spec.widthPx
-        val maxLeft = max(spec.haloPx, spec.widthPx - spec.haloPx - marker)
-        val left = (centre - marker / 2f).roundToInt().coerceIn(spec.haloPx, maxLeft)
-        val caret = IntRect(left, 0, left + marker, spec.heightPx)
+        val maxLeft = max(margin, spec.widthPx - margin - marker)
+        val left = (centre - marker / 2f).roundToInt().coerceIn(margin, maxLeft)
+        val caret = IntRect(left, ringPx, left + marker, spec.heightPx - ringPx)
+        val ring = if (ringPx > 0) {
+            IntRect(
+                (caret.left - ringPx).coerceAtLeast(0),
+                0,
+                (caret.right + ringPx).coerceAtMost(spec.widthPx),
+                spec.heightPx
+            )
+        } else {
+            null
+        }
+        val outer = ring ?: caret
         val halo = IntRect(
-            (caret.left - spec.haloPx).coerceAtLeast(0),
+            (outer.left - spec.haloPx).coerceAtLeast(0),
             0,
-            (caret.right + spec.haloPx).coerceAtMost(spec.widthPx),
+            (outer.right + spec.haloPx).coerceAtMost(spec.widthPx),
             spec.heightPx
         )
-        return halo to caret
+        return MarkerRects(halo, caret, ring)
     }
 
     /**
@@ -301,9 +327,13 @@ object DensityCanvas {
         cutChevronRects(scaled, atEnd = false).forEach { canvas.drawRect(it.toRect(), paint) }
         cutChevronRects(scaled, atEnd = true).forEach { canvas.drawRect(it.toRect(), paint) }
 
-        markerRects(scaled)?.let { (halo, caret) ->
+        markerRects(scaled)?.let { (halo, caret, ring) ->
             paint.color = scaled.backgroundColor
             canvas.drawRect(halo.toRect(), paint)
+            if (ring != null && scaled.ringColor != null) {
+                paint.color = scaled.ringColor
+                canvas.drawRect(ring.toRect(), paint)
+            }
             paint.color = scaled.nowColor
             canvas.drawRect(caret.toRect(), paint)
         }
@@ -332,7 +362,8 @@ object DensityCanvas {
             freeColor = dim(spec.freeColor),
             nowColor = dim(spec.nowColor),
             backgroundColor = dim(spec.backgroundColor),
-            allDayBandColor = spec.allDayBandColor?.let(::dim)
+            allDayBandColor = spec.allDayBandColor?.let(::dim),
+            ringColor = spec.ringColor?.let(::dim)
         )
     }
 
@@ -595,6 +626,7 @@ object DensityCanvas {
             trackHeightPx = max(1, (spec.trackHeightPx * scale).toInt()),
             overhangPx = (spec.overhangPx * scale).toInt(),
             haloPx = (spec.haloPx * scale).toInt(),
+            ringPx = (spec.ringPx * scale).toInt(),
             nowMarkerWidthPx = max(1, (spec.nowMarkerWidthPx * scale).toInt()),
             pxPerDp = spec.pxPerDp * scale
         )

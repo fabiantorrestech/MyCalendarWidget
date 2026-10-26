@@ -30,7 +30,9 @@ data class DensityPalette(
     val now: Int,
     val background: Int,
     val onSurface: Int,
-    val pill: Int
+    val pill: Int,
+    /** The outline round the now caret, inside its halo; null draws none. */
+    val ring: Int?
 )
 
 /**
@@ -122,6 +124,9 @@ object DensityLayout {
 
     /** G7: the caret itself is 2dp wide. */
     const val NOW_MARKER_WIDTH_DP = 2f
+
+    /** The contrasting outline round the caret, between it and its halo. */
+    const val CARET_RING_DP = 1f
 
     /** Height of the chevron marking a block cut at midnight. */
     const val CUT_CHEVRON_DP = 5f
@@ -322,7 +327,11 @@ object DensitySpecBuilder {
                 background,
                 onSurface,
                 if (isDark) PILL_TINT_DARK else PILL_TINT_LIGHT
-            )
+            ),
+            // The orange caret alone sinks into a busy block of similar weight; an
+            // onSurface outline (dark on light, light on dark) keeps it legible on both
+            // busy and free track.
+            ring = onSurface
         )
     }
 
@@ -402,6 +411,8 @@ object DensitySpecBuilder {
             trackHeightPx = max(1, (DensityLayout.STRIP_HEIGHT_DP * density).roundToInt()),
             overhangPx = max(1, (DensityLayout.CARET_OVERHANG_DP * density).roundToInt()),
             haloPx = max(1, (DensityLayout.CARET_HALO_DP * density).roundToInt()),
+            ringPx = if (palette.ring != null) max(1, (DensityLayout.CARET_RING_DP * density).roundToInt()) else 0,
+            ringColor = palette.ring,
             content = content,
             nowFraction = nowMillis?.let {
                 DensityCalculator.nowFraction(it, windowStart, windowEnd)
