@@ -69,6 +69,11 @@ class ConfigExporterRoundTripTest {
         densityPeekFormat = DensityPeekFormat.DATED,
         densityCountMode = DensityCountMode.FRACTION,
         densityCalendarTones = mapOf(12L to 0, 15L to 3, 99L to 4),
+        displayMode = DisplayMode.EINK,
+        densityWakeCycle = true,
+        densityWakeCycleEvery = 4,
+        densityTimedFlip = true,
+        densityTimedFlipSeconds = 30,
         // WidgetConfig()'s default is 1 — use 2 here so this really is a non-default
         // value, matching the class doc's claim that every field differs from default.
         configVersion = 2
@@ -105,6 +110,26 @@ class ConfigExporterRoundTripTest {
     fun `a fresh widget shows tomorrow early`() {
         assertEquals(false, WidgetConfig().densityNoEarlyTomorrow)
         assertEquals(false, ConfigExporter.fromJson(org.json.JSONObject("{}")).densityNoEarlyTomorrow)
+    }
+
+    @Test
+    fun `an old profile without the display and cycle keys loads their defaults`() {
+        val old = ConfigExporter.fromJson(org.json.JSONObject("{}"))
+        assertEquals(DisplayMode.AUTO, old.displayMode)
+        assertEquals(false, old.densityWakeCycle)
+        assertEquals(2, old.densityWakeCycleEvery)
+        assertEquals(false, old.densityTimedFlip)
+        assertEquals(15, old.densityTimedFlipSeconds)
+    }
+
+    @Test
+    fun `out-of-range cycle values are clamped on import`() {
+        val json = org.json.JSONObject()
+            .put("densityWakeCycleEvery", 50)
+            .put("densityTimedFlipSeconds", 1)
+        val config = ConfigExporter.fromJson(json)
+        assertEquals(10, config.densityWakeCycleEvery)
+        assertEquals(5, config.densityTimedFlipSeconds)
     }
 
     @Test

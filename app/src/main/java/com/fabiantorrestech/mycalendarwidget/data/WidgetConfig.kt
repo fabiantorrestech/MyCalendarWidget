@@ -23,6 +23,15 @@ enum class DensityCountMode(val displayName: String) {
     LEFT("Left today"), FRACTION("Left of total"), TOTAL("Total")
 }
 
+/**
+ * How the density widget is coloured. [AUTO] is [COLOR] unless the phone's own grayscale
+ * filter is on, then [GRAYSCALE] (see `DisplayModes.resolve`); renderers only ever see
+ * the resolved three.
+ */
+enum class DisplayMode(val displayName: String) {
+    AUTO("Auto"), COLOR("Color"), GRAYSCALE("Grayscale"), EINK("E-ink")
+}
+
 enum class HeaderNavStyle { ARROWS, CHIPS }
 
 enum class CalendarLaunchView { DEFAULT, DAY, WEEK, WEEK_AGENDA, MONTH, TEXT_MONTH, YEAR, AGENDA }
@@ -129,6 +138,11 @@ data class WidgetConfig(
     val densityPeekFormat: DensityPeekFormat = DensityPeekFormat.GROUPED,
     val densityCountMode: DensityCountMode = DensityCountMode.LEFT,
     val densityCalendarTones: Map<Long, Int> = emptyMap(),   // calendarId -> tone 0..4
+    val displayMode: DisplayMode = DisplayMode.AUTO,
+    val densityWakeCycle: Boolean = false,
+    val densityWakeCycleEvery: Int = 2,           // 2..10
+    val densityTimedFlip: Boolean = false,
+    val densityTimedFlipSeconds: Int = 15,        // 5..120
     val configVersion: Int = 1
 )
 

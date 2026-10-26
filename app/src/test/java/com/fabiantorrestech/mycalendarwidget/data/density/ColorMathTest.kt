@@ -81,4 +81,15 @@ class ColorMathTest {
             assertEquals(expected, ColorMath.isDark(argb))
         }
     }
+
+    @Test
+    fun toGrayUsesRec709WeightsLikeTheSystemGrayscaleFilter() {
+        assertEquals(0xFF363636.toInt(), ColorMath.toGray(0xFFFF0000.toInt()))
+        assertEquals(0xFF808080.toInt(), ColorMath.toGray(0xFF7F77DD.toInt()))
+    }
+
+    @Test
+    fun toGrayKeepsAlpha() {
+        assertEquals(0x80FFFFFF.toInt(), ColorMath.toGray(0x80FFFFFF.toInt()))
+    }
 }

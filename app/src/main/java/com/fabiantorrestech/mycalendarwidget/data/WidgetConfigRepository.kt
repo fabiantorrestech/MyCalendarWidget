@@ -94,6 +94,11 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
         val DENSITY_PEEK_FORMAT = stringPreferencesKey("density_peek_format")
         val DENSITY_COUNT_MODE = stringPreferencesKey("density_count_mode")
         val DENSITY_CALENDAR_TONES = stringPreferencesKey("density_calendar_tones")
+        val DISPLAY_MODE = stringPreferencesKey("display_mode")
+        val DENSITY_WAKE_CYCLE = booleanPreferencesKey("density_wake_cycle")
+        val DENSITY_WAKE_CYCLE_EVERY = intPreferencesKey("density_wake_cycle_every")
+        val DENSITY_TIMED_FLIP = booleanPreferencesKey("density_timed_flip")
+        val DENSITY_TIMED_FLIP_SECONDS = intPreferencesKey("density_timed_flip_seconds")
     }
 
     val configFlow: Flow<WidgetConfig> = _dataStore.flatMapLatest { store -> store.data }.map { prefs ->
@@ -172,7 +177,16 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             densityCountMode = prefs[Keys.DENSITY_COUNT_MODE]
                 ?.let { runCatching { DensityCountMode.valueOf(it) }.getOrNull() }
                 ?: DensityCountMode.LEFT,
-            densityCalendarTones = ConfigExporter.calendarTonesFromJson(prefs[Keys.DENSITY_CALENDAR_TONES])
+            densityCalendarTones = ConfigExporter.calendarTonesFromJson(prefs[Keys.DENSITY_CALENDAR_TONES]),
+            displayMode = prefs[Keys.DISPLAY_MODE]
+                ?.let { runCatching { DisplayMode.valueOf(it) }.getOrNull() }
+                ?: DisplayMode.AUTO,
+            densityWakeCycle = prefs[Keys.DENSITY_WAKE_CYCLE] ?: false,
+            densityWakeCycleEvery = (prefs[Keys.DENSITY_WAKE_CYCLE_EVERY] ?: 2)
+                .coerceIn(ConfigExporter.WAKE_CYCLE_EVERY_RANGE),
+            densityTimedFlip = prefs[Keys.DENSITY_TIMED_FLIP] ?: false,
+            densityTimedFlipSeconds = (prefs[Keys.DENSITY_TIMED_FLIP_SECONDS] ?: 15)
+                .coerceIn(ConfigExporter.TIMED_FLIP_SECONDS_RANGE)
         )
     }
 
@@ -229,6 +243,11 @@ class WidgetConfigRepository(private val context: Context, private val appWidget
             prefs[Keys.DENSITY_PEEK_FORMAT] = config.densityPeekFormat.name
             prefs[Keys.DENSITY_COUNT_MODE] = config.densityCountMode.name
             prefs[Keys.DENSITY_CALENDAR_TONES] = ConfigExporter.calendarTonesToJson(config.densityCalendarTones)
+            prefs[Keys.DISPLAY_MODE] = config.displayMode.name
+            prefs[Keys.DENSITY_WAKE_CYCLE] = config.densityWakeCycle
+            prefs[Keys.DENSITY_WAKE_CYCLE_EVERY] = config.densityWakeCycleEvery
+            prefs[Keys.DENSITY_TIMED_FLIP] = config.densityTimedFlip
+            prefs[Keys.DENSITY_TIMED_FLIP_SECONDS] = config.densityTimedFlipSeconds
         }
     }
 

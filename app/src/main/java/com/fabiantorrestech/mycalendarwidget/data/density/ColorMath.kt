@@ -34,6 +34,17 @@ object ColorMath {
         return 0.299f * r + 0.587f * g + 0.114f * b
     }
 
+    /**
+     * [argb] as the neutral gray of the same brightness, alpha kept. Rec. 709 weights on
+     * the sRGB channels, the same weights Android's own grayscale filter uses, so a
+     * colour drawn as this gray looks the way the phone would show it in grayscale.
+     */
+    fun toGray(argb: Int): Int {
+        val v = (0.2126f * channel(argb, 16) + 0.7152f * channel(argb, 8) + 0.0722f * channel(argb, 0))
+            .roundToInt().coerceIn(0, 255)
+        return (argb and 0xFF000000.toInt()) or (v shl 16) or (v shl 8) or v
+    }
+
     /** True when white text reads better on [argb] than black does. */
     fun isDark(argb: Int): Boolean = luminance(argb) < 0.5f
 

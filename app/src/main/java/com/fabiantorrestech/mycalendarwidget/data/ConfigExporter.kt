@@ -8,6 +8,12 @@ import org.json.JSONObject
 
 object ConfigExporter {
 
+    /** Agenda on every Nth wake: 2 alternates, 10 is the rarest. */
+    val WAKE_CYCLE_EVERY_RANGE = 2..10
+
+    /** Seconds between timed flips. */
+    val TIMED_FLIP_SECONDS_RANGE = 5..120
+
     fun toJson(config: WidgetConfig): JSONObject = JSONObject().apply {
         put("configVersion", config.configVersion)
         put("widgetName", config.widgetName)
@@ -58,6 +64,11 @@ object ConfigExporter {
         put("densityPeekFormat", config.densityPeekFormat.name)
         put("densityCountMode", config.densityCountMode.name)
         put("densityCalendarTones", JSONObject(calendarTonesToJson(config.densityCalendarTones)))
+        put("displayMode", config.displayMode.name)
+        put("densityWakeCycle", config.densityWakeCycle)
+        put("densityWakeCycleEvery", config.densityWakeCycleEvery)
+        put("densityTimedFlip", config.densityTimedFlip)
+        put("densityTimedFlipSeconds", config.densityTimedFlipSeconds)
     }
 
     fun fromJson(json: JSONObject): WidgetConfig {
@@ -123,7 +134,13 @@ object ConfigExporter {
                 .let { runCatching { DensityPeekFormat.valueOf(it) }.getOrDefault(DensityPeekFormat.GROUPED) },
             densityCountMode = json.optString("densityCountMode")
                 .let { runCatching { DensityCountMode.valueOf(it) }.getOrDefault(DensityCountMode.LEFT) },
-            densityCalendarTones = calendarTonesFromJson(json.optJSONObject("densityCalendarTones")?.toString())
+            densityCalendarTones = calendarTonesFromJson(json.optJSONObject("densityCalendarTones")?.toString()),
+            displayMode = json.optString("displayMode")
+                .let { runCatching { DisplayMode.valueOf(it) }.getOrDefault(DisplayMode.AUTO) },
+            densityWakeCycle = json.optBoolean("densityWakeCycle", false),
+            densityWakeCycleEvery = json.optInt("densityWakeCycleEvery", 2).coerceIn(WAKE_CYCLE_EVERY_RANGE),
+            densityTimedFlip = json.optBoolean("densityTimedFlip", false),
+            densityTimedFlipSeconds = json.optInt("densityTimedFlipSeconds", 15).coerceIn(TIMED_FLIP_SECONDS_RANGE)
         )
     }
 
