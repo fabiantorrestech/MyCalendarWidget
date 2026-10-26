@@ -41,6 +41,7 @@ import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
+import com.fabiantorrestech.mycalendarwidget.data.ConfigExporter
 
 /**
  * The density style's behaviour sliders: the day window, the look-ahead bars, the load
@@ -170,6 +171,24 @@ fun DensitySection(
         range = 7..90,
         onValueChangeFinished = { onConfigChange(config.copy(daysAheadToLoad = it)) }
     )
+
+    ToggleRow(
+        label = "Show the agenda on wake",
+        description = "Every few times the screen turns on, the widget opens on the agenda. " +
+            "Needs the notification on Pinned.",
+        checked = config.densityWakeCycle,
+        onCheckedChange = { onConfigChange(config.copy(densityWakeCycle = it)) }
+    )
+    if (config.densityWakeCycle) {
+        IntSliderRow(
+            label = "Agenda every Nth wake",
+            savedValue = config.densityWakeCycleEvery,
+            range = ConfigExporter.WAKE_CYCLE_EVERY_RANGE,
+            valueLabel = { if (it == 2) "Every other wake" else "Every $it wakes" },
+            onValueChangeFinished = { onConfigChange(config.copy(densityWakeCycleEvery = it)) }
+        )
+    }
+
 }
 
 /** "8h" when [minutes] is a whole number of hours, "2h 30m" otherwise. */

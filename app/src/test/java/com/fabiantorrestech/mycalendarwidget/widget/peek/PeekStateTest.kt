@@ -41,6 +41,19 @@ class PeekStateTest {
     }
 
     @Test
+    fun `a tick may close a peek nobody opened from a wake`() {
+        assertFalse(PeekState.isHeldByWake(null, 1_000L))
+        assertFalse(PeekState.isHeldByWake(preferencesOf(PeekState.OPEN_UNTIL to 2_000L), 1_000L))
+    }
+
+    @Test
+    fun `a wake-opened agenda is held until its expiry`() {
+        val prefs = preferencesOf(PeekState.OPEN_UNTIL to 2_000L, PeekState.WAKE_HELD_UNTIL to 2_000L)
+        assertTrue(PeekState.isHeldByWake(prefs, 1_000L))
+        assertFalse(PeekState.isHeldByWake(prefs, 2_000L))
+    }
+
+    @Test
     fun `ttl is five minutes`() {
         assertTrue(PeekState.TTL_MS == 5 * 60_000L)
     }

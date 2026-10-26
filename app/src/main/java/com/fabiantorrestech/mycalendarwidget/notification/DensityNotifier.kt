@@ -445,7 +445,7 @@ object DensityNotifier {
         val glanceId = manager.getGlanceIds(BridgeCalWidget::class.java)
             .firstOrNull { manager.getAppWidgetId(it) == prefs.followedWidgetId }
             ?: return
-        PeekState.close(context, glanceId)
+        PeekState.closeForTick(context, glanceId)
         BridgeCalWidget().update(context, glanceId)
     }
 

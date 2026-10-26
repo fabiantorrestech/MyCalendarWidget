@@ -30,6 +30,7 @@ import com.fabiantorrestech.mycalendarwidget.data.DisplayModes
 import com.fabiantorrestech.mycalendarwidget.widget.DisplayModeRefresh
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import com.fabiantorrestech.mycalendarwidget.widget.peek.WakeCycle
 
 /**
  * Holds the persistent notification as its foreground notification while the placement
@@ -52,11 +53,15 @@ class PinnedNotificationService : Service() {
     /**
      * Ticks are held while the screen is off (see [TickGate]); this runs them as it
      * comes back on. Only a running app can hear the screen come on, which is why
-     * holding ticks is limited to the Pinned placement.
+     * holding ticks is limited to the Pinned placement. The wake cycle goes second:
+     * a caught-up widget tick closes the peek, which would undo an agenda opened first.
      */
     private val screenOnReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            scope.launch(Dispatchers.IO) { TickGate.catchUp(applicationContext) }
+            scope.launch(Dispatchers.IO) {
+                TickGate.catchUp(applicationContext)
+                WakeCycle.onScreenOn(applicationContext)
+            }
         }
     }
 

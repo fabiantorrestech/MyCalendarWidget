@@ -76,7 +76,7 @@ class WidgetSyncReceiver : BroadcastReceiver() {
             val glanceId = manager.getGlanceIds(BridgeCalWidget::class.java)
                 .firstOrNull { manager.getAppWidgetId(it) == appWidgetId }
             if (glanceId != null) {
-                PeekState.close(context, glanceId)
+                PeekState.closeForTick(context, glanceId)
                 BridgeCalWidget().update(context, glanceId)
             }
             DensityNotifier.refreshIfFollowing(context, appWidgetId)
