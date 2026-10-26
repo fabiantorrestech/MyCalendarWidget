@@ -1,6 +1,7 @@
 package com.fabiantorrestech.mycalendarwidget.widget.density
 
 import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
 import com.fabiantorrestech.mycalendarwidget.data.density.DayDensity
@@ -415,6 +416,93 @@ class DensitySpecBuilderTest {
         val spec = DensitySpecBuilder.stripSpec(day, config, palette().copy(ring = null), 1000, 2f, null, zone)
         assertEquals(0, spec.ringPx)
         assertNull(spec.ringColor)
+    }
+
+    // --- Grayscale / E-ink ----------------------------------------------------------
+
+    private fun isNeutral(c: Int) =
+        (c shr 16 and 0xFF) == (c shr 8 and 0xFF) && (c shr 8 and 0xFF) == (c and 0xFF)
+
+    private fun modePalette(display: DisplayMode, cfg: WidgetConfig = config) = DensitySpecBuilder.palette(
+        config = cfg,
+        isDark = false,
+        background = BACKGROUND,
+        onSurface = ON_SURFACE,
+        primary = PRIMARY,
+        display = display,
+        sdkInt = 33
+    )
+
+    @Test
+    fun grayscalePaletteIsNeutral() {
+        val p = modePalette(DisplayMode.GRAYSCALE)
+        assertTrue(isNeutral(p.busy))
+        assertTrue(isNeutral(p.free))
+        assertTrue(isNeutral(p.now))
+        assertNull(p.ring)
+        assertEquals(ON_SURFACE, p.now)
+        assertEquals(DisplayMode.GRAYSCALE, p.display)
+    }
+
+    @Test
+    fun grayscaleBusyKeepsTheLuminanceFloor() {
+        val p = modePalette(DisplayMode.GRAYSCALE, config.copy(densityBusyColor = PASTEL_ACCENT))
+        val delta = abs(ColorMath.luminance(p.busy) - ColorMath.luminance(BACKGROUND))
+        assertTrue("delta was $delta", delta >= DensityConstants.BUSY_MIN_LUMINANCE_DELTA - 0.01f)
+    }
+
+    @Test
+    fun einkBusyIsOnSurface() {
+        assertEquals(ON_SURFACE, modePalette(DisplayMode.EINK).busy)
+    }
+
+    @Test
+    fun heavyModesUseAThickerCaretAndHaloWithNoRing() {
+        val day = singleEventDay(9, 10)
+        listOf(DisplayMode.GRAYSCALE, DisplayMode.EINK).forEach { mode ->
+            val spec = DensitySpecBuilder.stripSpec(day, config, modePalette(mode), 1000, 2f, null, zone)
+            assertEquals(6, spec.nowMarkerWidthPx)
+            assertEquals(4, spec.haloPx)
+            assertEquals(0, spec.ringPx)
+        }
+    }
+
+    @Test
+    fun detailUnderGrayscaleUsesRankedGrays() {
+        val cfg = config.copy(densityStripMode = DensityStripMode.DETAIL)
+        val day = multiCalendarDay(1L to 9..10, 2L to 12..13)
+        val spec = DensitySpecBuilder.stripSpec(day, cfg, modePalette(DisplayMode.GRAYSCALE, cfg), 1000, 1f, null, zone)
+        val colors = (spec.content as StripContent.Lanes).rects.map { it.colorInt }
+        assertTrue(colors.all(::isNeutral))
+        assertEquals(2, colors.distinct().size)
+    }
+
+    @Test
+    fun einkTonesQuantizeToThreeLevels() {
+        val tones = DensitySpecBuilder.einkTones(intArrayOf(10, 20, 30, 40, 50))
+        assertTrue(tones.contentEquals(intArrayOf(10, 10, 30, 30, 50)))
+    }
+
+    @Test
+    fun einkStripHasATrackOutline() {
+        val day = singleEventDay(9, 10)
+        assertEquals(ON_SURFACE, DensitySpecBuilder.stripSpec(day, config, modePalette(DisplayMode.EINK), 1000, 1f, null, zone).trackOutlineColor)
+        assertNull(DensitySpecBuilder.stripSpec(day, config, modePalette(DisplayMode.COLOR), 1000, 1f, null, zone).trackOutlineColor)
+    }
+
+    @Test
+    fun ghostForIsNullInEinkAndWhileClosed() {
+        assertNull(DensitySpecBuilder.ghostFor(modePalette(DisplayMode.EINK), peekOpen = true))
+        assertNull(DensitySpecBuilder.ghostFor(modePalette(DisplayMode.COLOR), peekOpen = false))
+        assertEquals(GhostSpec(BACKGROUND), DensitySpecBuilder.ghostFor(modePalette(DisplayMode.GRAYSCALE), peekOpen = true))
+    }
+
+    @Test
+    fun dotColorFollowsTheDisplayMode() {
+        val red = 0xFFFF0000.toInt()
+        assertEquals(red, DensitySpecBuilder.dotColor(DisplayMode.COLOR, red, ON_SURFACE))
+        assertEquals(0xFF363636.toInt(), DensitySpecBuilder.dotColor(DisplayMode.GRAYSCALE, red, ON_SURFACE))
+        assertEquals(ON_SURFACE, DensitySpecBuilder.dotColor(DisplayMode.EINK, red, ON_SURFACE))
     }
 
     @Test

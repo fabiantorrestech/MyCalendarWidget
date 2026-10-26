@@ -2,6 +2,7 @@ package com.fabiantorrestech.mycalendarwidget.widget.density
 
 import android.os.Build
 import com.fabiantorrestech.mycalendarwidget.data.DensityStripMode
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
 import com.fabiantorrestech.mycalendarwidget.data.TimeFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
 import com.fabiantorrestech.mycalendarwidget.data.density.ColorMath
@@ -32,7 +33,9 @@ data class DensityPalette(
     val onSurface: Int,
     val pill: Int,
     /** The outline round the now caret, inside its halo; null draws none. */
-    val ring: Int?
+    val ring: Int?,
+    /** The resolved display mode these colours were picked for (never AUTO). */
+    val display: DisplayMode = DisplayMode.COLOR
 )
 
 /**
@@ -127,6 +130,10 @@ object DensityLayout {
 
     /** The contrasting outline round the caret, between it and its halo. */
     const val CARET_RING_DP = 1f
+
+    /** Grayscale and E-ink drop the ring for a wider caret and gap instead. */
+    const val NOW_MARKER_WIDTH_HEAVY_DP = 3f
+    const val CARET_HALO_HEAVY_DP = 2f
 
     /** Height of the chevron marking a block cut at midnight. */
     const val CUT_CHEVRON_DP = 5f
@@ -258,6 +265,9 @@ object DensitySpecBuilder {
 
     /** G9: the free track is 12% of the primary text colour blended onto the ground. */
     private const val FREE_TRACK_TINT = 0.12f
+
+    /** E-ink panels lose a 12% tint; the free track needs a gray they can show. */
+    private const val FREE_TRACK_TINT_EINK = 0.25f
     private const val PILL_TINT_DARK = 0.12f
     private const val PILL_TINT_LIGHT = 0.14f
 
@@ -308,6 +318,7 @@ object DensitySpecBuilder {
         background: Int,
         onSurface: Int,
         primary: Int,
+        display: DisplayMode = DisplayMode.COLOR,
         sdkInt: Int = Build.VERSION.SDK_INT
     ): DensityPalette {
         val rawBusy = when {
@@ -316,11 +327,23 @@ object DensitySpecBuilder {
             config.dynamicColor && sdkInt >= Build.VERSION_CODES.S -> primary
             else -> DensityConstants.DEFAULT_BUSY_COLOR
         }
-        val busy = withLuminanceFloor(rawBusy, background, onSurface)
+        // Grayscale keeps the chosen colour's brightness (what the phone's own filter
+        // would show); E-ink inks every block in the text colour.
+        val busy = when (display) {
+            DisplayMode.EINK -> onSurface
+            DisplayMode.GRAYSCALE -> withLuminanceFloor(ColorMath.toGray(rawBusy), background, onSurface)
+            else -> withLuminanceFloor(rawBusy, background, onSurface)
+        }
+        val heavy = display == DisplayMode.GRAYSCALE || display == DisplayMode.EINK
         return DensityPalette(
             busy = busy,
-            free = ColorMath.lerp(background, onSurface, FREE_TRACK_TINT),
-            now = DensityConstants.NOW_MARKER_COLOR,
+            free = ColorMath.lerp(
+                background,
+                onSurface,
+                if (display == DisplayMode.EINK) FREE_TRACK_TINT_EINK else FREE_TRACK_TINT
+            ),
+            // Orange means nothing in gray; there the caret is the text colour instead.
+            now = if (heavy) onSurface else DensityConstants.NOW_MARKER_COLOR,
             background = background,
             onSurface = onSurface,
             pill = ColorMath.lerp(
@@ -330,8 +353,9 @@ object DensitySpecBuilder {
             ),
             // The orange caret alone sinks into a busy block of similar weight; an
             // onSurface outline (dark on light, light on dark) keeps it legible on both
-            // busy and free track.
-            ring = onSurface
+            // busy and free track. A text-coloured caret needs no ring: it would merge.
+            ring = if (heavy) null else onSurface,
+            display = display
         )
     }
 
@@ -369,7 +393,15 @@ object DensitySpecBuilder {
             if (span <= 0f) 0f else ((millis - windowStart).toFloat() / span).coerceIn(0f, 1f)
         }
 
-        val content = when (config.densityStripMode) {
+        val heavy = palette.display == DisplayMode.GRAYSCALE || palette.display == DisplayMode.EINK
+        // Calendar colours collapse into look-alike grays, so Detail falls back to
+        // Tonal's ranked tones, which are spaced apart in brightness by construction.
+        val stripMode = if (heavy && config.densityStripMode == DensityStripMode.DETAIL) {
+            DensityStripMode.TONAL
+        } else {
+            config.densityStripMode
+        }
+        val content = when (stripMode) {
             DensityStripMode.SHAPE -> StripContent.Shape(
                 blocks = day.stripMerged.map { fraction(it.startMillis)..fraction(it.endMillis) },
                 colorInt = palette.busy
@@ -391,7 +423,9 @@ object DensitySpecBuilder {
             // One accent, five tones, bucketed per calendar; a background-coloured
             // outline marks the split between events sharing an overlap segment.
             DensityStripMode.TONAL -> {
-                val ramp = TonalRamp.ramp(palette.busy, palette.background)
+                val ramp = TonalRamp.ramp(palette.busy, palette.background).let {
+                    if (palette.display == DisplayMode.EINK) einkTones(it) else it
+                }
                 val ids = enabledSortedCalendarIds(config, day, visibleCalendarIds)
                 val rects = DensityCalculator.laneRects(day.stripEvents).map { rect ->
                     val tone = TonalRamp.bucket(rect.calendarId, config.densityCalendarTones, ids)
@@ -410,7 +444,10 @@ object DensitySpecBuilder {
             widthPx = max(1, widthPx),
             trackHeightPx = max(1, (DensityLayout.STRIP_HEIGHT_DP * density).roundToInt()),
             overhangPx = max(1, (DensityLayout.CARET_OVERHANG_DP * density).roundToInt()),
-            haloPx = max(1, (DensityLayout.CARET_HALO_DP * density).roundToInt()),
+            haloPx = max(
+                1,
+                ((if (heavy) DensityLayout.CARET_HALO_HEAVY_DP else DensityLayout.CARET_HALO_DP) * density).roundToInt()
+            ),
             ringPx = if (palette.ring != null) max(1, (DensityLayout.CARET_RING_DP * density).roundToInt()) else 0,
             ringColor = palette.ring,
             content = content,
@@ -419,7 +456,11 @@ object DensitySpecBuilder {
             },
             freeColor = palette.free,
             nowColor = palette.now,
-            nowMarkerWidthPx = max(1, (DensityLayout.NOW_MARKER_WIDTH_DP * density).roundToInt()),
+            nowMarkerWidthPx = max(
+                1,
+                ((if (heavy) DensityLayout.NOW_MARKER_WIDTH_HEAVY_DP else DensityLayout.NOW_MARKER_WIDTH_DP) * density)
+                    .roundToInt()
+            ),
             backgroundColor = palette.background,
             pxPerDp = density,
             ghost = null,
@@ -427,8 +468,32 @@ object DensitySpecBuilder {
             cutAtEnd = day.cutAtEnd,
             // The band is the busy colour in every mode, Detail included: it marks the
             // day, not an event, so it never needs a calendar colour of its own.
-            allDayBandColor = if (day.hasAllDay) palette.busy else null
+            allDayBandColor = if (day.hasAllDay) palette.busy else null,
+            // White track on a white widget vanishes on e-paper: box it in.
+            trackOutlineColor = if (palette.display == DisplayMode.EINK) palette.onSurface else null
         )
+    }
+
+    /**
+     * Five Tonal tones down to three ([0, 0, 2, 2, 4]): an e-ink panel shows only a few
+     * clean grays, and adjacent ramp steps would dither into each other.
+     */
+    fun einkTones(ramp: IntArray): IntArray =
+        intArrayOf(ramp[0], ramp[0], ramp[2], ramp[2], ramp[4])
+
+    /**
+     * The peek's backdrop: the strip dimmed and blurred, or null while the peek is
+     * closed. E-ink gets none, since a blur is a smear of in-between grays that
+     * e-paper dithers into noise.
+     */
+    fun ghostFor(palette: DensityPalette, peekOpen: Boolean): GhostSpec? =
+        if (!peekOpen || palette.display == DisplayMode.EINK) null else GhostSpec(palette.background)
+
+    /** A calendar-colour dot (peek and notification rows) as [display] draws it. */
+    fun dotColor(display: DisplayMode, calendarColor: Int, onSurface: Int): Int = when (display) {
+        DisplayMode.GRAYSCALE -> ColorMath.toGray(calendarColor)
+        DisplayMode.EINK -> onSurface
+        else -> calendarColor
     }
 
     /**

@@ -197,6 +197,28 @@ class DensityCanvasGeometryTest {
         assertEquals(596, high.right)
     }
 
+    // --- e-ink track outline: four pxPerDp-thick edges of the track ------------------
+
+    @Test
+    fun trackOutlineIsTheFourEdgesOfTheTrack() {
+        val spec = spec(0.5f).copy(trackOutlineColor = 1)
+        val rects = DensityCanvas.trackOutlineRects(spec)
+        assertEquals(
+            listOf(
+                IntRect(0, 8, 600, 12),
+                IntRect(0, 60, 600, 64),
+                IntRect(0, 8, 4, 64),
+                IntRect(596, 8, 600, 64)
+            ),
+            rects
+        )
+    }
+
+    @Test
+    fun noTrackOutlineWithoutAColor() {
+        assertTrue(DensityCanvas.trackOutlineRects(spec(0.5f)).isEmpty())
+    }
+
     // --- now-marker ring: an outline around the caret, inside the halo ---------------
 
     @Test

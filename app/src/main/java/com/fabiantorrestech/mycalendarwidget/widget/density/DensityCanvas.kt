@@ -103,7 +103,9 @@ data class StripSpec(
     /** Width of the contrasting outline drawn round the caret, inside the halo (0 = none). */
     val ringPx: Int = 0,
     /** Colour of that outline; null draws no ring whatever [ringPx] says. */
-    val ringColor: Int? = null
+    val ringColor: Int? = null,
+    /** A 1dp box round the track (E-ink), or null for none. */
+    val trackOutlineColor: Int? = null
 ) {
     val heightPx: Int get() = trackHeightPx + 2 * overhangPx
 }
@@ -190,6 +192,22 @@ object DensityCanvas {
             spec.heightPx
         )
         return MarkerRects(halo, caret, ring)
+    }
+
+    /**
+     * The track's outline as its top, bottom, left and right edges, each 1dp thick, or
+     * empty when [StripSpec.trackOutlineColor] is null.
+     */
+    fun trackOutlineRects(spec: StripSpec): List<IntRect> {
+        spec.trackOutlineColor ?: return emptyList()
+        val track = trackRect(spec)
+        val t = max(1, spec.pxPerDp.roundToInt())
+        return listOf(
+            IntRect(track.left, track.top, track.right, track.top + t),
+            IntRect(track.left, track.bottom - t, track.right, track.bottom),
+            IntRect(track.left, track.top, track.left + t, track.bottom),
+            IntRect(track.right - t, track.top, track.right, track.bottom)
+        )
     }
 
     /**
@@ -321,6 +339,11 @@ object DensityCanvas {
         }
         canvas.restoreToCount(saved)
 
+        scaled.trackOutlineColor?.let { outline ->
+            paint.color = outline
+            trackOutlineRects(scaled).forEach { canvas.drawRect(it.toRect(), paint) }
+        }
+
         // Where a block was cut at midnight, a background-coloured chevron just inside
         // that edge says "continues"; drawn after the content so it sits on the block.
         paint.color = scaled.backgroundColor
@@ -363,7 +386,8 @@ object DensityCanvas {
             nowColor = dim(spec.nowColor),
             backgroundColor = dim(spec.backgroundColor),
             allDayBandColor = spec.allDayBandColor?.let(::dim),
-            ringColor = spec.ringColor?.let(::dim)
+            ringColor = spec.ringColor?.let(::dim),
+            trackOutlineColor = spec.trackOutlineColor?.let(::dim)
         )
     }
 
