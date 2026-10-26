@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The density widget's timed flip (widget/DensityFlip.kt): Glance adds the strip page and
+     the agenda page as children, and the launcher swaps them every flipInterval while the
+     widget is visible. The interval is overwritten from the widget's setting. -->
+<ViewFlipper xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/density_flipper"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:autoStart="true"
+    android:flipInterval="15000"
+    android:inAnimation="@android:anim/fade_in"
+    android:outAnimation="@android:anim/fade_out" />

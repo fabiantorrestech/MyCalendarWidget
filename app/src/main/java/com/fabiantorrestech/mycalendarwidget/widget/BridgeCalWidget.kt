@@ -118,7 +118,9 @@ class BridgeCalWidget : GlanceAppWidget() {
             // key includes peekOpen so opening (or the TTL closing) the sheet re-runs it.
             // Null until the query below has answered, so the peek can say "Loading"
             // rather than "Nothing coming up" on the first frame after it opens.
-            val loadEvents = !isDensity || peekOpen
+            // The timed flip's agenda page is the one exception to "closed means
+            // content-free" (G1): it shows titles without a tap, so it needs them loaded.
+            val loadEvents = DensityFlip.loadsEvents(config, peekOpen)
             val eventsByDay by produceState<Map<LocalDate, List<CalendarEvent>>?>(
                 initialValue = null,
                 key1 = config,

@@ -330,4 +330,33 @@ class PeekListTest {
         TODAY to event(2L, at(0, 11), at(0, 12)),
         TODAY.plusDays(1) to event(3L, at(1, 9), at(1, 10))
     )
+
+    // --- fitting: the timed flip's agenda page cannot scroll -------------------------
+
+    private fun header(day: Long) = PeekItem(PeekItemKind.HEADER, -day - 1, TODAY.plusDays(day), null)
+    private fun row(id: Long, day: Long = 0) = PeekItem(PeekItemKind.EVENT, id, TODAY.plusDays(day), null)
+
+    @Test
+    fun `fitting keeps the rows that fit the height`() {
+        val items = listOf(header(0), row(1), row(2), row(3))
+        // A 20dp header and two 22dp rows fill 64dp exactly.
+        assertEquals(listOf(header(0), row(1), row(2)), PeekList.fitting(items, availableDp = 64f))
+    }
+
+    @Test
+    fun `fitting never ends on a header with no row under it`() {
+        val items = listOf(header(0), row(1), header(1), row(2, day = 1))
+        assertEquals(listOf(header(0), row(1)), PeekList.fitting(items, availableDp = 62f))
+    }
+
+    @Test
+    fun `fitting stops at ten items for Glance's container cap`() {
+        val items = listOf(header(0)) + (1L..20L).map { row(it) }
+        assertEquals(10, PeekList.fitting(items, availableDp = 10_000f).size)
+    }
+
+    @Test
+    fun `fitting with no room is empty`() {
+        assertTrue(PeekList.fitting(listOf(header(0), row(1)), availableDp = 10f).isEmpty())
+    }
 }

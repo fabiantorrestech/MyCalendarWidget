@@ -58,6 +58,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JvmTextStyle
 import java.util.Locale
 import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
+import android.widget.RemoteViews
+import androidx.glance.appwidget.AndroidRemoteViews
 
 internal fun WidgetConfig.glanceFont(category: FontCategory): androidx.glance.text.FontFamily? =
     fontConfig.resolve(category).glanceFamilyName?.let { androidx.glance.text.FontFamily(it) }
@@ -109,6 +111,47 @@ fun BridgeCalWidgetContent(
                 primary = GlanceTheme.colors.primary.getColor(context).toArgb(),
                 display = displayMode
             )
+            if (DensityFlip.flips(config, peekOpen)) {
+                // The launcher swaps the two pages on a timer (doc/adr/0004). Every redraw
+                // rebuilds the flipper's children, which puts it back on the strip page, so
+                // the agenda page's close goes back to the strip simply by redrawing.
+                val flipper = RemoteViews(context.packageName, DensityFlip.layoutFor(displayMode)).apply {
+                    setInt(R.id.density_flipper, "setFlipInterval", DensityFlip.intervalMillis(config))
+                }
+                AndroidRemoteViews(flipper, R.id.density_flipper, GlanceModifier.fillMaxSize()) {
+                    Box(modifier = GlanceModifier.fillMaxSize()) {
+                        DensityWidgetContent(
+                            snapshot = densitySnapshot,
+                            config = config,
+                            context = context,
+                            palette = densityPalette,
+                            use24Hour = use24Hour,
+                            peekOpen = false,
+                            stripAction = actionRunCallback<SetPeekAction>(actionParametersOf(peekOpenKey to true))
+                        )
+                    }
+                    Box(modifier = GlanceModifier.fillMaxSize()) {
+                        DensityWidgetContent(
+                            snapshot = densitySnapshot,
+                            config = config,
+                            context = context,
+                            palette = densityPalette,
+                            use24Hour = use24Hour,
+                            peekOpen = true
+                        )
+                        PeekOverlay(
+                            eventsByDay = eventsByDay,
+                            loading = peekEventsLoading,
+                            config = config,
+                            context = context,
+                            use24Hour = use24Hour,
+                            palette = densityPalette,
+                            scrolls = false
+                        )
+                    }
+                }
+                return
+            }
             Box(modifier = GlanceModifier.fillMaxSize()) {
                 DensityWidgetContent(
                     snapshot = densitySnapshot,

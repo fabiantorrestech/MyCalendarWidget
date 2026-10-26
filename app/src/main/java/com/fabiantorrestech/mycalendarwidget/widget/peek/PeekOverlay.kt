@@ -48,6 +48,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
+import androidx.glance.LocalSize
 
 /** The peek sheet's base text sizes, shared with the settings preview's mirror of it. */
 internal object PeekTypography {
@@ -91,7 +92,9 @@ fun PeekOverlay(
     config: WidgetConfig,
     context: Context,
     use24Hour: Boolean,
-    palette: DensityPalette
+    palette: DensityPalette,
+    /** False for the timed flip's agenda page, which shows only the rows that fit. */
+    scrolls: Boolean = true
 ) {
     val zone = ZoneId.systemDefault()
     val locale = Locale.getDefault()
@@ -116,58 +119,85 @@ fun PeekOverlay(
                 .padding(DensityLayout.WIDGET_PADDING_DP.dp)
         ) {
             TopBar(context)
-            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-            items(items, itemId = { it.itemId }) { item ->
-                when (item.kind) {
-                    PeekItemKind.HEADER -> DateHeader(item.date, today, config, context, locale)
-                    PeekItemKind.SEPARATOR -> DaySeparator()
-                    PeekItemKind.EVENT -> EventRow(
-                        event = item.event,
-                        date = item.date,
-                        passed = item.passed,
-                        config = config,
-                        context = context,
-                        use24Hour = use24Hour,
-                        zone = zone,
-                        locale = locale,
-                        palette = palette
-                    )
+            if (scrolls) {
+                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                    items(items, itemId = { it.itemId }) { item ->
+                        PeekRow(item, today, config, context, use24Hour, zone, locale, palette)
+                    }
+                    // "Loading" until the query has answered; only then may the sheet claim
+                    // there is nothing coming up.
+                    if (loading) {
+                        item(itemId = PeekList.LOADING_ITEM_ID) {
+                            StatusRow(context.getString(R.string.peek_loading), config)
+                        }
+                    } else if (upcoming.isEmpty()) {
+                        item(itemId = PeekList.EMPTY_ITEM_ID) {
+                            StatusRow(context.getString(R.string.peek_empty), config)
+                        }
+                    }
                 }
-            }
-            // "Loading" until the query has answered; only then may the sheet claim
-            // there is nothing coming up.
-            if (loading) {
-                item(itemId = PeekList.LOADING_ITEM_ID) {
-                    Text(
-                        text = context.getString(R.string.peek_loading),
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (TITLE_SIZE_SP * config.typographyScale.eventNameScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
-                        ),
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .height(DensityLayout.PEEK_ROW_DP.dp)
-                    )
+            } else {
+                // The timed flip's agenda page: a collection view cannot live inside the
+                // flipper, so this is a plain column of the rows that fit.
+                val availableDp = LocalSize.current.height.value -
+                    2 * DensityLayout.WIDGET_PADDING_DP - DensityLayout.PEEK_TOP_BAR_DP
+                Column(modifier = GlanceModifier.fillMaxWidth()) {
+                    when {
+                        loading -> StatusRow(context.getString(R.string.peek_loading), config)
+                        upcoming.isEmpty() -> StatusRow(context.getString(R.string.peek_empty), config)
+                        else -> PeekList.fitting(items, availableDp).forEach { item ->
+                            PeekRow(item, today, config, context, use24Hour, zone, locale, palette)
+                        }
+                    }
                 }
-            } else if (upcoming.isEmpty()) {
-                item(itemId = PeekList.EMPTY_ITEM_ID) {
-                    Text(
-                        text = context.getString(R.string.peek_empty),
-                        style = TextStyle(
-                            color = GlanceTheme.colors.onSurfaceVariant,
-                            fontSize = (TITLE_SIZE_SP * config.typographyScale.eventNameScale).sp,
-                            fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
-                        ),
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .height(DensityLayout.PEEK_ROW_DP.dp)
-                    )
-                }
-            }
             }
         }
     }
+}
+
+/** One sheet row: a day header, a day separator or an event. */
+@Composable
+private fun PeekRow(
+    item: PeekItem,
+    today: LocalDate,
+    config: WidgetConfig,
+    context: Context,
+    use24Hour: Boolean,
+    zone: ZoneId,
+    locale: Locale,
+    palette: DensityPalette
+) {
+    when (item.kind) {
+        PeekItemKind.HEADER -> DateHeader(item.date, today, config, context, locale)
+        PeekItemKind.SEPARATOR -> DaySeparator()
+        PeekItemKind.EVENT -> EventRow(
+            event = item.event,
+            date = item.date,
+            passed = item.passed,
+            config = config,
+            context = context,
+            use24Hour = use24Hour,
+            zone = zone,
+            locale = locale,
+            palette = palette
+        )
+    }
+}
+
+/** The sheet's "Loading" / "Nothing coming up" line, in place of the rows. */
+@Composable
+private fun StatusRow(text: String, config: WidgetConfig) {
+    Text(
+        text = text,
+        style = TextStyle(
+            color = GlanceTheme.colors.onSurfaceVariant,
+            fontSize = (TITLE_SIZE_SP * config.typographyScale.eventNameScale).sp,
+            fontFamily = config.glanceFont(FontCategory.EVENT_NAME)
+        ),
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .height(DensityLayout.PEEK_ROW_DP.dp)
+    )
 }
 
 /**

@@ -3,6 +3,7 @@ package com.fabiantorrestech.mycalendarwidget.widget.peek
 import com.fabiantorrestech.mycalendarwidget.data.CalendarEvent
 import com.fabiantorrestech.mycalendarwidget.data.DensityPeekFormat
 import com.fabiantorrestech.mycalendarwidget.data.WidgetConfig
+import com.fabiantorrestech.mycalendarwidget.widget.density.DensityLayout
 import java.time.LocalDate
 
 /** The three row shapes the peek sheet's list draws (the top bar sits above the list). */
@@ -158,5 +159,31 @@ object PeekList {
             items.add(PeekItem(PeekItemKind.EVENT, eventItemId(event.id, date), date, event, passed = passed))
         }
         return items
+    }
+
+    /** Glance silently drops a `Column`'s children past ten. */
+    private const val MAX_FIXED_ITEMS = 10
+
+    /**
+     * The leading [items] that fit [availableDp] of height, for a list that cannot
+     * scroll (the timed flip's agenda page: a collection view cannot live inside the
+     * flipper). Heights are the sheet's own row heights; at most [MAX_FIXED_ITEMS] are
+     * kept, and a day marker left at the end with no event under it is dropped.
+     */
+    fun fitting(items: List<PeekItem>, availableDp: Float): List<PeekItem> {
+        val kept = ArrayList<PeekItem>()
+        var used = 0f
+        for (item in items) {
+            val height = when (item.kind) {
+                PeekItemKind.HEADER -> DensityLayout.PEEK_HEADER_DP
+                PeekItemKind.EVENT -> DensityLayout.PEEK_ROW_DP
+                PeekItemKind.SEPARATOR -> DensityLayout.PEEK_SEPARATOR_DP + 2f
+            }
+            if (used + height > availableDp || kept.size >= MAX_FIXED_ITEMS) break
+            kept.add(item)
+            used += height
+        }
+        while (kept.isNotEmpty() && kept.last().kind != PeekItemKind.EVENT) kept.removeAt(kept.lastIndex)
+        return kept
     }
 }

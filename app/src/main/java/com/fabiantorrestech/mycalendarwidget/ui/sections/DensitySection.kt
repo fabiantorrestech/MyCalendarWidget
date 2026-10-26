@@ -42,6 +42,8 @@ import com.fabiantorrestech.mycalendarwidget.data.density.TonalRamp
 import com.fabiantorrestech.mycalendarwidget.widget.density.DensitySpecBuilder
 import com.fabiantorrestech.mycalendarwidget.widget.use24Hour
 import com.fabiantorrestech.mycalendarwidget.data.ConfigExporter
+import com.fabiantorrestech.mycalendarwidget.data.DisplayMode
+import com.fabiantorrestech.mycalendarwidget.ui.theme.rememberDisplayMode
 
 /**
  * The density style's behaviour sliders: the day window, the look-ahead bars, the load
@@ -189,6 +191,30 @@ fun DensitySection(
         )
     }
 
+    ToggleRow(
+        label = "Flip to the agenda on a timer",
+        description = "While the widget is on screen it swaps between the strip and the agenda. " +
+            "The agenda shows event titles without a tap.",
+        checked = config.densityTimedFlip,
+        onCheckedChange = { onConfigChange(config.copy(densityTimedFlip = it)) }
+    )
+    if (config.densityTimedFlip) {
+        IntSliderRow(
+            label = "Flip every",
+            savedValue = config.densityTimedFlipSeconds,
+            range = ConfigExporter.TIMED_FLIP_SECONDS_RANGE,
+            valueLabel = { "${it}s" },
+            onValueChangeFinished = { onConfigChange(config.copy(densityTimedFlipSeconds = it)) }
+        )
+        if (rememberDisplayMode(config) == DisplayMode.EINK) {
+            Text(
+                text = "Each flip refreshes an e-ink screen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+    }
 }
 
 /** "8h" when [minutes] is a whole number of hours, "2h 30m" otherwise. */
